@@ -6,6 +6,10 @@
 - Docker and Docker Compose
 - Git
 
+## Code of Conduct
+
+Please read our [Code of Conduct](CODE_OF_CONDUCT.md) before contributing.
+
 ## Local Development Setup
 
 ```bash
@@ -23,11 +27,11 @@ source .venv/bin/activate  # or .venv\Scripts\activate on Windows
 # Install dependencies
 pip install -r requirements-dev.txt
 
+# Install pre-commit hooks
+pre-commit install
+
 # Copy environment file
 cp .env.example .env
-
-# Initialize database
-docker compose exec db psql -U lightpaper -d lightpaper -f /docker-entrypoint-initdb.d/init.sql
 
 # Run the app
 uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
@@ -47,6 +51,20 @@ python -m pytest tests/ -v
 
 # Run specific test file
 python -m pytest tests/test_quality.py -v
+```
+
+## Pre-commit Hooks
+
+We use [pre-commit](https://pre-commit.com/) to run linting and formatting checks before each commit. Install the hooks once after cloning:
+
+```bash
+pre-commit install
+```
+
+Hooks will run automatically on `git commit`. To run them manually on all files:
+
+```bash
+pre-commit run --all-files
 ```
 
 ## Code Style

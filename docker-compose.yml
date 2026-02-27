@@ -27,7 +27,7 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql+asyncpg://lightpaper:${POSTGRES_PASSWORD:-lightpaper_dev}@db:5432/lightpaper
-      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-refreshing-rune-471208-e5}
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-your-firebase-project-id}
       BASE_URL: ${BASE_URL:-http://localhost:8001}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,https://lightpaper.org}
     volumes:

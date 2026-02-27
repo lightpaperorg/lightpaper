@@ -4,7 +4,7 @@
 
 If you discover a security vulnerability in lightpaper.org, please report it responsibly.
 
-**Email:** security@buildworld.ai
+**Email:** security@lightpaper.org
 
 Please include:
 - Description of the vulnerability

@@ -26,12 +26,12 @@ Idempotency-Key: agent-session-2026-02-26-report-v1
   "content": "# Introduction\n\nThe straight skeleton of a polygon...",
   "format": "markdown",
   "authors": [
-    {"name": "Jon Builder", "handle": "jonbuilder"},
+    {"name": "Jane Smith", "handle": "jsmith"},
     {"name": "Sarah Chen", "handle": "sarahchen"}
   ],
   "metadata": {
     "tags": ["algorithms", "construction", "geometry"],
-    "canonical_url": "https://buildworld.ai/research/straight-skeleton",
+    "canonical_url": "https://example.com/research/straight-skeleton",
     "license": "CC-BY-4.0",
     "language": "en"
   },
@@ -66,7 +66,7 @@ Idempotency-Key: agent-session-2026-02-26-report-v1
     "Add 2-3 external references to improve attribution score"
   ],
   "author_gravity": 2,
-  "author_gravity_badges": ["buildworld.ai ✓", "LinkedIn ✓"],
+  "author_gravity_badges": ["example.com ✓", "LinkedIn ✓"],
   "gravity_note": "Verify ORCID to reach Level 3 and increase search prominence by 40%"
 }
 ```
@@ -88,12 +88,12 @@ DELETE /v1/documents/{id}             # Soft-delete (URL returns 410 Gone, not 4
 ### Discovery
 
 ```
-GET    /v1/search                     # Search documents: ?q=steel+frame&tags=construction&author=jonbuilder
-GET    /v1/tags                       # List all tags with document counts
-GET    /v1/tags/{tag}                 # List documents with this tag
+GET    /v1/search                     # Search documents: ?q=steel+frame&tags=construction&author=jsmith
+GET    /v1/tags                       # List all tags with document counts [Planned]
+GET    /v1/tags/{tag}                 # List documents with this tag [Planned]
 GET    /v1/openapi.json               # OpenAPI 3.1 specification (standard for tool-using agents)
 GET    /llms.txt                      # Machine-readable site description (courtesy signal)
-GET    /.well-known/agent.json        # Google A2A Agent Card — agent-to-agent discovery (Phase 2)
+GET    /.well-known/agent.json        # Google A2A Agent Card [Planned — Phase 2]
 GET    /sitemap.xml                   # Auto-generated sitemap for search engines
 GET    /robots.txt                    # Welcomes all crawlers
 
@@ -132,7 +132,9 @@ The JSON response for content negotiation:
 }
 ```
 
-### Author Profiles
+### Author Profiles [Planned]
+
+> **[Planned]** — Not yet implemented.
 
 ```
 GET    /v1/authors/{handle}           # Author profile (bio, verified badges, stats)
@@ -140,7 +142,9 @@ GET    /v1/authors/{handle}/documents # All listed documents by this author
 GET    /v1/authors/{handle}/feed.xml  # RSS/Atom feed for this author
 ```
 
-### Collections
+### Collections [Planned]
+
+> **[Planned]** — Not yet implemented.
 
 ```
 POST   /v1/collections               # Create a collection (e.g., "Research Series")
@@ -155,8 +159,8 @@ GET    /v1/collections/{id}           # List documents in collection
 POST   /v1/account                    # Create account (Firebase Auth token required)
 GET    /v1/account                    # Account info, usage stats, verified identities
 GET    /v1/account/documents          # List all documents for this account
-GET    /v1/account/export             # Export all content as ZIP (Markdown sources + metadata JSON)
-POST   /v1/account/claim              # Claim anonymous documents (provide anon doc IDs)
+GET    /v1/account/export             # Export all content as ZIP [Planned]
+POST   /v1/account/claim              # Claim anonymous documents [Planned]
 DELETE /v1/account                    # Hard-delete account + all content (GDPR)
 ```
 
@@ -166,7 +170,7 @@ DELETE /v1/account                    # Hard-delete account + all content (GDPR)
 POST   /v1/account/keys               # Create new API key
 GET    /v1/account/keys               # List active keys (prefix only, not full key)
 DELETE /v1/account/keys/{prefix}       # Revoke a key (documents are NOT deleted)
-POST   /v1/account/keys/{prefix}/rotate # Rotate key → new key, old key revoked
+POST   /v1/account/keys/{prefix}/rotate # Rotate key — new key, old key revoked [Planned]
 ```
 
 ### Author Verification
@@ -174,8 +178,8 @@ POST   /v1/account/keys/{prefix}/rotate # Rotate key → new key, old key revoke
 ```
 POST   /v1/account/verify/domain       # Start domain verification → returns DNS TXT record to add
 GET    /v1/account/verify/domain/check # Poll: is the DNS TXT record present? → confirms Level 1
-GET    /v1/account/verify/linkedin     # Redirect to LinkedIn OAuth flow → confirms Level 2
-POST   /v1/account/verify/orcid        # Link ORCID iD (POST {orcid: "0000-0002-1825-0097"}) → confirms Level 3
+GET    /v1/account/verify/linkedin     # Redirect to LinkedIn OAuth flow [Planned]
+POST   /v1/account/verify/orcid        # Link ORCID iD [Planned]
 GET    /v1/account/gravity             # Current gravity level + badges + what's needed for next level
 ```
 
@@ -191,12 +195,14 @@ use tool: setup_author_identity
 → Generates DNS TXT record
 → Opens LinkedIn OAuth URL
 → Guides ORCID setup if applicable
-→ Returns: "Level 3 complete — ORCID ✓ buildworld.ai ✓ LinkedIn ✓"
+→ Returns: "Level 3 complete — ORCID ✓ example.com ✓ LinkedIn ✓"
 ```
 
 The tool is also exposed as a web flow at `lightpaper.org/account/setup` — the same logic, presented as a step-by-step UI immediately after account creation.
 
-### Feeds
+### Feeds [Planned]
+
+> **[Planned]** — Not yet implemented.
 
 ```
 GET    /v1/authors/{handle}/feed.xml  # RSS/Atom feed for an author
@@ -204,7 +210,9 @@ GET    /v1/tags/{tag}/feed.xml        # RSS/Atom feed for a tag
 GET    /feed.xml                      # Global feed (recent high-quality documents)
 ```
 
-### Analytics (read-only)
+### Analytics [Planned]
+
+> **[Planned]** — Not yet implemented.
 
 ```
 GET    /v1/documents/{id}/analytics   # View count, referrers, geography
@@ -216,7 +224,7 @@ GET    /v1/documents/{id}/citations   # Documents that cite this one
 Search is a Phase 1 feature. Without it, agents and humans cannot find content.
 
 ```http
-GET /v1/search?q=steel+frame+construction&tags=construction,engineering&author=jonbuilder&min_quality=40&sort=relevance&limit=20&offset=0
+GET /v1/search?q=steel+frame+construction&tags=construction,engineering&author=jsmith&min_quality=40&sort=relevance&limit=20&offset=0
 ```
 
 **Response:**
@@ -229,7 +237,7 @@ GET /v1/search?q=steel+frame+construction&tags=construction,engineering&author=j
       "title": "Straight Skeleton Algorithms for Hip Roof Generation",
       "subtitle": "A practical implementation guide...",
       "url": "https://lightpaper.org/straight-skeleton-hip-roofs",
-      "authors": [{"name": "Jon Builder", "handle": "jonbuilder"}],
+      "authors": [{"name": "Jane Smith", "handle": "jsmith"}],
       "tags": ["algorithms", "construction", "geometry"],
       "quality_score": 78,
       "word_count": 3847,
@@ -274,18 +282,20 @@ Standard CommonMark with extensions:
 
 ### Inline Media
 
+> **[Planned]** — Media upload endpoint not yet implemented.
+
 Images and video can be included in Markdown content:
 
 ```markdown
-![Roof skeleton diagram](https://storage.googleapis.com/lp-media/doc_xxx/skeleton.png "Figure 1: Straight skeleton of an L-shaped polygon")
+![Roof skeleton diagram](https://your-bucket.storage.googleapis.com/doc_xxx/skeleton.png "Figure 1: Straight skeleton of an L-shaped polygon")
 
-<video src="https://storage.googleapis.com/lp-media/doc_xxx/animation.mp4" controls></video>
+<video src="https://your-bucket.storage.googleapis.com/doc_xxx/animation.mp4" controls></video>
 
 <!-- YouTube/Vimeo embeds rendered as clean iframes -->
 https://www.youtube.com/watch?v=dQw4w9WgXcQ
 ```
 
-Media upload endpoint (Pro tier):
+Media upload endpoint (Pro tier) [Planned]:
 
 ```http
 POST /v1/media
@@ -298,7 +308,7 @@ file=@skeleton.png
 Response:
 ```json
 {
-  "url": "https://storage.googleapis.com/lp-media/acct_xxx/skeleton.png",
+  "url": "https://your-bucket.storage.googleapis.com/acct_xxx/skeleton.png",
   "content_type": "image/png",
   "size_bytes": 48392
 }
@@ -308,7 +318,9 @@ Response:
 
 Pre-rendered HTML, sanitized server-side. Allowlisted tags only (no `<script>`, `<iframe>` except YouTube/Vimeo, `onclick`, `javascript:` URLs). `<figure>`, `<figcaption>`, `<video>`, `<img>` supported for media.
 
-### Structured JSON (advanced)
+### Structured JSON (advanced) [Planned]
+
+> **[Planned]** — Not yet implemented.
 
 For agents that want precise control over layout:
 
@@ -386,7 +398,7 @@ Tools exposed:
 
 Full OpenAPI 3.1 spec at `/v1/openapi.json`. Standard for any tool-using agent that supports OpenAPI tool definitions.
 
-### Google A2A Agent Card (Phase 2)
+### Google A2A Agent Card [Planned]
 
 Served at `/.well-known/agent.json`. Google's A2A protocol (v0.3, 50+ partners including Salesforce, SAP, Deloitte) enables agent-to-agent discovery. MCP = agent accesses tools. A2A = agent discovers lightpaper.org as a collaborator.
 
@@ -463,7 +475,7 @@ A Level 3 author's quality-65 paper is featured. A Level 0 author's quality-65 p
 - **Actionable.** Two paths to improve: edit the content (raises quality score) or verify identity (raises gravity).
 - **Improvable.** Quality score recalculated on every update. Gravity updates immediately when verification completes.
 
-## Idempotency
+## Idempotency [Planned]
 
 AI agents retry. Network calls fail. Same workflow might run twice.
 
@@ -505,7 +517,7 @@ Other URL patterns:
 
 | URL | Purpose |
 |-----|---------|
-| `lightpaper.org/@jonbuilder` | Author profile page |
+| `lightpaper.org/@jsmith` | Author profile page |
 | `lightpaper.org/tag/construction` | Tag browsing page |
 | `lightpaper.org/d/doc_xxx/v/1` | Specific version |
 | `lightpaper.org/d/doc_xxx/diff/1..2` | Diff view |

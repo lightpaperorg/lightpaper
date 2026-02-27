@@ -20,7 +20,7 @@
               │  ├─ Publish API + quality scoring                │
               │  ├─ Render pipeline (Markdown → HTML)            │
               │  ├─ Content negotiation (HTML or JSON)           │
-              │  ├─ OG image generation (Satori)                 │
+              │  ├─ OG image generation (Pillow)                 │
               │  ├─ Search API (full-text + tags)                │
               │  ├─ Author profiles + verification               │
               │  ├─ MCP server endpoint                          │
@@ -60,9 +60,9 @@
 | Factor | FastAPI (Python) | Next.js (Node) | Go/Rust | CF Workers |
 |--------|-----------------|-----------------|---------|------------|
 | Markdown rendering | Excellent ecosystem | Excellent (unified/remark) | Limited | Very limited |
-| KaTeX server-side | Yes (subprocess/binding) | Native (katex npm) | Bindings | Not practical |
-| Shiki highlighting | Via subprocess or tree-sitter | Native | tree-sitter | Limited |
-| Mermaid SVG | mermaid-cli subprocess | mermaid-cli subprocess | Harder | Not possible |
+| KaTeX server-side | Yes (subprocess/binding) [Planned] | Native (katex npm) | Bindings | Not practical |
+| Pygments highlighting | Via subprocess or tree-sitter | Native | tree-sitter | Limited |
+| Mermaid SVG | mermaid-cli subprocess [Planned] | mermaid-cli subprocess | Harder | Not possible |
 | Dev speed | Very fast | Fast | Slower | Fast but constrained |
 | Agent tooling | Claude/GPT produce Python natively | Good | Moderate | Moderate |
 | Cloud Run compat | Excellent (Docker) | Excellent | Excellent | N/A |
@@ -75,9 +75,9 @@
 |-----------|---------|------|------------|
 | Application server | Cloud Run | 2 vCPU, 4GB RAM, auto-scale 0-10 | ~$20-40 |
 | Database | Cloud SQL for PostgreSQL | db-f1-micro (dev), db-custom-2-4096 (prod) | ~$30-50 |
-| Cache | Memorystore for Redis | Basic tier, 1GB | ~$15 |
+| Cache | Memorystore for Redis [Planned] | Basic tier, 1GB | ~$15 |
 | CDN | Cloud CDN + Cloud Load Balancing | Global edge, Google-managed SSL | ~$5-10 |
-| Object storage | Cloud Storage | Standard class, multi-region | ~$1-5 |
+| Object storage | Cloud Storage [Planned] | Standard class, multi-region | ~$1-5 |
 | Auth | Firebase Auth | Google sign-in + email/password | Free (< 50K users) |
 | Search | Cloud SQL full-text | tsvector + pg_trgm (in PostgreSQL) | $0 (included) |
 | Monitoring | Cloud Monitoring + Logging | Metrics, alerting, log analysis | Free tier |
@@ -98,7 +98,7 @@ CREATE TABLE accounts (
     bio             TEXT,
     avatar_url      TEXT,
     tier            TEXT NOT NULL DEFAULT 'free',   -- free, pro, team
-    verified_domain TEXT,                        -- e.g. "buildworld.ai" (Level 1)
+    verified_domain TEXT,                        -- e.g. "example.com" (Level 1)
     verified_linkedin BOOLEAN DEFAULT false,     -- (Level 2)
     orcid_id        TEXT,                        -- "0000-0002-1825-0097" (Level 3)
     gravity_level   INTEGER NOT NULL DEFAULT 0, -- 0-3, computed from verification fields
@@ -184,7 +184,7 @@ CREATE TABLE citations (
     UNIQUE(source_doc_id, target_doc_id)
 );
 
--- Analytics events
+-- Analytics events [Planned]
 CREATE TABLE analytics_events (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     document_id     TEXT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
@@ -227,11 +227,11 @@ Request: GET /straight-skeleton-hip-roofs
     │       ├── Otherwise: full render pipeline
     │       │       │
     │       │       ├── Markdown → HTML (markdown-it + extensions)
-    │       │       ├── Syntax highlighting (Shiki — VS Code grammars)
-    │       │       ├── LaTeX → MathML/SVG (KaTeX server-side)
-    │       │       ├── Mermaid → SVG (mermaid-cli server-side)
-    │       │       ├── Images → <figure> + <figcaption>
-    │       │       ├── Video → <video> or clean iframe embed
+    │       │       ├── Syntax highlighting (Pygments)
+    │       │       ├── LaTeX → MathML/SVG (KaTeX) [Planned]
+    │       │       ├── Mermaid → SVG (mermaid-cli) [Planned]
+    │       │       ├── Images → <figure> + <figcaption> [Planned]
+    │       │       ├── Video → <video> or clean iframe embed [Planned]
     │       │       ├── Generate TOC from headings
     │       │       ├── Wrap in semantic HTML template:
     │       │       │     - <article> + <section> structure
@@ -240,7 +240,7 @@ Request: GET /straight-skeleton-hip-roofs
     │       │       │     - JSON-LD Schema.org/Article
     │       │       │     - Inline CSS (monochrome "lightpaper" design)
     │       │       │     - Dark mode via prefers-color-scheme
-    │       │       │     - Reading progress bar (< 1KB vanilla JS)
+    │       │       │     - Reading progress bar (< 1KB vanilla JS) [Planned]
     │       │       └── Cache rendered HTML in DB + CDN headers
     │       │
     │       └── Return HTML with Cache-Control: public, max-age=3600, s-maxage=86400
@@ -299,12 +299,12 @@ All fonts: `font-display: swap` with system font fallback. Zero layout shift.
 │    <section>                                │
 │      Body content...                        │
 │      - Typography optimized for reading     │
-│      - Code blocks (Shiki, JetBrains Mono)  │
-│      - Math rendered inline (KaTeX)         │
+│      - Code blocks (Pygments, JetBrains Mono)  │
+│      - Math rendered inline (KaTeX) [Planned]         │
 │      - <figure><img><figcaption>            │
 │      - <video> with clean controls          │
 │      - Tables with clean monochrome style   │
-│      - Mermaid diagrams as inline SVG       │
+│      - Mermaid diagrams as inline SVG [Planned]       │
 │    </section>                               │
 │  </article>                                 │
 │                                             │
@@ -374,7 +374,7 @@ Every page is structured for four audiences: humans, search engines, agents, LLM
     "headline": "Straight Skeleton Algorithms for Hip Roof Generation",
     "description": "A practical implementation guide for steel frame construction",
     "author": [
-      {"@type": "Person", "name": "Jon Builder", "url": "https://lightpaper.org/@jonbuilder"},
+      {"@type": "Person", "name": "Jane Smith", "url": "https://lightpaper.org/@jsmith"},
       {"@type": "Person", "name": "Claude", "description": "AI assistant"}
     ],
     "datePublished": "2026-02-26T10:30:00Z",
@@ -398,7 +398,7 @@ Every page is structured for four audiences: humans, search engines, agents, LLM
       <h1>Straight Skeleton Algorithms for Hip Roof Generation</h1>
       <p class="subtitle">A practical implementation guide for steel frame construction</p>
       <p class="meta">
-        <a href="/@jonbuilder">@jonbuilder</a> · Feb 26, 2026 · 15 min read
+        <a href="/@jsmith">@jsmith</a> · Feb 26, 2026 · 15 min read
       </p>
     </header>
 
@@ -429,7 +429,7 @@ Every page is structured for four audiences: humans, search engines, agents, LLM
 ```
 
 **Key properties:**
-- Server-side rendered — content is in the HTML source, not JS-rendered
+- Server-side rendered (Pillow) — content is in the HTML source, not JS-rendered
 - Semantic elements: `<article>`, `<section>`, `<header>`, `<nav>`, `<figure>`, `<figcaption>`, `<footer>`
 - JSON-LD structured data on every page
 - Total JS < 5KB: dark mode, reading progress, TOC. Content renders without JS.
@@ -465,7 +465,7 @@ Auto-generated, updated on publish/update/delete. Includes:
 
 Full OpenAPI 3.1 at `/v1/openapi.json`. Standard for any tool-using agent.
 
-### Google A2A Agent Card (Phase 2)
+### Google A2A Agent Card [Planned — Phase 2]
 
 At `/.well-known/agent.json`. Google's A2A protocol for agent-to-agent discovery. Complements MCP (MCP = tool access, A2A = agent collaboration discovery).
 
@@ -552,11 +552,11 @@ is_featured_eligible = quality_score >= gravity_thresholds[author_gravity]
 ### Domain Verification
 
 ```
-1. User: POST /v1/account/verify/domain  {domain: "buildworld.ai"}
+1. User: POST /v1/account/verify/domain  {domain: "example.com"}
 2. Server: Returns TXT record to add: "lightpaper-verify=acct_xxx"
 3. User: Adds DNS TXT record
 4. User: GET /v1/account/verify/domain/check
-5. Server: DNS lookup for TXT record → match → verified_domain = "buildworld.ai"
+5. Server: DNS lookup for TXT record → match → verified_domain = "example.com"
 ```
 
 ### LinkedIn Verification
@@ -576,7 +576,7 @@ is_featured_eligible = quality_score >= gravity_thresholds[author_gravity]
 
 ## Social Preview (Open Graph)
 
-**OG image auto-generated** at publish time (Satori SVG → PNG), stored in Cloud Storage:
+**OG image auto-generated** at publish time (Pillow), stored in Cloud Storage:
 
 ```
 ┌─────────────────────────────────────┐
@@ -589,7 +589,7 @@ is_featured_eligible = quality_score >= gravity_thresholds[author_gravity]
 │  A practical implementation guide   │
 │  for steel frame construction       │
 │                                     │
-│  @jonbuilder · Feb 26, 2026         │
+│  @jsmith · Feb 26, 2026         │
 │  Quality: 78/100 · 15 min read      │
 │                                     │
 └─────────────────────────────────────┘
@@ -614,11 +614,11 @@ Cache purge on update:
 async def on_document_update(document):
     # Cloud CDN cache invalidation
     await cdn_client.invalidate_cache(
-        url_map="lightpaper-url-map",
+        url_map="your-cdn-url-map",
         path=f"/d/{document.id}",
     )
     await cdn_client.invalidate_cache(
-        url_map="lightpaper-url-map",
+        url_map="your-cdn-url-map",
         path=f"/{document.slug}",
     )
     # Regenerate OG image in Cloud Storage
@@ -657,7 +657,7 @@ No CAPTCHAs. No anti-bot measures. Agents are first-class citizens.
 
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
-| Cloud provider | Google Cloud | Consistent with BuildWorld infrastructure |
+| Cloud provider | Google Cloud | Best fit for async Python + managed PostgreSQL |
 | App hosting | Cloud Run (Docker) | Serverless, auto-scaling, scale-to-zero |
 | Database | Cloud SQL for PostgreSQL | Full-text search (tsvector + pg_trgm), JSONB, proven |
 | Cache | Memorystore for Redis | Rate limits, idempotency, session cache |
@@ -666,12 +666,12 @@ No CAPTCHAs. No anti-bot measures. Agents are first-class citizens.
 | Auth | Firebase Auth + API keys | Accounts for ownership, keys for API access |
 | API style | REST | Simplest for agents |
 | Content format | Markdown primary | LLMs produce Markdown natively |
-| Rendering | Server-side (markdown-it + Shiki + KaTeX) | Zero client JS, perfect social previews |
+| Rendering | Server-side (markdown-it-py + Pygments + KaTeX) | Zero client JS, perfect social previews |
 | Design language | Monochrome (lightpaper aesthetic) | Content provides colour, chrome is invisible |
 | Discovery | MCP + OpenAPI + A2A Agent Card + llms.txt (courtesy) | MCP for tool use, A2A for agent discovery, OpenAPI universal, llms.txt low-cost signal |
 | Content negotiation | Accept header (HTML/JSON) | Same URL serves humans and agents |
 | Semantic HTML | article/section/figure/figcaption | Four-audience readability |
-| OG images | Satori (SVG → PNG) in Cloud Storage | Auto-generated at publish time |
+| OG images | Pillow in Cloud Storage | Auto-generated at publish time |
 | Search | PostgreSQL tsvector + pg_trgm | No external search service needed at launch |
 | URL scheme | `/d/{id}` + `/{slug}` + `/@{handle}` + `/tag/{tag}` | Permanent ID + human-readable + author + tag |
 | Quality scoring | Deterministic, no LLM | Fast (< 100ms), reproducible, transparent |
