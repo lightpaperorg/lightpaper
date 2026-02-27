@@ -8,6 +8,25 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Document
 
+# Platform-reserved slugs — cannot be claimed by documents
+RESERVED_SLUGS = frozenset({
+    "about", "admin", "api", "app", "auth", "blog", "billing",
+    "changelog", "community", "contact", "dashboard", "docs",
+    "download", "explore", "faq", "features", "feedback", "guidelines",
+    "help", "home", "index", "invite", "jobs", "legal", "login",
+    "logout", "mcp", "new", "newsletter", "notifications", "null",
+    "onboarding", "org", "plans", "pricing", "privacy", "pro",
+    "profile", "register", "reports", "search", "security", "settings",
+    "signup", "sitemap", "status", "support", "team", "terms",
+    "topics", "trending", "undefined", "unsubscribe", "upload",
+    "user", "users", "verify", "webhooks", "welcome", "wiki",
+})
+
+
+def is_reserved_slug(slug: str) -> bool:
+    """Check if a slug is reserved by the platform."""
+    return slug.lower().strip("-") in RESERVED_SLUGS
+
 
 def generate_slug(title: str) -> str:
     """Generate a URL slug from a title."""
@@ -26,7 +45,11 @@ def generate_slug(title: str) -> str:
     # Max 80 chars
     if len(slug) > 80:
         slug = slug[:80].rstrip("-")
-    return slug or "untitled"
+    slug = slug or "untitled"
+    # Auto-suffix reserved slugs when auto-generated from title
+    if is_reserved_slug(slug):
+        slug = f"{slug}-doc"
+    return slug
 
 
 async def ensure_unique_slug(slug: str, db: AsyncSession, exclude_doc_id: str | None = None) -> str:

@@ -21,7 +21,9 @@ from app.services.renderer import (
     extract_toc,
     render_markdown,
 )
-from app.services.slug import ensure_unique_slug, generate_slug
+from app.rate_limit import limiter
+from app.services.slug import ensure_unique_slug, generate_slug, is_reserved_slug
+from app.utils import get_client_ip
 
 router = APIRouter(prefix="/v1", tags=["publish"])
 
@@ -30,6 +32,7 @@ MIN_WORD_COUNT = 300
 
 
 @router.post("/publish", response_model=PublishResponse, status_code=201)
+@limiter.limit("60/hour")
 async def publish_document(
     body: PublishRequest,
     request: Request,
@@ -54,7 +57,7 @@ async def publish_document(
     # Anonymous rate limiting
     is_anonymous = auth.is_anonymous
     if is_anonymous:
-        ip = request.client.host if request.client else "unknown"
+        ip = get_client_ip(request)
         one_hour_ago = datetime.now(timezone.utc) - timedelta(hours=1)
         result = await db.execute(
             select(func.count(AnonymousPublish.id)).where(
@@ -71,7 +74,13 @@ async def publish_document(
 
     # Generate IDs
     doc_id = generate_doc_id()
-    slug = body.options.slug or generate_slug(body.title)
+    custom_slug = body.options.slug
+    if custom_slug and is_reserved_slug(custom_slug):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"The slug '{custom_slug}' is reserved and cannot be used.",
+        )
+    slug = custom_slug or generate_slug(body.title)
     slug = await ensure_unique_slug(slug, db)
 
     # Quality scoring
@@ -133,8 +142,7 @@ async def publish_document(
 
     # Track anonymous publish
     if is_anonymous:
-        ip = request.client.host if request.client else "unknown"
-        db.add(AnonymousPublish(ip_address=ip, document_id=doc_id))
+        db.add(AnonymousPublish(ip_address=get_client_ip(request), document_id=doc_id))
 
     await db.commit()
     await db.refresh(doc)

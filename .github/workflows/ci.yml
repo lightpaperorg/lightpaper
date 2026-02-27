@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install ruff
+      - run: ruff check app/ tests/
+      - run: ruff format --check app/ tests/
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: lightpaper
+          POSTGRES_PASSWORD: lightpaper_dev
+          POSTGRES_DB: lightpaper
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U lightpaper"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements-dev.txt
+      - name: Initialize database
+        run: PGPASSWORD=lightpaper_dev psql -h localhost -p 5433 -U lightpaper -d lightpaper -f init.sql
+      - name: Run tests
+        env:
+          DATABASE_URL: postgresql+asyncpg://lightpaper:lightpaper_dev@localhost:5433/lightpaper
+          BASE_URL: http://localhost:8001
+          FIREBASE_PROJECT_ID: test-project
+        run: python -m pytest tests/ -v
+
+  docker:
+    name: Docker Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t lightpaper-test .
+
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install bandit
+      - run: bandit -r app/ -ll -ii

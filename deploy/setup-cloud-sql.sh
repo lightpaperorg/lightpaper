@@ -4,8 +4,8 @@
 
 set -euo pipefail
 
-PROJECT_ID="refreshing-rune-471208-e5"
-REGION="us-central1"
+PROJECT_ID="${GCP_PROJECT_ID:?Set GCP_PROJECT_ID environment variable}"
+REGION="${GCP_REGION:-us-central1}"
 INSTANCE_NAME="lightpaper-db"
 DB_NAME="lightpaper"
 DB_USER="lightpaper"

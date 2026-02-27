@@ -9,6 +9,7 @@ from app.config import settings
 from app.database import get_db
 from app.models import Document, DocumentVersion
 from app.schemas import AuthorInfo, DocumentResponse
+from app.rate_limit import limiter
 from app.services.gravity import get_gravity_badges
 
 router = APIRouter(tags=["reading"])
@@ -117,6 +118,7 @@ def _render_json(doc: Document, version: DocumentVersion) -> JSONResponse:
 
 
 @router.get("/d/{doc_id}")
+@limiter.limit("120/minute")
 async def read_by_id(doc_id: str, request: Request, db: AsyncSession = Depends(get_db)):
     doc = await _load_doc_by_id(doc_id, db)
     if not doc:
@@ -132,6 +134,7 @@ async def read_by_id(doc_id: str, request: Request, db: AsyncSession = Depends(g
 
 
 @router.get("/{slug:path}")
+@limiter.limit("120/minute")
 async def read_by_slug(slug: str, request: Request, db: AsyncSession = Depends(get_db)):
     # Skip reserved paths
     first_segment = slug.split("/")[0] if "/" in slug else slug

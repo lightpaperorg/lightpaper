@@ -1,6 +1,6 @@
 """Account CRUD: POST/GET/DELETE /v1/account."""
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -8,6 +8,7 @@ from app.auth import AuthResult, require_account, authenticate
 from app.config import settings
 from app.database import get_db
 from app.models import Account, Document
+from app.rate_limit import limiter
 from app.schemas import AccountCreateRequest, AccountResponse, AuthorInfo, DocumentResponse
 from app.services.gravity import get_gravity_badges
 
@@ -37,7 +38,9 @@ def _account_response(account: Account) -> AccountResponse:
 
 
 @router.post("/account", response_model=AccountResponse, status_code=201)
+@limiter.limit("10/hour")
 async def create_account(
+    request: Request,
     body: AccountCreateRequest,
     auth: AuthResult = Depends(authenticate),
     db: AsyncSession = Depends(get_db),

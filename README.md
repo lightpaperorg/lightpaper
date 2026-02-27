@@ -64,10 +64,98 @@ Gravity is the platform's measure of how thoroughly an author has verified their
 
 An **onboarding agent** (`setup_author_identity` MCP tool) walks new users through verification in under 2 minutes, handling detection, key generation, and polling automatically. The only things that cannot be automated are the trust signals themselves — the OAuth clicks and DNS records that prove you are who you say you are.
 
+## Quick Start
+
+```bash
+# Clone and start
+git clone https://github.com/lightpaperorg/lightpaper.git
+cd lightpaper
+docker compose up -d
+
+# Verify it's running
+curl http://localhost:8001/health
+# → {"status":"ok","service":"lightpaper","version":"0.1.0"}
+
+# Publish a test document
+curl -X POST http://localhost:8001/v1/publish \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Hello World","content":"# Hello\n\nThis is a test document with enough words to pass the minimum requirement. The platform requires at least three hundred words so we need to keep writing content here. This demonstrates the publish endpoint which is the core of the entire platform. Every document gets a quality score, a permanent URL, and beautiful rendering. The quality scoring system evaluates structure, substance, tone, and attribution on a scale of zero to one hundred. Documents scoring below forty are marked noindex for search engines. Documents scoring above seventy are eligible for featured placement. The system is entirely deterministic with no LLM calls needed. lightpaper.org serves every URL as both HTML and JSON depending on the Accept header. This means browsers get a beautifully typeset page while AI agents get structured data from the exact same URL."}'
+```
+
+## Local Development
+
+```bash
+# Virtual environment setup
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements-dev.txt
+
+# Copy env and start database
+cp .env.example .env
+docker compose up -d db
+
+# Run with hot reload
+uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
+```
+
+## Running Tests
+
+```bash
+python -m pytest tests/ -v                    # All tests
+python -m pytest tests/test_quality.py -v     # Quality scoring
+python -m pytest tests/test_renderer.py -v    # XSS sanitization
+python -m pytest tests/test_security.py -v    # Security regression
+```
+
+## Project Structure
+
+```
+lightpaper/
+├── app/                    # FastAPI application
+│   ├── main.py            # App init, middleware, route mounting
+│   ├── config.py          # Environment-based settings
+│   ├── auth.py            # Firebase + API key authentication
+│   ├── models.py          # SQLAlchemy ORM models
+│   ├── schemas.py         # Pydantic request/response schemas
+│   ├── rate_limit.py      # slowapi limiter singleton
+│   ├── utils.py           # Shared utilities (IP detection)
+│   ├── routes/            # API endpoint modules
+│   ├── services/          # Business logic (quality, gravity, rendering)
+│   └── templates/         # Jinja2 HTML templates
+├── mcp/                   # MCP server (5 tools)
+├── tests/                 # pytest test suite
+├── deploy/                # Cloud Run deployment scripts
+├── docs/                  # Platform design documents
+├── init.sql               # Database schema
+├── docker-compose.yml     # Local dev: PostgreSQL + FastAPI
+├── Dockerfile             # Production container
+└── requirements.txt       # Python dependencies
+```
+
+## Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `DATABASE_URL` | PostgreSQL async connection string | `postgresql+asyncpg://lightpaper:lightpaper_dev@localhost:5433/lightpaper` |
+| `FIREBASE_PROJECT_ID` | Firebase project for auth | (none) |
+| `BASE_URL` | Public-facing base URL | `http://localhost:8001` |
+| `CORS_ORIGINS` | Comma-separated allowed origins | `http://localhost:3000,https://lightpaper.org` |
+
+## Deployment
+
+Deployed on Google Cloud Run with Cloud SQL PostgreSQL:
+
+```bash
+bash deploy/deploy-cloud-run.sh
+```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and [SECURITY.md](SECURITY.md) for vulnerability reporting.
+
+---
+
 ## Quick Numbers
 
 - **Infrastructure**: Google Cloud (Cloud Run + Cloud SQL + Firebase Auth), ~$50-100/month at launch
-- **MVP timeline**: 6-8 weeks to first publishable endpoint (Phase 1 is substantial)
 - **Revenue target**: ~$5K/month by month 12 (freemium at $12/mo Pro)
 - **Growth mechanic**: Every shared link = product demo (the Loom/Figma playbook)
 - **Four audiences**: Every page serves humans, search engines, agents, and LLM training crawlers equally

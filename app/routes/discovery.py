@@ -1,6 +1,8 @@
 """Discovery routes: robots.txt, sitemap.xml, llms.txt, OG images."""
 
-from fastapi import APIRouter, Depends, HTTPException
+from xml.sax.saxutils import escape as xml_escape
+
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import PlainTextResponse, Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.database import get_db
 from app.models import Document, DocumentVersion
+from app.rate_limit import limiter
 from app.services.og_image import generate_og_image
 from app.services.gravity import get_gravity_badges
 
@@ -83,8 +86,8 @@ async def sitemap_xml(db: AsyncSession = Depends(get_db)):
         slug_url = f"{settings.base_url}/{doc.slug}" if doc.slug else f"{settings.base_url}/d/{doc.id}"
         lastmod = doc.updated_at.strftime("%Y-%m-%d") if doc.updated_at else ""
         urls.append(f"""  <url>
-    <loc>{slug_url}</loc>
-    <lastmod>{lastmod}</lastmod>
+    <loc>{xml_escape(slug_url)}</loc>
+    <lastmod>{xml_escape(lastmod)}</lastmod>
     <changefreq>weekly</changefreq>
   </url>""")
 
@@ -102,7 +105,8 @@ async def sitemap_xml(db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/og/{doc_id}.png")
-async def og_image(doc_id: str, db: AsyncSession = Depends(get_db)):
+@limiter.limit("30/minute")
+async def og_image(request: Request, doc_id: str, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Document).where(Document.id == doc_id))
     doc = result.scalar_one_or_none()
     if not doc:

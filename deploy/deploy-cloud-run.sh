@@ -4,8 +4,8 @@
 
 set -euo pipefail
 
-PROJECT_ID="refreshing-rune-471208-e5"
-REGION="us-central1"
+PROJECT_ID="${GCP_PROJECT_ID:?Set GCP_PROJECT_ID environment variable}"
+REGION="${GCP_REGION:-us-central1}"
 SERVICE_NAME="lightpaper"
 IMAGE="gcr.io/$PROJECT_ID/$SERVICE_NAME"
 

@@ -1,20 +1,25 @@
 """GET /v1/search — full-text search with quality × gravity ranking."""
 
-from fastapi import APIRouter, Depends, Query
-from sqlalchemy import case, func, literal_column, select, text
+from fastapi import APIRouter, Depends, Query, Request
+from sqlalchemy import case, cast, func, literal_column, select, text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.database import get_db
 from app.models import Document
 from app.schemas import AuthorInfo, SearchResponse, SearchResult
+from app.rate_limit import limiter
 from app.services.gravity import GRAVITY_MULTIPLIERS
+from app.utils import get_client_ip
 
 router = APIRouter(prefix="/v1", tags=["search"])
 
 
 @router.get("/search", response_model=SearchResponse)
+@limiter.limit("60/minute")
 async def search_documents(
+    request: Request,
     q: str | None = Query(None, description="Full-text search query"),
     tags: str | None = Query(None, description="Comma-separated tag filter"),
     author: str | None = Query(None, description="Filter by author handle"),
@@ -36,16 +41,16 @@ async def search_documents(
         ts_query = func.plainto_tsquery("english", q)
         base = base.where(Document.search_vector.op("@@")(ts_query))
 
-    # Tag filter
+    # Tag filter (parameterized — no SQL injection)
     if tags:
         tag_list = [t.strip() for t in tags.split(",") if t.strip()]
         for tag in tag_list:
-            base = base.where(Document.tags.op("@>")(f'["{tag}"]'))
+            base = base.where(Document.tags.op("@>")(cast([tag], JSONB)))
 
-    # Author filter
+    # Author filter (parameterized — no SQL injection)
     if author:
         base = base.where(
-            Document.authors.op("@>")(f'[{{"handle": "{author}"}}]')
+            Document.authors.op("@>")(cast([{"handle": author}], JSONB))
         )
 
     # Count total

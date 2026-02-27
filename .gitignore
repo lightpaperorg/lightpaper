@@ -3,6 +3,8 @@ __pycache__/
 *.pyo
 .pytest_cache/
 .env
+.env.local
+.env.production
 *.egg-info/
 dist/
 build/
@@ -11,3 +13,12 @@ venv/
 *.db
 *.sqlite3
 .DS_Store
+.idea/
+.vscode/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+*.log
+*.pem
+*.key

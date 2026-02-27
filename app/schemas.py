@@ -1,30 +1,41 @@
 """Pydantic request/response schemas for lightpaper.org API."""
 
 from datetime import datetime
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 # --- Publish ---
 
 class AuthorInfo(BaseModel):
-    name: str
-    handle: str | None = None
+    name: str = Field(..., max_length=200)
+    handle: str | None = Field(None, max_length=100)
 
 
 class PublishOptions(BaseModel):
-    slug: str | None = None
+    slug: str | None = Field(None, max_length=80)
     listed: bool = True
     og_image: str = "auto"
 
 
 class PublishRequest(BaseModel):
     title: str = Field(..., min_length=1, max_length=500)
-    subtitle: str | None = None
-    content: str = Field(..., min_length=1)
+    subtitle: str | None = Field(None, max_length=1000)
+    content: str = Field(..., min_length=1, max_length=500_000)
     format: str = "markdown"
-    authors: list[AuthorInfo] = []
-    metadata: dict = {}
+    authors: list[AuthorInfo] = Field(default_factory=list, max_length=20)
+    metadata: dict = Field(default_factory=dict)
     options: PublishOptions = PublishOptions()
+    tags: list[str] = Field(default_factory=list, max_length=50)
+
+    @field_validator("metadata")
+    @classmethod
+    def validate_metadata(cls, v: dict) -> dict:
+        """Prevent deeply nested or oversized metadata."""
+        import json
+        serialized = json.dumps(v)
+        if len(serialized) > 50_000:
+            raise ValueError("metadata must be less than 50KB when serialized")
+        return v
 
 
 class QualityBreakdown(BaseModel):
@@ -76,12 +87,12 @@ class DocumentResponse(BaseModel):
 
 
 class DocumentUpdateRequest(BaseModel):
-    title: str | None = None
-    subtitle: str | None = None
-    content: str | None = None
-    authors: list[AuthorInfo] | None = None
+    title: str | None = Field(None, max_length=500)
+    subtitle: str | None = Field(None, max_length=1000)
+    content: str | None = Field(None, max_length=500_000)
+    authors: list[AuthorInfo] | None = Field(None, max_length=20)
     metadata: dict | None = None
-    tags: list[str] | None = None
+    tags: list[str] | None = Field(None, max_length=50)
     listed: bool | None = None
 
 

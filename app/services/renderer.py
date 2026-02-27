@@ -1,14 +1,40 @@
-"""Markdown rendering: markdown-it-py + Pygments code highlighting."""
+"""Markdown rendering: markdown-it-py + Pygments code highlighting + nh3 sanitization."""
 
 import hashlib
 import re
 
+import nh3
 from markdown_it import MarkdownIt
 from mdit_py_plugins.footnote import footnote_plugin
 from mdit_py_plugins.tasklists import tasklists_plugin
 from pygments import highlight
 from pygments.formatters import HtmlFormatter
 from pygments.lexers import get_lexer_by_name, guess_lexer, TextLexer
+
+# Allowed HTML tags after markdown rendering (nh3 sanitizer)
+ALLOWED_TAGS = {
+    "h1", "h2", "h3", "h4", "h5", "h6", "p", "br", "hr",
+    "ul", "ol", "li", "a", "em", "strong", "code", "pre",
+    "blockquote", "table", "thead", "tbody", "tr", "th", "td",
+    "img", "figure", "figcaption", "div", "span", "sup", "sub",
+    "input", "section", "details", "summary", "dl", "dt", "dd",
+    "del", "ins",
+}
+
+ALLOWED_ATTRIBUTES = {
+    "a": {"href", "title", "rel", "id", "class"},  # links + footnote refs
+    "img": {"src", "alt", "title", "width", "height"},
+    "input": {"type", "checked", "disabled"},  # task lists
+    "td": {"align"},
+    "th": {"align"},
+    "code": {"class"},  # language class for syntax highlighting
+    "pre": {"class"},
+    "div": {"class", "style"},  # Pygments highlight blocks
+    "span": {"class", "style"},  # Pygments inline styles
+    "sup": {"class", "id"},  # footnotes
+    "li": {"id"},  # footnote items
+    "section": {"class"},  # footnote section
+}
 
 
 def _highlight_code(code: str, lang: str, _attrs: str) -> str:
@@ -36,8 +62,15 @@ tasklists_plugin(md)
 
 
 def render_markdown(content: str) -> str:
-    """Render markdown content to HTML."""
-    return md.render(content)
+    """Render markdown content to HTML, sanitized against XSS."""
+    raw_html = md.render(content)
+    return nh3.clean(
+        raw_html,
+        tags=ALLOWED_TAGS,
+        attributes=ALLOWED_ATTRIBUTES,
+        url_schemes={"http", "https", "mailto"},
+        link_rel="noopener noreferrer",
+    )
 
 
 def compute_content_hash(content: str) -> str:

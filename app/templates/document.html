@@ -27,24 +27,24 @@
     {% if subtitle %}<meta name="twitter:description" content="{{ subtitle }}">{% endif %}
     <meta name="twitter:image" content="{{ og_image_url }}">
 
-    <!-- JSON-LD -->
+    <!-- JSON-LD (all values escaped via |tojson to prevent injection) -->
     <script type="application/ld+json">
     {
         "@context": "https://schema.org",
         "@type": "Article",
-        "headline": "{{ title }}",
-        {% if subtitle %}"description": "{{ subtitle }}",{% endif %}
-        "url": "{{ permanent_url }}",
-        "datePublished": "{{ created_at }}",
-        "dateModified": "{{ updated_at }}",
-        {% if authors %}"author": [{% for a in authors %}{"@type": "Person", "name": "{{ a.name }}"}{% if not loop.last %}, {% endif %}{% endfor %}],{% endif %}
+        "headline": {{ title|tojson }},
+        {% if subtitle %}"description": {{ subtitle|tojson }},{% endif %}
+        "url": {{ permanent_url|tojson }},
+        "datePublished": {{ created_at|tojson }},
+        "dateModified": {{ updated_at|tojson }},
+        {% if authors %}"author": [{% for a in authors %}{"@type": "Person", "name": {{ a.name|tojson }}}{% if not loop.last %}, {% endif %}{% endfor %}],{% endif %}
         "publisher": {
             "@type": "Organization",
             "name": "lightpaper.org",
             "url": "https://lightpaper.org"
         },
         {% if word_count %}"wordCount": {{ word_count }},{% endif %}
-        "image": "{{ og_image_url }}"
+        "image": {{ og_image_url|tojson }}
     }
     </script>
 

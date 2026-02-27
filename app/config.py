@@ -8,7 +8,7 @@ class Settings(BaseModel):
         "postgresql+asyncpg://lightpaper:lightpaper_dev@localhost:5433/lightpaper",
     )
     firebase_project_id: str = os.getenv(
-        "FIREBASE_PROJECT_ID", "refreshing-rune-471208-e5"
+        "FIREBASE_PROJECT_ID", ""
     )
     base_url: str = os.getenv("BASE_URL", "http://localhost:8001")
     cors_origins: list[str] = [

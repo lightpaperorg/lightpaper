@@ -23,6 +23,8 @@ from app.services.slug import ensure_unique_slug, generate_slug
 
 router = APIRouter(prefix="/v1", tags=["documents"])
 
+MAX_VERSIONS_PER_DOCUMENT = 100
+
 
 async def _get_doc_or_404(doc_id: str, db: AsyncSession) -> Document:
     result = await db.execute(select(Document).where(Document.id == doc_id))
@@ -105,6 +107,12 @@ async def update_document(
     # If content changed, create new version
     if body.content is not None:
         new_version_num = doc.current_version + 1
+        if new_version_num > MAX_VERSIONS_PER_DOCUMENT:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Maximum of {MAX_VERSIONS_PER_DOCUMENT} versions per document reached. "
+                       "Consider publishing a new document instead.",
+            )
         rendered_html = render_markdown(body.content)
         content_hash = compute_content_hash(body.content)
         word_count = compute_word_count(body.content)

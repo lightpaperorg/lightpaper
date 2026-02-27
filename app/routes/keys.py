@@ -3,13 +3,14 @@
 import secrets
 
 import bcrypt
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import AuthResult, require_account
 from app.database import get_db
 from app.models import ApiKey
+from app.rate_limit import limiter
 from app.schemas import KeyCreateRequest, KeyCreateResponse, KeyResponse
 
 router = APIRouter(prefix="/v1/account", tags=["keys"])
@@ -26,7 +27,9 @@ def _generate_key(tier: str) -> str:
 
 
 @router.post("/keys", response_model=KeyCreateResponse, status_code=201)
+@limiter.limit("10/hour")
 async def create_key(
+    request: Request,
     body: KeyCreateRequest,
     auth: AuthResult = Depends(require_account),
     db: AsyncSession = Depends(get_db),

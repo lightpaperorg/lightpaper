@@ -1,10 +1,13 @@
 """lightpaper.org — API-first publishing platform."""
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import JSONResponse
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.config import settings
+
+MAX_BODY_SIZE = 2 * 1024 * 1024  # 2 MB
 
 app = FastAPI(
     title="lightpaper.org",
@@ -14,13 +17,70 @@ app = FastAPI(
     openapi_url="/v1/openapi.json",
 )
 
+
+# --- Security headers middleware ---
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response: Response = await call_next(request)
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; script-src 'none'; "
+            "style-src 'self' 'unsafe-inline'; "
+            "img-src 'self' https:; frame-ancestors 'none'"
+        )
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+        return response
+
+
+app.add_middleware(SecurityHeadersMiddleware)
+
+
+# --- Request body size limit middleware ---
+
+class BodySizeLimitMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        content_length = request.headers.get("content-length")
+        if content_length and int(content_length) > MAX_BODY_SIZE:
+            return JSONResponse(
+                status_code=413,
+                content={"detail": f"Request body too large. Maximum size is {MAX_BODY_SIZE // (1024 * 1024)}MB."},
+            )
+        return await call_next(request)
+
+
+app.add_middleware(BodySizeLimitMiddleware)
+
+
+# --- CORS middleware ---
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "Accept"],
 )
+
+
+# --- Rate limiting ---
+
+from slowapi.errors import RateLimitExceeded
+
+from app.rate_limit import limiter
+
+app.state.limiter = limiter
+
+
+@app.exception_handler(RateLimitExceeded)
+async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
+    return JSONResponse(
+        status_code=429,
+        content={"detail": "Rate limit exceeded. Please try again later."},
+    )
 
 
 @app.get("/health")
