@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Privacy Policy — lightpaper.org</title>
+    <meta name="description" content="Privacy policy for lightpaper.org">
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        :root { --bg: #FFFFFF; --heading: #111827; --body: #374151; --secondary: #6B7280; --border: #E5E7EB; }
+        @media (prefers-color-scheme: dark) {
+            :root { --bg: #111827; --heading: #F9FAFB; --body: #D1D5DB; --secondary: #9CA3AF; --border: #374151; }
+        }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--body); line-height: 1.7; }
+        .container { max-width: 680px; margin: 0 auto; padding: 60px 24px; }
+        h1 { color: var(--heading); font-size: 2rem; margin-bottom: 8px; }
+        .updated { color: var(--secondary); font-size: 0.9rem; margin-bottom: 40px; }
+        h2 { color: var(--heading); font-size: 1.25rem; margin-top: 36px; margin-bottom: 12px; }
+        p { margin-bottom: 16px; }
+        ul { margin-bottom: 16px; padding-left: 24px; }
+        li { margin-bottom: 6px; }
+        a { color: var(--heading); }
+        .back { display: inline-block; margin-top: 40px; color: var(--secondary); text-decoration: none; font-size: 0.9rem; }
+        .back:hover { color: var(--heading); }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Privacy Policy</h1>
+    <p class="updated">Last updated: February 27, 2026</p>
+
+    <p>lightpaper.org ("lightpaper", "we", "us") is an API-first publishing platform. This policy explains what data we collect, why, and how we protect it.</p>
+
+    <h2>What We Collect</h2>
+    <ul>
+        <li><strong>Account data:</strong> Email address, display name, and handle when you create an account.</li>
+        <li><strong>Published content:</strong> Documents, metadata, and tags you publish through our API.</li>
+        <li><strong>Verification data:</strong> Domain ownership records, LinkedIn profile ID (if you verify via OAuth), and ORCID iD (if you link it).</li>
+        <li><strong>Technical data:</strong> IP addresses for rate limiting and abuse prevention. We do not use tracking cookies or analytics scripts.</li>
+    </ul>
+
+    <h2>How We Use It</h2>
+    <ul>
+        <li>To publish, host, and serve your documents at permanent URLs.</li>
+        <li>To authenticate your identity and compute your author gravity level.</li>
+        <li>To enforce rate limits and prevent abuse.</li>
+        <li>To generate search indexes so published content is discoverable.</li>
+    </ul>
+
+    <h2>What We Don't Do</h2>
+    <ul>
+        <li>We do not sell your data to third parties.</li>
+        <li>We do not serve ads or use ad trackers.</li>
+        <li>We do not profile you or build behavioral models.</li>
+        <li>We do not share your email with anyone.</li>
+    </ul>
+
+    <h2>Third-Party Services</h2>
+    <ul>
+        <li><strong>Google Cloud Platform:</strong> Hosts our infrastructure (Cloud Run, Cloud SQL). Subject to <a href="https://cloud.google.com/terms/cloud-privacy-notice">Google Cloud Privacy Notice</a>.</li>
+        <li><strong>Firebase Authentication:</strong> Manages account credentials. Subject to <a href="https://firebase.google.com/support/privacy">Firebase Privacy Policy</a>.</li>
+        <li><strong>LinkedIn:</strong> Used only if you choose to verify your identity via LinkedIn OAuth. We store only your LinkedIn profile ID, not your connections or activity.</li>
+        <li><strong>ORCID:</strong> Used only if you choose to link your ORCID iD. We query the public ORCID API to validate your iD.</li>
+    </ul>
+
+    <h2>Data Retention</h2>
+    <p>Published documents are retained permanently — that's the point. Account data is retained while your account is active. If you delete your account, all your data (account, documents, keys, verifications) is permanently and irreversibly deleted.</p>
+
+    <h2>Your Rights</h2>
+    <ul>
+        <li><strong>Access:</strong> View your account and documents via the API at any time.</li>
+        <li><strong>Deletion:</strong> Delete your account via <code>DELETE /v1/account</code>. This is a hard delete — all data is removed.</li>
+        <li><strong>Export:</strong> Retrieve all your documents via <code>GET /v1/account/documents</code>.</li>
+    </ul>
+
+    <h2>Security</h2>
+    <p>API keys are stored as bcrypt hashes. All traffic is encrypted via TLS. We follow OWASP security practices including input sanitization, parameterized queries, and content security policies.</p>
+
+    <h2>Contact</h2>
+    <p>Questions about this policy? Email <strong>privacy@lightpaper.org</strong>.</p>
+
+    <a href="/" class="back">&larr; lightpaper.org</a>
+</div>
+</body>
+</html>

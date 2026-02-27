@@ -19,3 +19,10 @@ async def landing_page():
     template = env.get_template("landing.html")
     html = template.render(base_url=settings.base_url)
     return HTMLResponse(content=html)
+
+
+@router.get("/privacy", response_class=HTMLResponse)
+async def privacy_page():
+    template = env.get_template("privacy.html")
+    html = template.render(base_url=settings.base_url)
+    return HTMLResponse(content=html)
