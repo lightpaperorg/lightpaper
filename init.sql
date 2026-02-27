@@ -119,3 +119,16 @@ CREATE TABLE domain_verifications (
 );
 
 CREATE INDEX idx_domain_verifications_account ON domain_verifications(account_id);
+
+-- LinkedIn verification tokens (OAuth state)
+CREATE TABLE linkedin_verifications (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    account_id          UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+    state_token         TEXT UNIQUE NOT NULL,
+    verified            BOOLEAN DEFAULT false,
+    linkedin_profile_id TEXT,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_linkedin_verifications_state ON linkedin_verifications(state_token) WHERE verified = false;
+CREATE INDEX idx_linkedin_verifications_account ON linkedin_verifications(account_id);
