@@ -128,6 +128,9 @@ async def publish_document(
     )
     db.add(version)
 
+    # Flush doc + version so FK references exist before inserting anonymous_publishes
+    await db.flush()
+
     # Track anonymous publish
     if is_anonymous:
         ip = request.client.host if request.client else "unknown"
