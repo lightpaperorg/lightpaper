@@ -1,0 +1,37 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: lightpaper
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lightpaper_dev}
+      POSTGRES_DB: lightpaper
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/01-init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lightpaper"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+asyncpg://lightpaper:${POSTGRES_PASSWORD:-lightpaper_dev}@db:5432/lightpaper
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-refreshing-rune-471208-e5}
+      BASE_URL: ${BASE_URL:-http://localhost:8001}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,https://lightpaper.org}
+    volumes:
+      - ./app:/app/app
+
+volumes:
+  pgdata:
