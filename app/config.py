@@ -18,6 +18,8 @@ class Settings(BaseModel):
             "http://localhost:3000,https://lightpaper.org",
         ).split(",")
     ]
+    linkedin_client_id: str = os.getenv("LINKEDIN_CLIENT_ID", "")
+    linkedin_client_secret: str = os.getenv("LINKEDIN_CLIENT_SECRET", "")
 
 
 settings = Settings()

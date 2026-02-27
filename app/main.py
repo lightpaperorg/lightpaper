@@ -90,7 +90,7 @@ async def health():
 
 def mount_routes():
     """Mount all routers. Called after all route modules are defined."""
-    from app.routes import publish, documents, search, accounts, keys, verification, discovery, landing, reading
+    from app.routes import publish, documents, search, accounts, keys, verification, discovery, landing, reading, onboard, linkedin
 
     app.include_router(publish.router)
     app.include_router(documents.router)
@@ -98,6 +98,8 @@ def mount_routes():
     app.include_router(accounts.router)
     app.include_router(keys.router)
     app.include_router(verification.router)
+    app.include_router(onboard.router)
+    app.include_router(linkedin.router)
     app.include_router(discovery.router)
     app.include_router(landing.router)
     # Reading routes LAST — catch-all /{slug}

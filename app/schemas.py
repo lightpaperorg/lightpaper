@@ -190,6 +190,55 @@ class GravityResponse(BaseModel):
     featured_threshold: int
 
 
+# --- Onboard ---
+
+class OnboardRequest(BaseModel):
+    email: str = Field(..., max_length=320)
+    display_name: str | None = Field(None, max_length=200)
+    handle: str | None = Field(None, max_length=100)
+
+
+class OnboardResponse(BaseModel):
+    account_id: str
+    handle: str | None
+    api_key: str
+    gravity_level: int
+    next_level: str | None
+
+
+# --- LinkedIn Verification ---
+
+class LinkedInVerifyResponse(BaseModel):
+    authorization_url: str
+    state: str
+    instructions: str
+
+
+class LinkedInCheckResponse(BaseModel):
+    verified: bool
+    gravity_level: int
+
+
+# --- ORCID Verification ---
+
+class OrcidVerifyRequest(BaseModel):
+    orcid_id: str = Field(..., max_length=19)
+
+    @field_validator("orcid_id")
+    @classmethod
+    def validate_orcid_format(cls, v: str) -> str:
+        import re
+        if not re.match(r"^\d{4}-\d{4}-\d{4}-\d{3}[\dX]$", v):
+            raise ValueError("ORCID iD must be in format 0000-0000-0000-000X")
+        return v
+
+
+class OrcidVerifyResponse(BaseModel):
+    verified: bool
+    gravity_level: int
+    orcid_name: str | None = None
+
+
 # --- Errors ---
 
 class ErrorResponse(BaseModel):

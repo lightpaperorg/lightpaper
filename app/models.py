@@ -121,3 +121,14 @@ class DomainVerification(Base):
     txt_token = Column(Text, nullable=False)
     verified = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=text("NOW()"))
+
+
+class LinkedInVerification(Base):
+    __tablename__ = "linkedin_verifications"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    account_id = Column(UUID(as_uuid=True), ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False)
+    state_token = Column(Text, unique=True, nullable=False)
+    verified = Column(Boolean, default=False)
+    linkedin_profile_id = Column(Text)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=text("NOW()"))

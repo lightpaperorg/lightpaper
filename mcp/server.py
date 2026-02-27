@@ -1,4 +1,4 @@
-"""lightpaper.org MCP server — 5 tools, stdio transport."""
+"""lightpaper.org MCP server — 9 tools, stdio transport."""
 
 import json
 import os
@@ -88,6 +88,51 @@ async def list_tools() -> list[Tool]:
                 },
             },
         ),
+        Tool(
+            name="onboard_pilot",
+            description="Create a lightpaper account for a pilot (human user). Returns an API key. No browser needed.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "email": {"type": "string", "description": "Pilot's email address"},
+                    "display_name": {"type": "string", "description": "Pilot's display name"},
+                    "handle": {"type": "string", "description": "Unique handle (e.g. 'alice')"},
+                },
+                "required": ["email"],
+            },
+        ),
+        Tool(
+            name="verify_domain",
+            description="Start or check domain DNS verification. Call with domain to start, call without to check status.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "domain": {"type": "string", "description": "Domain to verify (omit to check existing verification)"},
+                },
+            },
+        ),
+        Tool(
+            name="verify_linkedin",
+            description="Start or check LinkedIn verification. Call with action='start' to get OAuth URL, action='check' to poll status.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "action": {"type": "string", "enum": ["start", "check"], "description": "'start' to begin OAuth, 'check' to poll completion"},
+                },
+                "required": ["action"],
+            },
+        ),
+        Tool(
+            name="verify_orcid",
+            description="Verify an ORCID iD. Validates against the public ORCID API. Fully automatable.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "orcid_id": {"type": "string", "description": "ORCID iD (e.g. 0000-0002-1825-0097)"},
+                },
+                "required": ["orcid_id"],
+            },
+        ),
     ]
 
 
@@ -131,6 +176,40 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
         elif name == "list_my_lightpapers":
             params = {"limit": arguments.get("limit", 20)}
             resp = await client.get("/v1/account/documents", params=params)
+            return [TextContent(type="text", text=resp.text)]
+
+        elif name == "onboard_pilot":
+            payload = {"email": arguments["email"]}
+            if arguments.get("display_name"):
+                payload["display_name"] = arguments["display_name"]
+            if arguments.get("handle"):
+                payload["handle"] = arguments["handle"]
+            resp = await client.post("/v1/onboard", json=payload)
+            return [TextContent(type="text", text=resp.text)]
+
+        elif name == "verify_domain":
+            if arguments.get("domain"):
+                resp = await client.post(
+                    "/v1/account/verify/domain",
+                    json={"domain": arguments["domain"]},
+                )
+            else:
+                resp = await client.get("/v1/account/verify/domain/check")
+            return [TextContent(type="text", text=resp.text)]
+
+        elif name == "verify_linkedin":
+            action = arguments["action"]
+            if action == "start":
+                resp = await client.post("/v1/account/verify/linkedin")
+            else:
+                resp = await client.get("/v1/account/verify/linkedin/check")
+            return [TextContent(type="text", text=resp.text)]
+
+        elif name == "verify_orcid":
+            resp = await client.post(
+                "/v1/account/verify/orcid",
+                json={"orcid_id": arguments["orcid_id"]},
+            )
             return [TextContent(type="text", text=resp.text)]
 
         return [TextContent(type="text", text=f"Unknown tool: {name}")]
