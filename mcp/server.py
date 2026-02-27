@@ -8,16 +8,24 @@ from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import TextContent, Tool
 
-BASE_URL = os.getenv("LIGHTPAPER_BASE_URL", "http://localhost:8001")
+BASE_URL = os.getenv("LIGHTPAPER_BASE_URL", "https://lightpaper.org")
 API_KEY = os.getenv("LIGHTPAPER_API_KEY", "")
 
 server = Server("lightpaper")
 
+API_KEY_PARAM = {
+    "api_key": {
+        "type": "string",
+        "description": "API key to authenticate as a specific account. Overrides the default LIGHTPAPER_API_KEY. Use the key returned by onboard_pilot to act on behalf of that account.",
+    },
+}
 
-def _headers() -> dict:
+
+def _headers(api_key: str | None = None) -> dict:
+    key = api_key or API_KEY
     headers = {"Content-Type": "application/json"}
-    if API_KEY:
-        headers["Authorization"] = f"Bearer {API_KEY}"
+    if key:
+        headers["Authorization"] = f"Bearer {key}"
     return headers
 
 
@@ -35,6 +43,7 @@ async def list_tools() -> list[Tool]:
                     "subtitle": {"type": "string", "description": "Optional subtitle"},
                     "tags": {"type": "array", "items": {"type": "string"}, "description": "Tags"},
                     "listed": {"type": "boolean", "default": True, "description": "Whether to list in search"},
+                    **API_KEY_PARAM,
                 },
                 "required": ["title", "content"],
             },
@@ -48,6 +57,7 @@ async def list_tools() -> list[Tool]:
                     "query": {"type": "string", "description": "Search query"},
                     "tags": {"type": "string", "description": "Comma-separated tags"},
                     "limit": {"type": "integer", "default": 10},
+                    **API_KEY_PARAM,
                 },
                 "required": ["query"],
             },
@@ -59,6 +69,7 @@ async def list_tools() -> list[Tool]:
                 "type": "object",
                 "properties": {
                     "id": {"type": "string", "description": "Document ID (doc_xxxx)"},
+                    **API_KEY_PARAM,
                 },
                 "required": ["id"],
             },
@@ -74,6 +85,7 @@ async def list_tools() -> list[Tool]:
                     "content": {"type": "string"},
                     "subtitle": {"type": "string"},
                     "tags": {"type": "array", "items": {"type": "string"}},
+                    **API_KEY_PARAM,
                 },
                 "required": ["id"],
             },
@@ -85,12 +97,13 @@ async def list_tools() -> list[Tool]:
                 "type": "object",
                 "properties": {
                     "limit": {"type": "integer", "default": 20},
+                    **API_KEY_PARAM,
                 },
             },
         ),
         Tool(
             name="onboard_pilot",
-            description="Create a lightpaper account for a pilot (human user). Returns an API key. No browser needed.",
+            description="Create a lightpaper account for a pilot (human user). Returns an API key. No browser needed. Use the returned api_key in subsequent calls to act as that account.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -108,6 +121,7 @@ async def list_tools() -> list[Tool]:
                 "type": "object",
                 "properties": {
                     "domain": {"type": "string", "description": "Domain to verify (omit to check existing verification)"},
+                    **API_KEY_PARAM,
                 },
             },
         ),
@@ -118,6 +132,7 @@ async def list_tools() -> list[Tool]:
                 "type": "object",
                 "properties": {
                     "action": {"type": "string", "enum": ["start", "check"], "description": "'start' to begin OAuth, 'check' to poll completion"},
+                    **API_KEY_PARAM,
                 },
                 "required": ["action"],
             },
@@ -129,6 +144,7 @@ async def list_tools() -> list[Tool]:
                 "type": "object",
                 "properties": {
                     "orcid_id": {"type": "string", "description": "ORCID iD (e.g. 0000-0002-1825-0097)"},
+                    **API_KEY_PARAM,
                 },
                 "required": ["orcid_id"],
             },
@@ -138,7 +154,11 @@ async def list_tools() -> list[Tool]:
 
 @server.call_tool()
 async def call_tool(name: str, arguments: dict) -> list[TextContent]:
-    async with httpx.AsyncClient(base_url=BASE_URL, headers=_headers(), timeout=30) as client:
+    # Extract api_key before passing arguments to endpoints
+    api_key = arguments.pop("api_key", None)
+    headers = _headers(api_key)
+
+    async with httpx.AsyncClient(base_url=BASE_URL, headers=headers, timeout=30) as client:
         if name == "publish_lightpaper":
             payload = {
                 "title": arguments["title"],
