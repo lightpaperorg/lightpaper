@@ -22,7 +22,7 @@ ALLOWED_TAGS = {
 }
 
 ALLOWED_ATTRIBUTES = {
-    "a": {"href", "title", "rel", "id", "class"},  # links + footnote refs
+    "a": {"href", "title", "id", "class"},  # links + footnote refs (rel set by link_rel param)
     "img": {"src", "alt", "title", "width", "height"},
     "input": {"type", "checked", "disabled"},  # task lists
     "td": {"align"},

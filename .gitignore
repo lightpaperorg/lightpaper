@@ -22,3 +22,6 @@ htmlcov/
 *.log
 *.pem
 *.key
+.bootstrap-secrets.json
+scripts/.bootstrap-secrets.json
+.mcp.json

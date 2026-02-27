@@ -7,7 +7,7 @@ set -euo pipefail
 PROJECT_ID="${GCP_PROJECT_ID:?Set GCP_PROJECT_ID environment variable}"
 REGION="${GCP_REGION:-us-central1}"
 SERVICE_NAME="lightpaper"
-IMAGE="gcr.io/$PROJECT_ID/$SERVICE_NAME"
+IMAGE="$REGION-docker.pkg.dev/$PROJECT_ID/$SERVICE_NAME/api"
 
 # Cloud SQL connection (update after running setup-cloud-sql.sh)
 CLOUD_SQL_CONNECTION="${CLOUD_SQL_CONNECTION:-$PROJECT_ID:$REGION:lightpaper-db}"
@@ -33,9 +33,7 @@ gcloud run deploy "$SERVICE_NAME" \
   --timeout=120 \
   --concurrency=100 \
   --add-cloudsql-instances="$CLOUD_SQL_CONNECTION" \
-  --set-env-vars="FIREBASE_PROJECT_ID=$PROJECT_ID" \
-  --set-env-vars="BASE_URL=https://lightpaper.org" \
-  --set-env-vars="CORS_ORIGINS=https://lightpaper.org,http://localhost:3000" \
+  --set-env-vars="^||^FIREBASE_PROJECT_ID=$PROJECT_ID||BASE_URL=https://lightpaper.org||CORS_ORIGINS=https://lightpaper.org,http://localhost:3000" \
   --update-secrets="DATABASE_URL=lightpaper-db-url:latest"
 
 echo ""

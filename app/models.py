@@ -4,7 +4,7 @@ from datetime import datetime
 from uuid import uuid4
 
 from sqlalchemy import (
-    Boolean, Column, DateTime, ForeignKey, Integer, Text, text
+    Boolean, Column, DateTime, FetchedValue, ForeignKey, Integer, Text, text
 )
 from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR, UUID
 from sqlalchemy.orm import DeclarativeBase, relationship
@@ -71,7 +71,7 @@ class Document(Base):
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=text("NOW()"))
     updated_at = Column(DateTime(timezone=True), nullable=False, server_default=text("NOW()"))
     deleted_at = Column(DateTime(timezone=True))
-    search_vector = Column(TSVECTOR)
+    search_vector = Column(TSVECTOR, FetchedValue())
 
     account = relationship("Account", back_populates="documents")
     versions = relationship("DocumentVersion", back_populates="document", cascade="all, delete-orphan")
