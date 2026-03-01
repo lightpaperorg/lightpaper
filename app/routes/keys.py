@@ -1,6 +1,7 @@
 """API key management: CRUD /v1/account/keys."""
 
 import secrets
+from datetime import UTC
 
 import bcrypt
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -80,10 +81,12 @@ async def list_keys(
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
-        select(ApiKey).where(
+        select(ApiKey)
+        .where(
             ApiKey.account_id == auth.account.id,
             ApiKey.revoked_at.is_(None),
-        ).order_by(ApiKey.created_at.desc())
+        )
+        .order_by(ApiKey.created_at.desc())
     )
     keys = result.scalars().all()
 
@@ -115,6 +118,7 @@ async def revoke_key(
     if not key:
         raise HTTPException(status_code=404, detail="Key not found")
 
-    from datetime import datetime, timezone
-    key.revoked_at = datetime.now(timezone.utc)
+    from datetime import datetime
+
+    key.revoked_at = datetime.now(UTC)
     await db.commit()

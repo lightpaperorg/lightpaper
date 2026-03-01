@@ -1,9 +1,9 @@
 """lightpaper.org MCP server — 14 tools, stdio transport."""
 
-import json
 import os
 
 import httpx
+
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import TextContent, Tool
@@ -49,7 +49,10 @@ async def list_tools() -> list[Tool]:
                 "type": "object",
                 "properties": {
                     "title": {"type": "string", "description": "Document title (max 500 chars)"},
-                    "content": {"type": "string", "description": "Markdown content (min 300 words, must include at least one # heading)"},
+                    "content": {
+                        "type": "string",
+                        "description": "Markdown content (min 300 words, must include at least one # heading)",
+                    },
                     "subtitle": {"type": "string", "description": "Optional subtitle (max 1000 chars)"},
                     "format": {
                         "type": "string",
@@ -69,15 +72,29 @@ async def list_tools() -> list[Tool]:
                             "type": "object",
                             "properties": {
                                 "name": {"type": "string", "description": "Author display name"},
-                                "handle": {"type": "string", "description": "Author handle (links to /@handle profile)"},
+                                "handle": {
+                                    "type": "string",
+                                    "description": "Author handle (links to /@handle profile)",
+                                },
                             },
                             "required": ["name"],
                         },
                         "description": "Author attribution. If omitted, the publishing account is not credited by name.",
                     },
-                    "slug": {"type": "string", "description": "Custom URL slug (max 80 chars). Auto-generated from title if omitted."},
-                    "tags": {"type": "array", "items": {"type": "string"}, "description": "Tags for search filtering (max 50)"},
-                    "listed": {"type": "boolean", "default": True, "description": "If true, document appears in search results and sitemap. Anonymous publishes are always unlisted."},
+                    "slug": {
+                        "type": "string",
+                        "description": "Custom URL slug (max 80 chars). Auto-generated from title if omitted.",
+                    },
+                    "tags": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Tags for search filtering (max 50)",
+                    },
+                    "listed": {
+                        "type": "boolean",
+                        "default": True,
+                        "description": "If true, document appears in search results and sitemap. Anonymous publishes are always unlisted.",
+                    },
                     **API_KEY_PARAM,
                 },
                 "required": ["title", "content"],
@@ -92,8 +109,17 @@ async def list_tools() -> list[Tool]:
                     "query": {"type": "string", "description": "Full-text search query"},
                     "author": {"type": "string", "description": "Filter by author handle (e.g. 'alice')"},
                     "tags": {"type": "string", "description": "Comma-separated tag filter (e.g. 'python,ml')"},
-                    "min_quality": {"type": "integer", "default": 40, "description": "Minimum quality score 0-100 (default 40)"},
-                    "sort": {"type": "string", "enum": ["relevance", "recent", "quality"], "default": "relevance", "description": "Sort order"},
+                    "min_quality": {
+                        "type": "integer",
+                        "default": 40,
+                        "description": "Minimum quality score 0-100 (default 40)",
+                    },
+                    "sort": {
+                        "type": "string",
+                        "enum": ["relevance", "recent", "quality"],
+                        "default": "relevance",
+                        "description": "Sort order",
+                    },
                     "limit": {"type": "integer", "default": 20, "description": "Results per page (1-100)"},
                     "offset": {"type": "integer", "default": 0, "description": "Pagination offset"},
                     **API_KEY_PARAM,
@@ -139,7 +165,10 @@ async def list_tools() -> list[Tool]:
                         "description": "Replace author list",
                     },
                     "tags": {"type": "array", "items": {"type": "string"}, "description": "Replace tags"},
-                    "listed": {"type": "boolean", "description": "Set to false to remove from search results and sitemap"},
+                    "listed": {
+                        "type": "boolean",
+                        "description": "Set to false to remove from search results and sitemap",
+                    },
                     "metadata": {"type": "object", "description": "Replace custom metadata"},
                     **API_KEY_PARAM,
                 },
@@ -236,7 +265,10 @@ async def list_tools() -> list[Tool]:
                 "properties": {
                     "email": {"type": "string", "description": "Pilot's email address"},
                     "display_name": {"type": "string", "description": "Pilot's display name"},
-                    "handle": {"type": "string", "description": "Unique handle (e.g. 'alice'). Used in author profiles at /@handle."},
+                    "handle": {
+                        "type": "string",
+                        "description": "Unique handle (e.g. 'alice'). Used in author profiles at /@handle.",
+                    },
                 },
                 "required": ["email"],
             },
@@ -247,7 +279,10 @@ async def list_tools() -> list[Tool]:
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "domain": {"type": "string", "description": "Domain to verify (omit to check existing verification)"},
+                    "domain": {
+                        "type": "string",
+                        "description": "Domain to verify (omit to check existing verification)",
+                    },
                     **API_KEY_PARAM,
                 },
             },
@@ -258,7 +293,11 @@ async def list_tools() -> list[Tool]:
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "action": {"type": "string", "enum": ["start", "check"], "description": "'start' to begin OAuth, 'check' to poll completion"},
+                    "action": {
+                        "type": "string",
+                        "enum": ["start", "check"],
+                        "description": "'start' to begin OAuth, 'check' to poll completion",
+                    },
                     **API_KEY_PARAM,
                 },
                 "required": ["action"],
@@ -293,12 +332,24 @@ async def list_tools() -> list[Tool]:
                         "items": {
                             "type": "object",
                             "properties": {
-                                "credential_type": {"type": "string", "enum": ["degree", "certification", "employment"]},
-                                "institution": {"type": "string", "description": "Institution name (e.g. 'Curtin University')"},
-                                "title": {"type": "string", "description": "Credential title (e.g. 'Bachelor of Science in Computer Science')"},
+                                "credential_type": {
+                                    "type": "string",
+                                    "enum": ["degree", "certification", "employment"],
+                                },
+                                "institution": {
+                                    "type": "string",
+                                    "description": "Institution name (e.g. 'Curtin University')",
+                                },
+                                "title": {
+                                    "type": "string",
+                                    "description": "Credential title (e.g. 'Bachelor of Science in Computer Science')",
+                                },
                                 "year": {"type": "integer", "description": "Year awarded/completed"},
                                 "evidence_tier": {"type": "string", "enum": ["confirmed", "supported", "claimed"]},
-                                "evidence_data": {"type": "object", "description": "API responses, URLs, or other verification data"},
+                                "evidence_data": {
+                                    "type": "object",
+                                    "description": "API responses, URLs, or other verification data",
+                                },
                                 "agent_notes": {"type": "string", "description": "How you verified this credential"},
                             },
                             "required": ["credential_type", "institution", "title", "evidence_tier"],
@@ -446,4 +497,5 @@ async def main():
 
 if __name__ == "__main__":
     import asyncio
+
     asyncio.run(main())

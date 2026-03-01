@@ -1,6 +1,5 @@
 """Test fixtures: async HTTP client using httpx ASGITransport."""
 
-import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 

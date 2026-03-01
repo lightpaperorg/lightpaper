@@ -17,6 +17,16 @@ select = [
     "B",   # flake8-bugbear
     "UP",  # pyupgrade
 ]
+ignore = [
+    "B008",  # Depends() in function defaults — standard FastAPI pattern
+    "B904",  # raise from in except — not needed for HTTP error re-raises
+    "S105",  # false positive on URL constants containing "token"
+    "S110",  # try-except-pass — acceptable for DNS/Firebase cleanup
+]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**/*.py" = ["S101"]  # allow assert in tests
+"tests/**/*.py" = ["S101", "B017"]  # allow assert + broad exception in tests
+"app/routes/discovery.py" = ["E501"]  # llms.txt has long documentation lines
+"app/main.py" = ["E402"]  # imports after app init are intentional
+"mcp/server.py" = ["E501"]  # MCP tool descriptions are long by design
+"scripts/**/*.py" = ["E501"]  # scripts have long output lines

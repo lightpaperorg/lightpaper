@@ -23,9 +23,9 @@ import os
 import sys
 
 import firebase_admin
-from firebase_admin import credentials as firebase_credentials
 import httpx
 from firebase_admin import auth as firebase_auth
+from firebase_admin import credentials as firebase_credentials
 
 # --- Configuration ---
 FIREBASE_PROJECT_ID = os.getenv("FIREBASE_PROJECT_ID", "refreshing-rune-471208-e5")
@@ -83,10 +83,14 @@ def exchange_custom_token_for_id_token(custom_token: str) -> str:
         sys.exit(1)
 
     url = f"https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key={FIREBASE_API_KEY}"
-    resp = httpx.post(url, json={
-        "token": custom_token,
-        "returnSecureToken": True,
-    }, timeout=30)
+    resp = httpx.post(
+        url,
+        json={
+            "token": custom_token,
+            "returnSecureToken": True,
+        },
+        timeout=30,
+    )
 
     if resp.status_code != 200:
         print(f"  ERROR exchanging token: {resp.status_code} — {resp.text}")
@@ -208,23 +212,27 @@ def main():
     print("SUCCESS! Save these credentials:")
     print("=" * 60)
     print(f"\n  API Key: {api_key}")
-    print(f"\n  For MCP server:")
+    print("\n  For MCP server:")
     print(f"    export LIGHTPAPER_BASE_URL={API_URL}")
     print(f"    export LIGHTPAPER_API_KEY={api_key}")
-    print(f"\n  For curl:")
+    print("\n  For curl:")
     print(f'    curl -H "Authorization: Bearer {api_key}" {API_URL}/v1/account')
     print()
 
     # Also write to a local file for convenience
     secrets_path = os.path.join(os.path.dirname(__file__), ".bootstrap-secrets.json")
     with open(secrets_path, "w") as f:
-        json.dump({
-            "api_key": api_key,
-            "api_url": API_URL,
-            "account_id": account["id"],
-            "firebase_uid": uid,
-            "handle": account.get("handle"),
-        }, f, indent=2)
+        json.dump(
+            {
+                "api_key": api_key,
+                "api_url": API_URL,
+                "account_id": account["id"],
+                "firebase_uid": uid,
+                "handle": account.get("handle"),
+            },
+            f,
+            indent=2,
+        )
     print(f"  Secrets saved to: {secrets_path}")
     print("  (Add this file to .gitignore!)")
 

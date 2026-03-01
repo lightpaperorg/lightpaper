@@ -1,17 +1,16 @@
 """GET /v1/search — full-text search with quality × gravity ranking."""
 
 from fastapi import APIRouter, Depends, Query, Request
-from sqlalchemy import case, cast, func, literal_column, select, text
+from sqlalchemy import case, cast, func, select
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.database import get_db
 from app.models import Document
-from app.schemas import AuthorInfo, SearchResponse, SearchResult
 from app.rate_limit import limiter
+from app.schemas import AuthorInfo, SearchResponse, SearchResult
 from app.services.gravity import GRAVITY_MULTIPLIERS
-from app.utils import get_client_ip
 
 router = APIRouter(prefix="/v1", tags=["search"])
 
@@ -49,9 +48,7 @@ async def search_documents(
 
     # Author filter (parameterized — no SQL injection)
     if author:
-        base = base.where(
-            Document.authors.op("@>")(cast([{"handle": author}], JSONB))
-        )
+        base = base.where(Document.authors.op("@>")(cast([{"handle": author}], JSONB)))
 
     # Count total
     count_query = select(func.count()).select_from(base.subquery())

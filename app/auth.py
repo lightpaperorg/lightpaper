@@ -4,9 +4,9 @@ from dataclasses import dataclass
 
 import bcrypt
 import firebase_admin
-from firebase_admin import auth as firebase_auth
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from firebase_admin import auth as firebase_auth
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,9 +16,7 @@ from app.models import Account, ApiKey
 
 # Initialize Firebase Admin SDK
 if not firebase_admin._apps:
-    firebase_admin.initialize_app(
-        options={"projectId": settings.firebase_project_id}
-    )
+    firebase_admin.initialize_app(options={"projectId": settings.firebase_project_id})
 
 security = HTTPBearer(auto_error=False)
 
@@ -75,9 +73,7 @@ async def _auth_via_firebase(token: str, db: AsyncSession) -> AuthResult:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
 
     uid = decoded["uid"]
-    result = await db.execute(
-        select(Account).where(Account.firebase_uid == uid, Account.deleted_at.is_(None))
-    )
+    result = await db.execute(select(Account).where(Account.firebase_uid == uid, Account.deleted_at.is_(None)))
     account = result.scalar_one_or_none()
 
     return AuthResult(
@@ -119,6 +115,9 @@ async def require_account(
         result = await _auth_via_firebase(token, db)
 
     if result.account is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Account not found. Create one first via POST /v1/account")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Account not found. Create one first via POST /v1/account",
+        )
 
     return result

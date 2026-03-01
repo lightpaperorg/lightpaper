@@ -10,10 +10,10 @@ FONTS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static", "
 
 # Colors (light mode for OG images)
 BG_COLOR = (255, 255, 255)
-HEADING_COLOR = (17, 24, 39)      # #111827
-BODY_COLOR = (55, 65, 81)         # #374151
-SECONDARY_COLOR = (107, 114, 128) # #6B7280
-BORDER_COLOR = (229, 231, 235)    # #E5E7EB
+HEADING_COLOR = (17, 24, 39)  # #111827
+BODY_COLOR = (55, 65, 81)  # #374151
+SECONDARY_COLOR = (107, 114, 128)  # #6B7280
+BORDER_COLOR = (229, 231, 235)  # #E5E7EB
 
 WIDTH = 1200
 HEIGHT = 630
@@ -27,7 +27,7 @@ def _load_font(name: str, size: int) -> ImageFont.FreeTypeFont:
     # Fallback to default
     try:
         return ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", size)
-    except (OSError, IOError):
+    except OSError:
         return ImageFont.load_default()
 
 
@@ -46,7 +46,6 @@ def generate_og_image(
 
     font_bold_lg = _load_font("Inter-Bold.ttf", 48)
     font_regular = _load_font("Inter-Regular.ttf", 24)
-    font_mono = _load_font("JetBrainsMono-Regular.ttf", 20)
     font_small = _load_font("Inter-Regular.ttf", 18)
 
     y = 60

@@ -8,8 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.database import get_db
 from app.models import Account, Credential, Document, DocumentVersion
-from app.schemas import AuthorInfo, DocumentResponse
 from app.rate_limit import limiter
+from app.schemas import AuthorInfo, DocumentResponse
 from app.services.gravity import get_gravity_badges
 
 router = APIRouter(tags=["reading"])
@@ -19,9 +19,7 @@ RESERVED_PREFIXES = {"v1", "health", "robots.txt", "sitemap.xml", "llms.txt", "o
 
 
 async def _load_doc_by_slug(slug: str, db: AsyncSession):
-    result = await db.execute(
-        select(Document).where(Document.slug == slug, Document.deleted_at.is_(None))
-    )
+    result = await db.execute(select(Document).where(Document.slug == slug, Document.deleted_at.is_(None)))
     return result.scalar_one_or_none()
 
 
@@ -49,8 +47,9 @@ def _wants_json(request: Request) -> bool:
 
 
 async def _render_html(doc: Document, version: DocumentVersion, db: AsyncSession) -> HTMLResponse:
-    from jinja2 import Environment, FileSystemLoader
     import os
+
+    from jinja2 import Environment, FileSystemLoader
 
     template_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "templates")
     env = Environment(loader=FileSystemLoader(template_dir), autoescape=True)

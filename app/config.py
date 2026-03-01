@@ -1,4 +1,5 @@
 import os
+
 from pydantic import BaseModel
 
 
@@ -7,9 +8,7 @@ class Settings(BaseModel):
         "DATABASE_URL",
         "postgresql+asyncpg://lightpaper:lightpaper_dev@localhost:5433/lightpaper",
     )
-    firebase_project_id: str = os.getenv(
-        "FIREBASE_PROJECT_ID", ""
-    )
+    firebase_project_id: str = os.getenv("FIREBASE_PROJECT_ID", "")
     base_url: str = os.getenv("BASE_URL", "http://localhost:8001")
     cors_origins: list[str] = [
         o.strip()

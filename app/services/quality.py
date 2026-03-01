@@ -8,9 +8,9 @@ from dataclasses import dataclass
 class QualityResult:
     structure: int  # 0-25
     substance: int  # 0-25
-    tone: int       # 0-25
+    tone: int  # 0-25
     attribution: int  # 0-25
-    total: int      # 0-100
+    total: int  # 0-100
     suggestions: list[str]
 
 

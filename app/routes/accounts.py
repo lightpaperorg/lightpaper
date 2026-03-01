@@ -4,12 +4,12 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth import AuthResult, require_account, authenticate
+from app.auth import AuthResult, authenticate, require_account
 from app.config import settings
 from app.database import get_db
 from app.models import Account, Credential, Document
 from app.rate_limit import limiter
-from app.schemas import AccountCreateRequest, AccountResponse, AuthorInfo, DocumentResponse
+from app.schemas import AccountCreateRequest, AccountResponse
 from app.services.gravity import get_gravity_badges
 
 router = APIRouter(prefix="/v1", tags=["accounts"])
@@ -53,17 +53,13 @@ async def create_account(
         )
 
     # Check if account already exists
-    existing = await db.execute(
-        select(Account).where(Account.firebase_uid == auth.firebase_uid)
-    )
+    existing = await db.execute(select(Account).where(Account.firebase_uid == auth.firebase_uid))
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=409, detail="Account already exists")
 
     # Check handle uniqueness
     if body.handle:
-        handle_check = await db.execute(
-            select(Account).where(Account.handle == body.handle)
-        )
+        handle_check = await db.execute(select(Account).where(Account.handle == body.handle))
         if handle_check.scalar_one_or_none():
             raise HTTPException(status_code=409, detail="Handle already taken")
 
@@ -105,10 +101,12 @@ async def list_account_documents(
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
-        select(Document).where(
+        select(Document)
+        .where(
             Document.account_id == auth.account.id,
             Document.deleted_at.is_(None),
-        ).order_by(Document.created_at.desc())
+        )
+        .order_by(Document.created_at.desc())
     )
     docs = result.scalars().all()
 

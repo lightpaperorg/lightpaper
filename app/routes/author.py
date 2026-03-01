@@ -12,7 +12,7 @@ from app.config import settings
 from app.database import get_db
 from app.models import Account, Credential, Document, DocumentVersion
 from app.rate_limit import limiter
-from app.services.gravity import get_gravity_badges, compute_gravity_level
+from app.services.gravity import compute_gravity_level, get_gravity_badges
 
 router = APIRouter(tags=["author"])
 
@@ -28,17 +28,13 @@ def _wants_json(request: Request) -> bool:
 @limiter.limit("120/minute")
 async def author_profile(handle: str, request: Request, db: AsyncSession = Depends(get_db)):
     # Look up account by handle
-    result = await db.execute(
-        select(Account).where(Account.handle == handle, Account.deleted_at.is_(None))
-    )
+    result = await db.execute(select(Account).where(Account.handle == handle, Account.deleted_at.is_(None)))
     account = result.scalar_one_or_none()
     if not account:
         raise HTTPException(status_code=404, detail="Author not found")
 
     # Load credentials for badges
-    cred_result = await db.execute(
-        select(Credential).where(Credential.account_id == account.id)
-    )
+    cred_result = await db.execute(select(Credential).where(Credential.account_id == account.id))
     creds = cred_result.scalars().all()
 
     gravity_badges = get_gravity_badges(
@@ -56,31 +52,35 @@ async def author_profile(handle: str, request: Request, db: AsyncSession = Depen
 
     # Load listed, non-deleted documents with reading_time from current version
     doc_result = await db.execute(
-        select(Document, DocumentVersion.reading_time).join(
+        select(Document, DocumentVersion.reading_time)
+        .join(
             DocumentVersion,
-            (DocumentVersion.document_id == Document.id)
-            & (DocumentVersion.version == Document.current_version),
-        ).where(
+            (DocumentVersion.document_id == Document.id) & (DocumentVersion.version == Document.current_version),
+        )
+        .where(
             Document.account_id == account.id,
             Document.listed.is_(True),
             Document.deleted_at.is_(None),
-        ).order_by(Document.created_at.desc())
+        )
+        .order_by(Document.created_at.desc())
     )
     doc_rows = doc_result.all()
 
     documents = []
     for doc, reading_time in doc_rows:
-        documents.append({
-            "id": doc.id,
-            "title": doc.title,
-            "subtitle": doc.subtitle,
-            "slug": doc.slug,
-            "url": f"{settings.base_url}/{doc.slug}" if doc.slug else f"{settings.base_url}/d/{doc.id}",
-            "quality_score": doc.quality_score,
-            "reading_time": reading_time,
-            "created_at": doc.created_at.isoformat() if doc.created_at else None,
-            "created_at_formatted": doc.created_at.strftime("%b %d, %Y") if doc.created_at else "",
-        })
+        documents.append(
+            {
+                "id": doc.id,
+                "title": doc.title,
+                "subtitle": doc.subtitle,
+                "slug": doc.slug,
+                "url": f"{settings.base_url}/{doc.slug}" if doc.slug else f"{settings.base_url}/d/{doc.id}",
+                "quality_score": doc.quality_score,
+                "reading_time": reading_time,
+                "created_at": doc.created_at.isoformat() if doc.created_at else None,
+                "created_at_formatted": doc.created_at.strftime("%b %d, %Y") if doc.created_at else "",
+            }
+        )
 
     if _wants_json(request):
         return JSONResponse(

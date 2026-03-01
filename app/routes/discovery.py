@@ -11,8 +11,8 @@ from app.config import settings
 from app.database import get_db
 from app.models import Account, Credential, Document, DocumentVersion
 from app.rate_limit import limiter
-from app.services.og_image import generate_og_image
 from app.services.gravity import get_gravity_badges
+from app.services.og_image import generate_og_image
 
 router = APIRouter(tags=["discovery"])
 
@@ -345,11 +345,13 @@ Full API specification: {settings.base_url}/v1/openapi.json
 @router.get("/sitemap.xml")
 async def sitemap_xml(db: AsyncSession = Depends(get_db)):
     result = await db.execute(
-        select(Document).where(
+        select(Document)
+        .where(
             Document.deleted_at.is_(None),
             Document.listed.is_(True),
             Document.quality_score >= 40,
-        ).order_by(Document.updated_at.desc())
+        )
+        .order_by(Document.updated_at.desc())
     )
     docs = result.scalars().all()
 
@@ -365,12 +367,15 @@ async def sitemap_xml(db: AsyncSession = Depends(get_db)):
 
     # Author profiles — accounts with a handle and at least one listed document
     author_result = await db.execute(
-        select(Account.handle).join(Document, Document.account_id == Account.id).where(
+        select(Account.handle)
+        .join(Document, Document.account_id == Account.id)
+        .where(
             Account.handle.isnot(None),
             Account.deleted_at.is_(None),
             Document.listed.is_(True),
             Document.deleted_at.is_(None),
-        ).group_by(Account.handle)
+        )
+        .group_by(Account.handle)
     )
     handles = [row[0] for row in author_result.all()]
 

@@ -109,9 +109,7 @@ async def linkedin_callback(
         )
 
     # Load the account
-    acct_result = await db.execute(
-        select(Account).where(Account.id == verification.account_id)
-    )
+    acct_result = await db.execute(select(Account).where(Account.id == verification.account_id))
     account = acct_result.scalar_one_or_none()
     if not account:
         return HTMLResponse(

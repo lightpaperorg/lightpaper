@@ -5,10 +5,8 @@ import secrets
 import dns.resolver
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
-
-from sqlalchemy import update
 
 from app.auth import AuthResult, require_account
 from app.database import get_db
@@ -29,9 +27,11 @@ from app.services.gravity import (
     get_next_level_instructions,
 )
 
+
 async def _load_credentials(account_id, db: AsyncSession) -> list:
     result = await db.execute(select(Credential).where(Credential.account_id == account_id))
     return result.scalars().all()
+
 
 router = APIRouter(prefix="/v1/account", tags=["verification"])
 
@@ -59,11 +59,13 @@ async def start_domain_verification(
         existing.txt_token = token
         existing.verified = False
     else:
-        db.add(DomainVerification(
-            account_id=auth.account.id,
-            domain=domain,
-            txt_token=token,
-        ))
+        db.add(
+            DomainVerification(
+                account_id=auth.account.id,
+                domain=domain,
+                txt_token=token,
+            )
+        )
 
     await db.commit()
 
@@ -71,7 +73,7 @@ async def start_domain_verification(
         domain=domain,
         txt_record=token,
         instructions=f"Add a TXT record to {domain} with value: {token}\n"
-                     f"Then call GET /v1/account/verify/domain/check to confirm.",
+        f"Then call GET /v1/account/verify/domain/check to confirm.",
     )
 
 
@@ -89,7 +91,10 @@ async def check_domain_verification(
     pending = result.scalars().all()
 
     if not pending:
-        return {"verified": False, "message": "No pending domain verification. Start one with POST /v1/account/verify/domain"}
+        return {
+            "verified": False,
+            "message": "No pending domain verification. Start one with POST /v1/account/verify/domain",
+        }
 
     for verification in pending:
         try:
@@ -177,9 +182,7 @@ async def verify_orcid(
         )
 
     # Check that this ORCID isn't already claimed by another account
-    existing = await db.execute(
-        select(Account).where(Account.orcid_id == body.orcid_id)
-    )
+    existing = await db.execute(select(Account).where(Account.orcid_id == body.orcid_id))
     if existing.scalar_one_or_none():
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -219,7 +222,12 @@ async def get_gravity(
     level = account.gravity_level
     return GravityResponse(
         level=level,
-        badges=get_gravity_badges(account.verified_domain, account.verified_linkedin, account.orcid_id, credentials=creds),
+        badges=get_gravity_badges(
+            account.verified_domain,
+            account.verified_linkedin,
+            account.orcid_id,
+            credentials=creds,
+        ),
         next_level=get_next_level_instructions(level),
         multiplier=get_gravity_multiplier(level),
         featured_threshold=get_featured_threshold(level),

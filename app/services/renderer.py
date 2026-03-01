@@ -9,16 +9,50 @@ from mdit_py_plugins.footnote import footnote_plugin
 from mdit_py_plugins.tasklists import tasklists_plugin
 from pygments import highlight
 from pygments.formatters import HtmlFormatter
-from pygments.lexers import get_lexer_by_name, guess_lexer, TextLexer
+from pygments.lexers import TextLexer, get_lexer_by_name, guess_lexer
 
 # Allowed HTML tags after markdown rendering (nh3 sanitizer)
 ALLOWED_TAGS = {
-    "h1", "h2", "h3", "h4", "h5", "h6", "p", "br", "hr",
-    "ul", "ol", "li", "a", "em", "strong", "code", "pre",
-    "blockquote", "table", "thead", "tbody", "tr", "th", "td",
-    "img", "figure", "figcaption", "div", "span", "sup", "sub",
-    "input", "section", "details", "summary", "dl", "dt", "dd",
-    "del", "ins",
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "h5",
+    "h6",
+    "p",
+    "br",
+    "hr",
+    "ul",
+    "ol",
+    "li",
+    "a",
+    "em",
+    "strong",
+    "code",
+    "pre",
+    "blockquote",
+    "table",
+    "thead",
+    "tbody",
+    "tr",
+    "th",
+    "td",
+    "img",
+    "figure",
+    "figcaption",
+    "div",
+    "span",
+    "sup",
+    "sub",
+    "input",
+    "section",
+    "details",
+    "summary",
+    "dl",
+    "dt",
+    "dd",
+    "del",
+    "ins",
 }
 
 ALLOWED_ATTRIBUTES = {

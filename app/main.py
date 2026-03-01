@@ -20,6 +20,7 @@ app = FastAPI(
 
 # --- Security headers middleware ---
 
+
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     DOCS_PATHS = {"/v1/docs", "/v1/openapi.json", "/v1/redoc"}
 
@@ -52,6 +53,7 @@ app.add_middleware(SecurityHeadersMiddleware)
 
 
 # --- Request body size limit middleware ---
+
 
 class BodySizeLimitMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
@@ -102,7 +104,21 @@ async def health():
 
 def mount_routes():
     """Mount all routers. Called after all route modules are defined."""
-    from app.routes import publish, documents, search, accounts, keys, verification, discovery, landing, reading, onboard, linkedin, credentials, author
+    from app.routes import (
+        accounts,
+        author,
+        credentials,
+        discovery,
+        documents,
+        keys,
+        landing,
+        linkedin,
+        onboard,
+        publish,
+        reading,
+        search,
+        verification,
+    )
 
     app.include_router(publish.router)
     app.include_router(documents.router)

@@ -52,7 +52,7 @@ def test_safe_html_preserved():
 
 def test_link_gets_rel_noopener():
     """Links should get rel=noopener noreferrer."""
-    html = render_markdown('# Test\n\n[click](https://example.com)')
+    html = render_markdown("# Test\n\n[click](https://example.com)")
     assert "noopener" in html
 
 

@@ -13,7 +13,7 @@ def _make_content(word_count: int = 500, headings: int = 3, links: int = 0) -> s
     if links:
         sections.append("## References")
         for j in range(links):
-            sections.append(f"[Reference {j+1}](https://example.com/{j+1})")
+            sections.append(f"[Reference {j + 1}](https://example.com/{j + 1})")
     return "\n\n".join(sections)
 
 

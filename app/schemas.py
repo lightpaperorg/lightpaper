@@ -5,8 +5,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
-
 # --- Publish ---
+
 
 class AuthorInfo(BaseModel):
     name: str = Field(..., max_length=200)
@@ -34,6 +34,7 @@ class PublishRequest(BaseModel):
     def validate_metadata(cls, v: dict) -> dict:
         """Prevent deeply nested or oversized metadata."""
         import json
+
         serialized = json.dumps(v)
         if len(serialized) > 50_000:
             raise ValueError("metadata must be less than 50KB when serialized")
@@ -65,6 +66,7 @@ class PublishResponse(BaseModel):
 
 
 # --- Documents ---
+
 
 class DocumentResponse(BaseModel):
     id: str
@@ -108,6 +110,7 @@ class VersionResponse(BaseModel):
 
 # --- Search ---
 
+
 class SearchResult(BaseModel):
     id: str
     title: str
@@ -129,6 +132,7 @@ class SearchResponse(BaseModel):
 
 
 # --- Accounts ---
+
 
 class AccountResponse(BaseModel):
     id: str
@@ -152,6 +156,7 @@ class AccountCreateRequest(BaseModel):
 
 # --- API Keys ---
 
+
 class KeyCreateRequest(BaseModel):
     label: str | None = None
     tier: str = "free"
@@ -174,6 +179,7 @@ class KeyCreateResponse(BaseModel):
 
 # --- Verification ---
 
+
 class DomainVerifyRequest(BaseModel):
     domain: str
 
@@ -194,6 +200,7 @@ class GravityResponse(BaseModel):
 
 # --- Onboard ---
 
+
 class OnboardRequest(BaseModel):
     email: str = Field(..., max_length=320)
     display_name: str | None = Field(None, max_length=200)
@@ -210,6 +217,7 @@ class OnboardResponse(BaseModel):
 
 # --- LinkedIn Verification ---
 
+
 class LinkedInVerifyResponse(BaseModel):
     authorization_url: str
     state: str
@@ -223,6 +231,7 @@ class LinkedInCheckResponse(BaseModel):
 
 # --- ORCID Verification ---
 
+
 class OrcidVerifyRequest(BaseModel):
     orcid_id: str = Field(..., max_length=19)
 
@@ -230,6 +239,7 @@ class OrcidVerifyRequest(BaseModel):
     @classmethod
     def validate_orcid_format(cls, v: str) -> str:
         import re
+
         if not re.match(r"^\d{4}-\d{4}-\d{4}-\d{3}[\dX]$", v):
             raise ValueError("ORCID iD must be in format 0000-0000-0000-000X")
         return v
@@ -242,6 +252,7 @@ class OrcidVerifyResponse(BaseModel):
 
 
 # --- Credentials ---
+
 
 class CredentialSubmission(BaseModel):
     credential_type: Literal["degree", "certification", "employment"]
@@ -256,6 +267,7 @@ class CredentialSubmission(BaseModel):
     @classmethod
     def validate_evidence_data(cls, v: dict) -> dict:
         import json
+
         if len(json.dumps(v)) > 50_000:
             raise ValueError("evidence_data must be less than 50KB when serialized")
         return v
@@ -285,6 +297,7 @@ class CredentialSubmitResponse(BaseModel):
 
 
 # --- Errors ---
+
 
 class ErrorResponse(BaseModel):
     error: str

@@ -1,6 +1,6 @@
 """POST /v1/publish — the entire product in one endpoint."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import func, select
@@ -11,6 +11,7 @@ from app.config import settings
 from app.database import get_db
 from app.id_gen import generate_doc_id
 from app.models import AnonymousPublish, Credential, Document, DocumentVersion
+from app.rate_limit import limiter
 from app.schemas import PublishRequest, PublishResponse, QualityBreakdown
 from app.services.gravity import get_gravity_badges, get_next_level_instructions
 from app.services.quality import score_quality
@@ -21,7 +22,6 @@ from app.services.renderer import (
     extract_toc,
     render_markdown,
 )
-from app.rate_limit import limiter
 from app.services.slug import ensure_unique_slug, generate_slug, is_reserved_slug
 from app.utils import get_client_ip
 
@@ -58,7 +58,7 @@ async def publish_document(
     is_anonymous = auth.is_anonymous
     if is_anonymous:
         ip = get_client_ip(request)
-        one_hour_ago = datetime.now(timezone.utc) - timedelta(hours=1)
+        one_hour_ago = datetime.now(UTC) - timedelta(hours=1)
         result = await db.execute(
             select(func.count(AnonymousPublish.id)).where(
                 AnonymousPublish.ip_address == ip,
@@ -151,9 +151,7 @@ async def publish_document(
     gravity_badges = []
     gravity_note = None
     if auth.account:
-        cred_result = await db.execute(
-            select(Credential).where(Credential.account_id == auth.account.id)
-        )
+        cred_result = await db.execute(select(Credential).where(Credential.account_id == auth.account.id))
         creds = cred_result.scalars().all()
         gravity_badges = get_gravity_badges(
             auth.account.verified_domain,

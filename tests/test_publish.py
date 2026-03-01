@@ -12,29 +12,38 @@ LONG_CONTENT = "# Introduction\n\n" + " ".join(["word"] * 350)
 @pytest.mark.asyncio
 async def test_publish_missing_content(client):
     """Publish with empty content should fail."""
-    resp = await client.post("/v1/publish", json={
-        "title": "Test",
-        "content": "",
-    })
+    resp = await client.post(
+        "/v1/publish",
+        json={
+            "title": "Test",
+            "content": "",
+        },
+    )
     assert resp.status_code == 422
 
 
 @pytest.mark.asyncio
 async def test_publish_missing_title(client):
     """Publish with missing title should fail."""
-    resp = await client.post("/v1/publish", json={
-        "content": LONG_CONTENT,
-    })
+    resp = await client.post(
+        "/v1/publish",
+        json={
+            "content": LONG_CONTENT,
+        },
+    )
     assert resp.status_code == 422
 
 
 @pytest.mark.asyncio
 async def test_publish_too_short(client):
     """Publish with <300 words should fail."""
-    resp = await client.post("/v1/publish", json={
-        "title": "Short",
-        "content": "# Hello\n\nToo short.",
-    })
+    resp = await client.post(
+        "/v1/publish",
+        json={
+            "title": "Short",
+            "content": "# Hello\n\nToo short.",
+        },
+    )
     # Should be 422 (too few words)
     assert resp.status_code == 422
 
@@ -43,8 +52,11 @@ async def test_publish_too_short(client):
 async def test_publish_no_heading(client):
     """Publish without any heading should fail."""
     content = " ".join(["word"] * 350)
-    resp = await client.post("/v1/publish", json={
-        "title": "No Heading Doc",
-        "content": content,
-    })
+    resp = await client.post(
+        "/v1/publish",
+        json={
+            "title": "No Heading Doc",
+            "content": content,
+        },
+    )
     assert resp.status_code == 422

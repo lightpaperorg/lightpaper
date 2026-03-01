@@ -1,11 +1,8 @@
 """SQLAlchemy ORM models for lightpaper.org."""
 
-from datetime import datetime
 from uuid import uuid4
 
-from sqlalchemy import (
-    Boolean, Column, DateTime, FetchedValue, ForeignKey, Integer, Text, text
-)
+from sqlalchemy import Boolean, Column, DateTime, FetchedValue, ForeignKey, Integer, Text, text
 from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR, UUID
 from sqlalchemy.orm import DeclarativeBase, relationship
 

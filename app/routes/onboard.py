@@ -4,9 +4,9 @@ import secrets
 
 import bcrypt
 import firebase_admin
-from firebase_admin import auth as firebase_auth
 from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.params import Depends
+from firebase_admin import auth as firebase_auth
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -57,9 +57,7 @@ async def onboard(
 
     # Check handle uniqueness
     if body.handle:
-        handle_check = await db.execute(
-            select(Account).where(Account.handle == body.handle)
-        )
+        handle_check = await db.execute(select(Account).where(Account.handle == body.handle))
         if handle_check.scalar_one_or_none():
             # Clean up Firebase user since we can't complete
             try:

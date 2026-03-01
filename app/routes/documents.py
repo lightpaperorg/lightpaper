@@ -1,16 +1,16 @@
 """GET/PUT/DELETE /v1/documents/{id} — document CRUD."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth import AuthResult, authenticate, require_account
+from app.auth import AuthResult, require_account
 from app.config import settings
 from app.database import get_db
 from app.models import Document, DocumentVersion
-from app.schemas import DocumentResponse, DocumentUpdateRequest, AuthorInfo, VersionResponse
+from app.schemas import AuthorInfo, DocumentResponse, DocumentUpdateRequest, VersionResponse
 from app.services.quality import score_quality
 from app.services.renderer import (
     compute_content_hash,
@@ -19,7 +19,6 @@ from app.services.renderer import (
     extract_toc,
     render_markdown,
 )
-from app.services.slug import ensure_unique_slug, generate_slug
 
 router = APIRouter(prefix="/v1", tags=["documents"])
 
@@ -111,7 +110,7 @@ async def update_document(
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail=f"Maximum of {MAX_VERSIONS_PER_DOCUMENT} versions per document reached. "
-                       "Consider publishing a new document instead.",
+                "Consider publishing a new document instead.",
             )
         rendered_html = render_markdown(body.content)
         content_hash = compute_content_hash(body.content)
@@ -142,7 +141,7 @@ async def update_document(
             "attribution": quality.attribution,
         }
 
-    doc.updated_at = datetime.now(timezone.utc)
+    doc.updated_at = datetime.now(UTC)
     await db.commit()
     await db.refresh(doc)
 
@@ -160,7 +159,7 @@ async def delete_document(
     if doc.account_id != auth.account.id:
         raise HTTPException(status_code=403, detail="You do not own this document")
 
-    doc.deleted_at = datetime.now(timezone.utc)
+    doc.deleted_at = datetime.now(UTC)
     await db.commit()
 
 
@@ -168,9 +167,7 @@ async def delete_document(
 async def list_versions(doc_id: str, db: AsyncSession = Depends(get_db)):
     doc = await _get_doc_or_404(doc_id, db)
     result = await db.execute(
-        select(DocumentVersion)
-        .where(DocumentVersion.document_id == doc.id)
-        .order_by(DocumentVersion.version.desc())
+        select(DocumentVersion).where(DocumentVersion.document_id == doc.id).order_by(DocumentVersion.version.desc())
     )
     versions = result.scalars().all()
     return [

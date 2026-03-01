@@ -1,6 +1,6 @@
 """POST/GET /v1/account/credentials — agent-driven credential verification."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy import select, update
@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import AuthResult, require_account
 from app.database import get_db
-from app.models import Account, Credential, Document
+from app.models import Credential, Document
 from app.rate_limit import limiter
 from app.schemas import (
     CredentialResponse,
@@ -56,25 +56,25 @@ async def submit_credentials(
                 existing.evidence_data = sub.evidence_data
                 existing.agent_notes = sub.agent_notes
                 existing.year = sub.year or existing.year
-                existing.updated_at = datetime.now(timezone.utc)
+                existing.updated_at = datetime.now(UTC)
         else:
-            db.add(Credential(
-                account_id=account.id,
-                credential_type=sub.credential_type,
-                institution=sub.institution,
-                title=sub.title,
-                year=sub.year,
-                evidence_tier=sub.evidence_tier,
-                evidence_data=sub.evidence_data,
-                agent_notes=sub.agent_notes,
-            ))
+            db.add(
+                Credential(
+                    account_id=account.id,
+                    credential_type=sub.credential_type,
+                    institution=sub.institution,
+                    title=sub.title,
+                    year=sub.year,
+                    evidence_tier=sub.evidence_tier,
+                    evidence_data=sub.evidence_data,
+                    agent_notes=sub.agent_notes,
+                )
+            )
 
     await db.flush()
 
     # Reload all credentials for this account
-    cred_result = await db.execute(
-        select(Credential).where(Credential.account_id == account.id)
-    )
+    cred_result = await db.execute(select(Credential).where(Credential.account_id == account.id))
     all_creds = cred_result.scalars().all()
 
     # Recompute gravity
@@ -130,9 +130,7 @@ async def list_credentials(
 ):
     """List all credentials for the authenticated account."""
     result = await db.execute(
-        select(Credential)
-        .where(Credential.account_id == auth.account.id)
-        .order_by(Credential.created_at.desc())
+        select(Credential).where(Credential.account_id == auth.account.id).order_by(Credential.created_at.desc())
     )
     creds = result.scalars().all()
 
