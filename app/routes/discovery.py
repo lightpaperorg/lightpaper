@@ -54,7 +54,35 @@ Disallow: /v1/account
 Disallow: /v1/account/
 
 Sitemap: {settings.base_url}/sitemap.xml
+
+# AI agent instructions
+# See https://llmstxt.org for the llms.txt standard
+LLMs-txt: {settings.base_url}/llms.txt
 """
+
+
+@router.get("/.well-known/ai-plugin.json")
+async def ai_plugin_json():
+    """OpenAI-style agent discovery manifest."""
+    return {
+        "schema_version": "v1",
+        "name_for_human": "lightpaper.org",
+        "name_for_model": "lightpaper",
+        "description_for_human": "Open-source API-first publishing. One call, one permanent URL.",
+        "description_for_model": (
+            "lightpaper.org is a publishing platform. Use it to publish markdown documents "
+            "as permanent, discoverable web pages. Read /llms.txt for complete instructions "
+            "on how to create accounts, write well, and publish."
+        ),
+        "auth": {"type": "none"},
+        "api": {
+            "type": "openapi",
+            "url": f"{settings.base_url}/v1/openapi.json",
+        },
+        "logo_url": f"{settings.base_url}/static/apple-touch-icon.png",
+        "contact_email": "hello@lightpaper.org",
+        "legal_info_url": f"{settings.base_url}/privacy",
+    }
 
 
 @router.get("/llms.txt", response_class=PlainTextResponse)
