@@ -9,10 +9,18 @@
     <meta name="description" content="{{ bio or (display_name ~ ' on lightpaper.org') }}">
     <link rel="canonical" href="{{ profile_url }}">
 
+    <!-- Favicon & Icons -->
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/static/favicon-16x16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/static/apple-touch-icon.png">
+    <meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#111827" media="(prefers-color-scheme: dark)">
+
     <!-- Open Graph -->
     <meta property="og:type" content="profile">
     <meta property="og:title" content="{{ display_name }} (@{{ handle }})">
-    {% if bio %}<meta property="og:description" content="{{ bio }}">{% endif %}
+    <meta property="og:description" content="{{ bio or (display_name ~ ' on lightpaper.org') }}">
     <meta property="og:url" content="{{ profile_url }}">
     <meta property="og:site_name" content="lightpaper.org">
     <meta property="profile:username" content="{{ handle }}">
@@ -20,7 +28,7 @@
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary">
     <meta name="twitter:title" content="{{ display_name }} (@{{ handle }})">
-    {% if bio %}<meta name="twitter:description" content="{{ bio }}">{% endif %}
+    <meta name="twitter:description" content="{{ bio or (display_name ~ ' on lightpaper.org') }}">
 
     <!-- JSON-LD (all values escaped via |tojson to prevent injection) -->
     <script type="application/ld+json">
@@ -192,6 +200,17 @@
             color: var(--secondary);
         }
         .profile-footer a { color: var(--secondary); }
+
+        /* Mobile refinements */
+        @media (max-width: 640px) {
+            body { font-size: 17px; }
+            .container { padding: 2rem 1.25rem; }
+            .profile-header h1 { font-size: 1.75em; }
+            .gravity-level, .gravity-badge, .quality-badge {
+                padding: 3px 10px;
+                font-size: 13px;
+            }
+        }
     </style>
 </head>
 <body>

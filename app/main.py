@@ -102,6 +102,32 @@ async def health():
     return {"status": "ok", "service": "lightpaper", "version": "0.1.0"}
 
 
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    import os
+
+    from fastapi.responses import FileResponse
+
+    return FileResponse(
+        os.path.join(os.path.dirname(__file__), "static", "favicon.ico"),
+        media_type="image/x-icon",
+        headers={"Cache-Control": "public, max-age=604800"},
+    )
+
+
+def mount_static():
+    """Mount static files (favicon, icons, fonts)."""
+    import os
+
+    from fastapi.staticfiles import StaticFiles
+
+    static_dir = os.path.join(os.path.dirname(__file__), "static")
+    app.mount("/static", StaticFiles(directory=static_dir), name="static")
+
+
+mount_static()
+
+
 def mount_routes():
     """Mount all routers. Called after all route modules are defined."""
     from app.routes import (

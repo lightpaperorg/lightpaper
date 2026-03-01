@@ -110,6 +110,9 @@ def render_markdown(content: str) -> str:
     )
     # Strip javascript: from style attributes (nh3 doesn't sanitize CSS values)
     cleaned = _STYLE_JS_RE.sub("", cleaned)
+    # Wrap tables in scroll container for mobile
+    cleaned = cleaned.replace("<table>", '<div class="table-wrapper"><table>')
+    cleaned = cleaned.replace("</table>", "</table></div>")
     return cleaned
 
 

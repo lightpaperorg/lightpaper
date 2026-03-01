@@ -10,22 +10,32 @@
     {% if quality_score is not none and quality_score < 40 %}<meta name="robots" content="noindex">{% endif %}
     <link rel="canonical" href="{{ permanent_url }}">
 
+    <!-- Favicon & Icons -->
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/static/favicon-16x16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/static/apple-touch-icon.png">
+    <meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#111827" media="(prefers-color-scheme: dark)">
+
     <!-- Open Graph -->
     <meta property="og:type" content="article">
     <meta property="og:title" content="{{ title }}">
-    {% if subtitle %}<meta property="og:description" content="{{ subtitle }}">{% endif %}
+    <meta property="og:description" content="{{ subtitle or title }}">
     <meta property="og:url" content="{{ permanent_url }}">
     <meta property="og:site_name" content="lightpaper.org">
     <meta property="og:image" content="{{ og_image_url }}">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="{{ title }}">
     <meta property="article:published_time" content="{{ created_at }}">
 
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="{{ title }}">
-    {% if subtitle %}<meta name="twitter:description" content="{{ subtitle }}">{% endif %}
+    <meta name="twitter:description" content="{{ subtitle or title }}">
     <meta name="twitter:image" content="{{ og_image_url }}">
+    <meta name="twitter:image:alt" content="{{ title }}">
 
     <!-- JSON-LD (all values escaped via |tojson to prevent injection) -->
     <script type="application/ld+json">
@@ -324,6 +334,29 @@
             padding: 1rem 1.5rem;
             border-radius: 0 6px 6px 0;
             font-style: normal;
+        }
+
+        /* Tables: horizontal scroll on narrow screens */
+        article .table-wrapper {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            margin-bottom: 1.5em;
+        }
+        article .table-wrapper table {
+            margin-bottom: 0;
+        }
+
+        /* Mobile refinements */
+        @media (max-width: 640px) {
+            body { font-size: 17px; }
+            .container { padding: 2rem 1.25rem; }
+            .article-header h1 { font-size: 1.75em; }
+            .quality-badge, .gravity-badge, .format-badge {
+                padding: 3px 10px;
+                font-size: 13px;
+            }
+            article table { font-size: 14px; }
+            article pre { font-size: 13px; }
         }
     </style>
 </head>
