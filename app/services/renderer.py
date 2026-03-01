@@ -95,16 +95,22 @@ footnote_plugin(md)
 tasklists_plugin(md)
 
 
+_STYLE_JS_RE = re.compile(r"javascript\s*:", re.IGNORECASE)
+
+
 def render_markdown(content: str) -> str:
     """Render markdown content to HTML, sanitized against XSS."""
     raw_html = md.render(content)
-    return nh3.clean(
+    cleaned = nh3.clean(
         raw_html,
         tags=ALLOWED_TAGS,
         attributes=ALLOWED_ATTRIBUTES,
         url_schemes={"http", "https", "mailto"},
         link_rel="noopener noreferrer",
     )
+    # Strip javascript: from style attributes (nh3 doesn't sanitize CSS values)
+    cleaned = _STYLE_JS_RE.sub("", cleaned)
+    return cleaned
 
 
 def compute_content_hash(content: str) -> str:
