@@ -38,6 +38,7 @@ def generate_og_image(
     author_name: str | None = None,
     gravity_badges: list[str] | None = None,
     reading_time: int | None = None,
+    format: str | None = None,
 ) -> bytes:
     """Generate a 1200x630 monochrome OG image as PNG bytes."""
     img = Image.new("RGB", (WIDTH, HEIGHT), BG_COLOR)
@@ -66,6 +67,13 @@ def generate_og_image(
             width=2,
         )
         draw.text((WIDTH - 60 - sw - 10, 60), score_text, fill=BODY_COLOR, font=font_regular)
+
+    # Format badge (below quality score, top right)
+    if format and format != "markdown":
+        fmt_text = format.upper()
+        fmt_bbox = draw.textbbox((0, 0), fmt_text, font=font_small)
+        fmt_w = fmt_bbox[2] - fmt_bbox[0]
+        draw.text((WIDTH - 60 - fmt_w, 100), fmt_text, fill=SECONDARY_COLOR, font=font_small)
 
     # Title (word-wrapped)
     wrapped = textwrap.wrap(title, width=35)

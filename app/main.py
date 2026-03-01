@@ -21,13 +21,25 @@ app = FastAPI(
 # --- Security headers middleware ---
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    DOCS_PATHS = {"/v1/docs", "/v1/openapi.json", "/v1/redoc"}
+
     async def dispatch(self, request: Request, call_next):
         response: Response = await call_next(request)
-        response.headers["Content-Security-Policy"] = (
-            "default-src 'self'; script-src 'none'; "
-            "style-src 'self' 'unsafe-inline'; "
-            "img-src 'self' https:; frame-ancestors 'none'"
-        )
+        if request.url.path in self.DOCS_PATHS:
+            response.headers["Content-Security-Policy"] = (
+                "default-src 'self'; "
+                "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+                "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+                "img-src 'self' https: data:; "
+                "font-src 'self' https://cdn.jsdelivr.net; "
+                "frame-ancestors 'none'"
+            )
+        else:
+            response.headers["Content-Security-Policy"] = (
+                "default-src 'self'; script-src 'none'; "
+                "style-src 'self' 'unsafe-inline'; "
+                "img-src 'self' https:; frame-ancestors 'none'"
+            )
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
@@ -90,7 +102,7 @@ async def health():
 
 def mount_routes():
     """Mount all routers. Called after all route modules are defined."""
-    from app.routes import publish, documents, search, accounts, keys, verification, discovery, landing, reading, onboard, linkedin
+    from app.routes import publish, documents, search, accounts, keys, verification, discovery, landing, reading, onboard, linkedin, credentials, author
 
     app.include_router(publish.router)
     app.include_router(documents.router)
@@ -100,8 +112,11 @@ def mount_routes():
     app.include_router(verification.router)
     app.include_router(onboard.router)
     app.include_router(linkedin.router)
+    app.include_router(credentials.router)
     app.include_router(discovery.router)
     app.include_router(landing.router)
+    # Author profiles before catch-all
+    app.include_router(author.router)
     # Reading routes LAST — catch-all /{slug}
     app.include_router(reading.router)
 

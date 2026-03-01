@@ -12,7 +12,7 @@ from sqlalchemy import update
 
 from app.auth import AuthResult, require_account
 from app.database import get_db
-from app.models import Account, Document, DomainVerification
+from app.models import Account, Credential, Document, DomainVerification
 from app.rate_limit import limiter
 from app.schemas import (
     DomainVerifyRequest,
@@ -28,6 +28,10 @@ from app.services.gravity import (
     get_gravity_multiplier,
     get_next_level_instructions,
 )
+
+async def _load_credentials(account_id, db: AsyncSession) -> list:
+    result = await db.execute(select(Credential).where(Credential.account_id == account_id))
+    return result.scalars().all()
 
 router = APIRouter(prefix="/v1/account", tags=["verification"])
 
@@ -96,10 +100,12 @@ async def check_domain_verification(
                     verification.verified = True
                     auth.account.verified_domain = verification.domain
                     # Recompute gravity + propagate to documents
+                    creds = await _load_credentials(auth.account.id, db)
                     auth.account.gravity_level = compute_gravity_level(
                         auth.account.verified_domain,
                         auth.account.verified_linkedin,
                         auth.account.orcid_id,
+                        credentials=creds,
                     )
                     await db.execute(
                         update(Document)
@@ -182,10 +188,12 @@ async def verify_orcid(
 
     # Update account + propagate to documents
     auth.account.orcid_id = body.orcid_id
+    creds = await _load_credentials(auth.account.id, db)
     auth.account.gravity_level = compute_gravity_level(
         auth.account.verified_domain,
         auth.account.verified_linkedin,
         auth.account.orcid_id,
+        credentials=creds,
     )
     await db.execute(
         update(Document)
@@ -202,12 +210,16 @@ async def verify_orcid(
 
 
 @router.get("/gravity", response_model=GravityResponse)
-async def get_gravity(auth: AuthResult = Depends(require_account)):
+async def get_gravity(
+    auth: AuthResult = Depends(require_account),
+    db: AsyncSession = Depends(get_db),
+):
     account = auth.account
+    creds = await _load_credentials(account.id, db)
     level = account.gravity_level
     return GravityResponse(
         level=level,
-        badges=get_gravity_badges(account.verified_domain, account.verified_linkedin, account.orcid_id),
+        badges=get_gravity_badges(account.verified_domain, account.verified_linkedin, account.orcid_id, credentials=creds),
         next_level=get_next_level_instructions(level),
         multiplier=get_gravity_multiplier(level),
         featured_threshold=get_featured_threshold(level),

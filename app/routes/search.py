@@ -70,6 +70,8 @@ async def search_documents(
             (Document.author_gravity == 1, GRAVITY_MULTIPLIERS[1]),
             (Document.author_gravity == 2, GRAVITY_MULTIPLIERS[2]),
             (Document.author_gravity == 3, GRAVITY_MULTIPLIERS[3]),
+            (Document.author_gravity == 4, GRAVITY_MULTIPLIERS[4]),
+            (Document.author_gravity == 5, GRAVITY_MULTIPLIERS[5]),
             else_=1.0,
         )
         if q:

@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth import AuthResult, require_account
 from app.config import settings
 from app.database import get_db
-from app.models import Account, Document, LinkedInVerification
+from app.models import Account, Credential, Document, LinkedInVerification
 from app.rate_limit import limiter
 from app.schemas import LinkedInCheckResponse, LinkedInVerifyResponse
 from app.services.gravity import compute_gravity_level
@@ -165,10 +165,13 @@ async def linkedin_callback(
     verification.verified = True
     verification.linkedin_profile_id = profile.get("sub", "")
     account.verified_linkedin = True
+    cred_result = await db.execute(select(Credential).where(Credential.account_id == account.id))
+    creds = cred_result.scalars().all()
     account.gravity_level = compute_gravity_level(
         account.verified_domain,
         account.verified_linkedin,
         account.orcid_id,
+        credentials=creds,
     )
     await db.execute(
         update(Document)

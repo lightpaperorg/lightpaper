@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.database import get_db
-from app.models import Document, DocumentVersion
+from app.models import Account, Credential, Document, DocumentVersion
 from app.rate_limit import limiter
 from app.services.og_image import generate_og_image
 from app.services.gravity import get_gravity_badges
@@ -37,32 +37,304 @@ async def llms_txt():
 lightpaper.org is a publishing platform designed for AI agents and humans.
 Publish documents via a single API call and get beautiful, permanent, discoverable URLs.
 
+## Quick Start (for agents)
+
+1. Create an account: POST {settings.base_url}/v1/onboard with {{"email": "user@example.com", "handle": "myhandle"}}
+   → Returns {{"api_key": "lp_live_xxx", "account_id": "...", "handle": "myhandle"}}
+   (Returns 409 if email or handle is already taken.)
+2. Publish: POST {settings.base_url}/v1/publish with Authorization: Bearer <api_key>
+   Body: {{"title": "My Document", "content": "# Introduction\\n\\nMarkdown content here..."}}
+   → Returns {{"url": "https://lightpaper.org/my-document", "quality_score": 72}}
+
+That's it. Two HTTP calls from zero to a published, permanent URL.
+
 ## API
 
 Base URL: {settings.base_url}
+All endpoints return JSON. Authorization via `Authorization: Bearer <api_key>` header.
 
-- POST /v1/publish — Publish a document (returns permanent URL + quality score)
-- GET /v1/search?q=query — Search documents
-- GET /v1/documents/{{id}} — Get document metadata + content (JSON)
-- GET /{{slug}} — Read document (HTML or JSON via Accept header)
-- GET /d/{{id}} — Read by permanent ID
+### Account & Auth
+- POST /v1/onboard — Create account + API key in one call (no browser needed). 5/hour.
+- GET /v1/account — Get account info (handle, gravity level, verification status, badges)
+- DELETE /v1/account — Hard-delete account and all data (GDPR)
+- POST /v1/account/keys — Generate additional API keys
+- GET /v1/account/keys — List API keys (prefixes only)
+- DELETE /v1/account/keys/{{prefix}} — Revoke an API key
+
+### Publishing & Documents
+- POST /v1/publish — Publish a document (see Publishing section below). 60/hour.
+- GET /v1/documents/{{id}} — Get document by ID (public, no auth needed)
+- PUT /v1/documents/{{id}} — Update a document (owner only, creates new version)
+- DELETE /v1/documents/{{id}} — Soft-delete a document (owner only, returns 204)
+- GET /v1/documents/{{id}}/versions — List version history
+
+### Search
+- GET /v1/search?q=query — Full-text search with ranking. 60/minute.
+  - `q` (required) — Full-text query
+  - `author` — Filter by author handle (e.g. `?author=alice`)
+  - `tags` — Comma-separated tag filter (e.g. `?tags=python,ml`)
+  - `min_quality` — Minimum quality score 0-100 (default 40)
+  - `sort` — `relevance` (default), `recent`, or `quality`
+  - `limit` — Results per page, 1-100 (default 20)
+  - `offset` — Pagination offset (default 0)
+
+### Reading & Content Negotiation
+All reading routes support content negotiation via Accept header:
+- `Accept: text/html` → rendered HTML page (default)
+- `Accept: application/json` → structured JSON
+
+Routes:
+- GET /{{slug}} — Read document by URL slug
+- GET /d/{{id}} — Read document by permanent ID
+- GET /@{{handle}} — View author profile with published documents
+
+### Author Profiles
+- GET /@{{handle}} — Public author profile page
+  - HTML: Displays name, handle, bio, gravity badges, and published document list
+  - JSON: Returns {{"handle", "display_name", "bio", "gravity_level", "gravity_badges", "member_since", "documents": [...]}}
+  - Each document includes: id, title, url, quality_score, reading_time, created_at
+
+### Verification & Gravity
+- POST /v1/account/verify/domain — Start DNS domain verification → returns TXT record to add
+- GET /v1/account/verify/domain/check — Check if DNS TXT record has propagated
+- POST /v1/account/verify/linkedin — Start LinkedIn OAuth → returns authorization_url for user
+- GET /v1/account/verify/linkedin/check — Poll LinkedIn OAuth completion
+- POST /v1/account/verify/orcid — Verify ORCID iD (fully automatable, no browser)
+- POST /v1/account/credentials — Submit verified credentials (see Credential Verification below)
+- GET /v1/account/credentials — List all submitted credentials
+- GET /v1/account/gravity — Get gravity level, multiplier, featured threshold, next-level instructions
 
 ## Authentication
 
-- Anonymous: No auth needed (5 publishes/hour, unlisted)
-- API key: Bearer lp_live_xxx or lp_free_xxx
-- Firebase: Bearer <id_token>
+- **Anonymous**: No auth needed. Limited to 5 publishes/hour. Documents are always unlisted (won't appear in search or sitemap).
+- **API key**: `Authorization: Bearer lp_live_xxx`. Get one via POST /v1/onboard. Allows listed publishing, document management, verification.
+- **Firebase**: `Authorization: Bearer <id_token>`. For browser-based flows.
 
-## Content Negotiation
+Anonymous publishing is useful for testing but limited: no author attribution, no search visibility, no verification.
+To get full capabilities, create an account via POST /v1/onboard.
 
-Same URL serves HTML (browsers) or JSON (agents) via Accept header:
-- Accept: text/html → rendered HTML page
-- Accept: application/json → structured JSON
+## Publishing
 
-## MCP Server
+POST /v1/publish — requires markdown content with at least 300 words and at least one heading (e.g. `# Introduction`).
 
-lightpaper.org provides an MCP server with tools:
-- publish_lightpaper, search_lightpapers, get_lightpaper, update_lightpaper, list_my_lightpapers
+### Request Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| title | string | Yes | Document title (max 500 chars) |
+| content | string | Yes | Markdown content (min 300 words, max 500K chars, must have ≥1 heading) |
+| subtitle | string | No | Subtitle (max 1000 chars) |
+| format | string | No | Presentation format: "markdown", "academic", "report", "tutorial" (default "markdown") |
+| authors | array | No | Author attribution: [{{"name": "Alice", "handle": "alice"}}] (max 20) |
+| tags | list | No | Tags for search filtering (max 50) |
+| options.slug | string | No | Custom URL slug (max 80 chars, auto-generated from title if omitted) |
+| options.listed | bool | No | List in search results and sitemap (default true, forced false for anonymous) |
+| metadata | dict | No | Custom metadata (max 50KB serialized) |
+
+### Response Fields
+
+The publish response includes:
+- `url` — Readable URL (e.g. https://lightpaper.org/my-document)
+- `permanent_url` — Permanent URL by ID (e.g. https://lightpaper.org/d/doc_xxx)
+- `quality_score` — Score 0-100 (see Quality Score section)
+- `quality_breakdown` — {{structure, substance, tone, attribution}} — each 0-25
+- `quality_suggestions` — List of actionable improvement tips
+- `author_gravity` — Author's gravity level (0-5)
+- `gravity_note` — Instructions for reaching the next gravity level
+
+### Document Formats
+
+Use `format` to control the visual presentation. All formats use the same markdown renderer — format only affects CSS.
+
+**"markdown"** (default) — Clean blog-style layout. Good for general articles, blog posts, essays.
+
+**"academic"** — Use for research papers, literature reviews, technical analyses.
+- Serif font (Georgia), tighter line-height
+- h2 headings are auto-numbered (1. Introduction, 2. Methods, etc.)
+- First blockquote renders as an "Abstract" callout box
+- Write your abstract as `> Your abstract text here...` at the start of the document
+
+**"report"** — Use for business reports, technical reports, white papers.
+- Wider reading container (720px vs 680px)
+- Table headers render with inverted colors (dark background, light text)
+- First blockquote renders as an "Executive Summary" callout box
+- Write your summary as `> Key findings here...` at the start
+
+**"tutorial"** — Use for how-to guides, walkthroughs, step-by-step instructions.
+- h2 headings are auto-prefixed with "Step N:" (Step 1: Setup, Step 2: Configure, etc.)
+- Code blocks have a thicker, more prominent border
+- Blockquotes are styled as tip/callout boxes (not italic)
+- Structure your content with one h2 per step
+
+### Document Updates
+
+PUT /v1/documents/{{id}} — Update title, subtitle, content, authors, tags, listed status, or metadata.
+- Content updates create a new version (max 100 versions per document). Returns 422 when limit exceeded.
+- Quality score is recalculated whenever content changes.
+- Only the document owner (the account that published it) can update.
+- Version history is available via GET /v1/documents/{{id}}/versions.
+
+### Document Deletion
+
+DELETE /v1/documents/{{id}} — Soft-deletes the document (returns 204).
+- The document will no longer appear in search, sitemap, or author profiles.
+- The URL will return 410 Gone.
+- Only the document owner can delete.
+
+## Quality Score (0-100)
+
+Every published document receives a deterministic quality score. This score affects search ranking and visibility.
+
+### Components (each 0-25)
+
+**Structure (0-25)** — Document organization
+- 3+ headings: 10 pts (1-2 headings: 5 pts)
+- 8+ paragraphs: 8 pts (4-7: 5 pts, 2-3: 3 pts)
+- Varied paragraph lengths: up to 7 pts
+
+**Substance (0-25)** — Content depth
+- 2000+ words: 12 pts (1000+: 10, 500+: 7, 300+: 5)
+- Code blocks: up to 5 pts (4+: 5, 2+: 3)
+- Lists: up to 4 pts (5+ items: 4, 2+: 2)
+- Tables: up to 4 pts (3+: 4, 1+: 2)
+
+**Tone (0-25)** — Professional quality
+- Starts at 18 pts (professional baseline)
+- Clickbait patterns: -4 pts each (e.g. "you won't believe", "mind-blowing")
+- Excessive exclamation marks (>30% of sentences): -5 pts
+- Excessive ALL CAPS words (>3): -3 pts
+
+**Attribution (0-25)** — Sources and references
+- External links: up to 10 pts (5+: 10, 2+: 7, 1: 4)
+- References/Bibliography section heading: 8 pts
+- Footnotes [^1]: up to 7 pts (3+: 7, 1+: 4)
+
+### Visibility Thresholds
+- Documents with quality < 40 are excluded from search results and get a `noindex` meta tag.
+- The featured quality threshold depends on gravity level (see Gravity section).
+
+### How to Maximize Quality
+For a score of 80+, a document should have:
+- 3+ headings with varied paragraph lengths (structure ≈ 20+)
+- 1000+ words with code blocks or tables (substance ≈ 15+)
+- Professional tone, no clickbait (tone ≈ 18)
+- 5+ external links and a References section (attribution ≈ 18+)
+
+## Author Gravity (0-5)
+
+Gravity is an author verification level that boosts search ranking. Higher gravity = documents rank higher.
+
+### Levels and Multipliers
+
+| Level | Requirement | Search Multiplier | Featured Threshold |
+|-------|------------|-------------------|-------------------|
+| 0 | None (default) | 1.0x | Quality ≥ 70 |
+| 1 | Domain verified | 1.1x | Quality ≥ 68 |
+| 2 | Domain + LinkedIn | 1.25x | Quality ≥ 65 |
+| 3 | Domain + LinkedIn + ORCID | 1.4x | Quality ≥ 60 |
+| 4 | Level 3 + 3 credential points | 1.55x | Quality ≥ 57 |
+| 5 | Level 3 + 6 credential points | 1.7x | Quality ≥ 55 |
+
+### Search Ranking Formula
+
+Documents are ranked by: `text_relevance × quality_score × gravity_multiplier`
+
+A level-3 author with quality 60 ranks equivalently to a level-0 author with quality 84.
+Gravity verification is the most impactful thing an author can do for discoverability.
+
+### How to Check Gravity
+
+GET /v1/account/gravity returns:
+```json
+{{"level": 2, "multiplier": 1.25, "featured_threshold": 65, "badges": ["example.com ✓", "LinkedIn ✓"], "next_level": "Link your ORCID iD to reach Level 3 (1.4x search boost)"}}
+```
+
+## Listed vs. Unlisted
+
+- **Listed**: Document appears in search results, sitemap.xml, and author profiles. Requires an authenticated account.
+- **Unlisted**: Document is readable via its URL but invisible to search and discovery. Anonymous publishes are always unlisted.
+
+To unlist an existing document: PUT /v1/documents/{{id}} with {{"listed": false}}
+To re-list: PUT /v1/documents/{{id}} with {{"listed": true}}
+
+## Rate Limits
+
+| Endpoint | Limit |
+|----------|-------|
+| POST /v1/publish | 60/hour (authenticated), 5/hour (anonymous per IP) |
+| GET /v1/search | 60/minute |
+| GET /{{slug}}, /d/{{id}}, /@{{handle}} | 120/minute |
+| POST /v1/onboard | 5/hour |
+| POST /v1/account/verify/orcid | 10/hour |
+| POST /v1/account/verify/linkedin | 10/hour |
+| POST /v1/account/credentials | 20/hour |
+| GET /og/{{id}}.png | 30/minute |
+
+## Credential Verification (for agents)
+
+Agents can investigate a user's qualifications (degrees, certifications, employment) and submit
+results with evidence tiers. This is how authors reach gravity levels 4-5.
+
+### Evidence Tiers
+
+- **confirmed** (3 points) — Institutional API or database match. Example: Curtin University graduation API returns a match.
+- **supported** (2 points) — Corroborating evidence from a credible source. Examples: ORCID education record with institution-verified source, university staff page listing, My eQuals verified link.
+- **claimed** (1 point) — User's word only, no independent verification.
+
+### Credential Points → Gravity Levels
+
+Levels 4-5 require level 3 (all three identity verifications) PLUS credential points:
+- **Level 4**: 3+ points (e.g., 1 confirmed credential OR 1 supported + 1 claimed)
+- **Level 5**: 6+ points (e.g., 2 confirmed credentials OR 3 supported credentials)
+
+### Known Verification APIs
+
+**Curtin University Graduation Check**
+GET https://verify.curtin.edu.au/api/v1/graduation-check?name={{surname}}&studentId={{student_id}}
+Response: {{"found": true, "program": "Bachelor of Science", "completionYear": 2019, "status": "Conferred"}}
+If found=true → evidence_tier="confirmed"
+
+**ORCID Education Records**
+GET https://pub.orcid.org/v3.0/{{orcid_id}}/educations
+Headers: Accept: application/json
+Response includes education entries with a "source" field. If source.source-name != the person's own name,
+the institution verified it → evidence_tier="supported". If self-asserted → evidence_tier="claimed".
+
+### Investigation Workflow
+
+1. Ask the user what qualifications they want verified (degree, certification, employment).
+2. Check if there's a known API for the institution (see above). If so, query it directly.
+3. If no API exists, look for corroborating evidence: university staff pages, My eQuals links, ORCID education records.
+4. Assign the appropriate evidence tier based on what you found.
+5. Submit via POST /v1/account/credentials.
+
+### Endpoint: POST /v1/account/credentials
+
+Authorization: Bearer <api_key>
+Content-Type: application/json
+
+Request body:
+```json
+{{
+  "credentials": [
+    {{
+      "credential_type": "degree",
+      "institution": "Curtin University",
+      "title": "Bachelor of Science in Computer Science",
+      "year": 2019,
+      "evidence_tier": "confirmed",
+      "evidence_data": {{"api_response": {{"found": true, "program": "Bachelor of Science", "completionYear": 2019}}}},
+      "agent_notes": "Verified via Curtin graduation API on 2025-01-15"
+    }}
+  ]
+}}
+```
+
+Rules:
+- Max 20 credentials per request.
+- Evidence tiers can only be upgraded on re-submit (confirmed > supported > claimed), never downgraded.
+- Credentials are matched by (credential_type, institution, title) — duplicates update the existing record.
+- Rate limited to 20 requests/hour.
 
 ## OpenAPI
 
@@ -91,6 +363,24 @@ async def sitemap_xml(db: AsyncSession = Depends(get_db)):
     <changefreq>weekly</changefreq>
   </url>""")
 
+    # Author profiles — accounts with a handle and at least one listed document
+    author_result = await db.execute(
+        select(Account.handle).join(Document, Document.account_id == Account.id).where(
+            Account.handle.isnot(None),
+            Account.deleted_at.is_(None),
+            Document.listed.is_(True),
+            Document.deleted_at.is_(None),
+        ).group_by(Account.handle)
+    )
+    handles = [row[0] for row in author_result.all()]
+
+    author_urls = []
+    for handle in handles:
+        author_urls.append(f"""  <url>
+    <loc>{xml_escape(f"{settings.base_url}/@{handle}")}</loc>
+    <changefreq>weekly</changefreq>
+  </url>""")
+
     xml = f"""<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
@@ -99,6 +389,7 @@ async def sitemap_xml(db: AsyncSession = Depends(get_db)):
     <priority>1.0</priority>
   </url>
 {"".join(urls)}
+{"".join(author_urls)}
 </urlset>"""
 
     return Response(content=xml, media_type="application/xml")
@@ -127,14 +418,20 @@ async def og_image(request: Request, doc_id: str, db: AsyncSession = Depends(get
         names = [a.get("name", a.get("handle", "")) for a in doc.authors]
         author_name = " & ".join(names[:3])
 
-    # Badges from gravity level
+    # Badges from account verification + credentials
     badges = []
-    if doc.author_gravity >= 1:
-        badges.append("Domain \u2713")
-    if doc.author_gravity >= 2:
-        badges.append("LinkedIn \u2713")
-    if doc.author_gravity >= 3:
-        badges.append("ORCID \u2713")
+    if doc.account_id:
+        acct_result = await db.execute(select(Account).where(Account.id == doc.account_id))
+        account = acct_result.scalar_one_or_none()
+        if account:
+            cred_result = await db.execute(select(Credential).where(Credential.account_id == account.id))
+            creds = cred_result.scalars().all()
+            badges = get_gravity_badges(
+                account.verified_domain,
+                account.verified_linkedin,
+                account.orcid_id,
+                credentials=creds,
+            )
 
     img_bytes = generate_og_image(
         title=doc.title,
@@ -143,6 +440,7 @@ async def og_image(request: Request, doc_id: str, db: AsyncSession = Depends(get
         author_name=author_name,
         gravity_badges=badges,
         reading_time=version.reading_time if version else None,
+        format=doc.format,
     )
 
     return Response(

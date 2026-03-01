@@ -34,6 +34,7 @@ class Account(Base):
 
     api_keys = relationship("ApiKey", back_populates="account", cascade="all, delete-orphan")
     documents = relationship("Document", back_populates="account")
+    credentials = relationship("Credential", back_populates="account", cascade="all, delete-orphan")
 
 
 class ApiKey(Base):
@@ -121,6 +122,24 @@ class DomainVerification(Base):
     txt_token = Column(Text, nullable=False)
     verified = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=text("NOW()"))
+
+
+class Credential(Base):
+    __tablename__ = "credentials"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    account_id = Column(UUID(as_uuid=True), ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False)
+    credential_type = Column(Text, nullable=False)  # degree, certification, employment
+    institution = Column(Text, nullable=False)
+    title = Column(Text, nullable=False)
+    year = Column(Integer)
+    evidence_tier = Column(Text, nullable=False, default="claimed")  # confirmed, supported, claimed
+    evidence_data = Column(JSONB, default=dict)
+    agent_notes = Column(Text)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=text("NOW()"))
+    updated_at = Column(DateTime(timezone=True), nullable=False, server_default=text("NOW()"))
+
+    account = relationship("Account", back_populates="credentials")
 
 
 class LinkedInVerification(Base):

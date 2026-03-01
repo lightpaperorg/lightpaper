@@ -1,4 +1,4 @@
-"""lightpaper.org MCP server — 9 tools, stdio transport."""
+"""lightpaper.org MCP server — 14 tools, stdio transport."""
 
 import json
 import os
@@ -29,20 +29,55 @@ def _headers(api_key: str | None = None) -> dict:
     return headers
 
 
+def _json_headers(api_key: str | None = None) -> dict:
+    """Headers for endpoints that use content negotiation (Accept: application/json)."""
+    h = _headers(api_key)
+    h["Accept"] = "application/json"
+    return h
+
+
 @server.list_tools()
 async def list_tools() -> list[Tool]:
     return [
         Tool(
             name="publish_lightpaper",
-            description="Publish a document to lightpaper.org. Returns a permanent URL and quality score.",
+            description=(
+                "Publish a document to lightpaper.org. Returns a permanent URL, quality score (0-100), "
+                "and quality suggestions. Content must be markdown with at least 300 words and one heading."
+            ),
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "title": {"type": "string", "description": "Document title"},
-                    "content": {"type": "string", "description": "Markdown content (min 300 words)"},
-                    "subtitle": {"type": "string", "description": "Optional subtitle"},
-                    "tags": {"type": "array", "items": {"type": "string"}, "description": "Tags"},
-                    "listed": {"type": "boolean", "default": True, "description": "Whether to list in search"},
+                    "title": {"type": "string", "description": "Document title (max 500 chars)"},
+                    "content": {"type": "string", "description": "Markdown content (min 300 words, must include at least one # heading)"},
+                    "subtitle": {"type": "string", "description": "Optional subtitle (max 1000 chars)"},
+                    "format": {
+                        "type": "string",
+                        "enum": ["markdown", "academic", "report", "tutorial"],
+                        "default": "markdown",
+                        "description": (
+                            "Presentation format. 'markdown': default blog style. "
+                            "'academic': use for research papers, literature reviews — serif font, auto-numbered h2 headings, first blockquote renders as Abstract callout. "
+                            "'report': use for business/technical reports — wider layout, inverted table headers, first blockquote renders as Executive Summary callout. "
+                            "'tutorial': use for how-to guides, walkthroughs — h2 headings auto-prefixed 'Step N:', prominent code blocks, blockquotes styled as tip callouts."
+                        ),
+                    },
+                    "authors": {
+                        "type": "array",
+                        "maxItems": 20,
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "name": {"type": "string", "description": "Author display name"},
+                                "handle": {"type": "string", "description": "Author handle (links to /@handle profile)"},
+                            },
+                            "required": ["name"],
+                        },
+                        "description": "Author attribution. If omitted, the publishing account is not credited by name.",
+                    },
+                    "slug": {"type": "string", "description": "Custom URL slug (max 80 chars). Auto-generated from title if omitted."},
+                    "tags": {"type": "array", "items": {"type": "string"}, "description": "Tags for search filtering (max 50)"},
+                    "listed": {"type": "boolean", "default": True, "description": "If true, document appears in search results and sitemap. Anonymous publishes are always unlisted."},
                     **API_KEY_PARAM,
                 },
                 "required": ["title", "content"],
@@ -50,13 +85,17 @@ async def list_tools() -> list[Tool]:
         ),
         Tool(
             name="search_lightpapers",
-            description="Search published documents on lightpaper.org.",
+            description="Search published documents on lightpaper.org. Returns titles, URLs, authors, quality scores.",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "query": {"type": "string", "description": "Search query"},
-                    "tags": {"type": "string", "description": "Comma-separated tags"},
-                    "limit": {"type": "integer", "default": 10},
+                    "query": {"type": "string", "description": "Full-text search query"},
+                    "author": {"type": "string", "description": "Filter by author handle (e.g. 'alice')"},
+                    "tags": {"type": "string", "description": "Comma-separated tag filter (e.g. 'python,ml')"},
+                    "min_quality": {"type": "integer", "default": 40, "description": "Minimum quality score 0-100 (default 40)"},
+                    "sort": {"type": "string", "enum": ["relevance", "recent", "quality"], "default": "relevance", "description": "Sort order"},
+                    "limit": {"type": "integer", "default": 20, "description": "Results per page (1-100)"},
+                    "offset": {"type": "integer", "default": 0, "description": "Pagination offset"},
                     **API_KEY_PARAM,
                 },
                 "required": ["query"],
@@ -64,7 +103,7 @@ async def list_tools() -> list[Tool]:
         ),
         Tool(
             name="get_lightpaper",
-            description="Get a document by ID from lightpaper.org.",
+            description="Get a document by ID from lightpaper.org. Returns full content, metadata, quality score, and author info.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -76,15 +115,44 @@ async def list_tools() -> list[Tool]:
         ),
         Tool(
             name="update_lightpaper",
-            description="Update an existing document on lightpaper.org.",
+            description=(
+                "Update an existing document. Only the document owner can update. "
+                "Content updates create a new version (max 100 versions). Quality score is recalculated on content change."
+            ),
             inputSchema={
                 "type": "object",
                 "properties": {
                     "id": {"type": "string", "description": "Document ID"},
-                    "title": {"type": "string"},
-                    "content": {"type": "string"},
-                    "subtitle": {"type": "string"},
-                    "tags": {"type": "array", "items": {"type": "string"}},
+                    "title": {"type": "string", "description": "New title"},
+                    "subtitle": {"type": "string", "description": "New subtitle"},
+                    "content": {"type": "string", "description": "New markdown content (creates a new version)"},
+                    "authors": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "name": {"type": "string"},
+                                "handle": {"type": "string"},
+                            },
+                            "required": ["name"],
+                        },
+                        "description": "Replace author list",
+                    },
+                    "tags": {"type": "array", "items": {"type": "string"}, "description": "Replace tags"},
+                    "listed": {"type": "boolean", "description": "Set to false to remove from search results and sitemap"},
+                    "metadata": {"type": "object", "description": "Replace custom metadata"},
+                    **API_KEY_PARAM,
+                },
+                "required": ["id"],
+            },
+        ),
+        Tool(
+            name="delete_lightpaper",
+            description="Delete a document (soft-delete). Only the document owner can delete. Returns 204 on success.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "id": {"type": "string", "description": "Document ID to delete"},
                     **API_KEY_PARAM,
                 },
                 "required": ["id"],
@@ -92,31 +160,90 @@ async def list_tools() -> list[Tool]:
         ),
         Tool(
             name="list_my_lightpapers",
-            description="List all documents published by the authenticated account.",
+            description="List all documents published by the authenticated account. Returns id, title, slug, quality_score, listed status, URLs, and timestamps.",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "limit": {"type": "integer", "default": 20},
+                    **API_KEY_PARAM,
+                },
+            },
+        ),
+        Tool(
+            name="get_account_info",
+            description="Get the authenticated account's info: handle, display name, email, gravity level, verification badges, and tier.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    **API_KEY_PARAM,
+                },
+            },
+        ),
+        Tool(
+            name="get_gravity_info",
+            description=(
+                "Get the authenticated account's gravity level details: current level (0-5), search ranking multiplier, "
+                "featured quality threshold, verification badges, and instructions for reaching the next level."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    **API_KEY_PARAM,
+                },
+            },
+        ),
+        Tool(
+            name="get_author_profile",
+            description="Get a public author profile by handle. Returns display name, bio, gravity level, badges, and their published documents.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "handle": {"type": "string", "description": "Author handle (without @)"},
+                },
+                "required": ["handle"],
+            },
+        ),
+        Tool(
+            name="get_document_versions",
+            description="List version history for a document. Each version has a content hash, word count, reading time, and timestamp.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "id": {"type": "string", "description": "Document ID"},
+                    **API_KEY_PARAM,
+                },
+                "required": ["id"],
+            },
+        ),
+        Tool(
+            name="list_credentials",
+            description="List all verified credentials submitted for the authenticated account.",
+            inputSchema={
+                "type": "object",
+                "properties": {
                     **API_KEY_PARAM,
                 },
             },
         ),
         Tool(
             name="onboard_pilot",
-            description="Create a lightpaper account for a pilot (human user). Returns an API key. No browser needed. Use the returned api_key in subsequent calls to act as that account.",
+            description=(
+                "Create a lightpaper account for a pilot (human user). Returns an API key. No browser needed. "
+                "Use the returned api_key in subsequent calls to act as that account. "
+                "Returns 409 if email or handle is already taken."
+            ),
             inputSchema={
                 "type": "object",
                 "properties": {
                     "email": {"type": "string", "description": "Pilot's email address"},
                     "display_name": {"type": "string", "description": "Pilot's display name"},
-                    "handle": {"type": "string", "description": "Unique handle (e.g. 'alice')"},
+                    "handle": {"type": "string", "description": "Unique handle (e.g. 'alice'). Used in author profiles at /@handle."},
                 },
                 "required": ["email"],
             },
         ),
         Tool(
             name="verify_domain",
-            description="Start or check domain DNS verification. Call with domain to start, call without to check status.",
+            description="Start or check domain DNS verification. Call with domain to start (returns TXT record to add), call without to check status.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -127,7 +254,7 @@ async def list_tools() -> list[Tool]:
         ),
         Tool(
             name="verify_linkedin",
-            description="Start or check LinkedIn verification. Call with action='start' to get OAuth URL, action='check' to poll status.",
+            description="Start or check LinkedIn verification. Call with action='start' to get OAuth URL (user must open in browser), action='check' to poll completion.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -139,7 +266,7 @@ async def list_tools() -> list[Tool]:
         ),
         Tool(
             name="verify_orcid",
-            description="Verify an ORCID iD. Validates against the public ORCID API. Fully automatable.",
+            description="Verify an ORCID iD. Validates against the public ORCID API. Fully automatable — no browser needed.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -147,6 +274,39 @@ async def list_tools() -> list[Tool]:
                     **API_KEY_PARAM,
                 },
                 "required": ["orcid_id"],
+            },
+        ),
+        Tool(
+            name="verify_credentials",
+            description=(
+                "Submit verified credentials (degrees, certifications, employment) for an account. "
+                "Evidence tiers: 'confirmed' (3pts, institutional API match), 'supported' (2pts, corroborating evidence), "
+                "'claimed' (1pt, user's word). Reaching 3+ points with level 3 base grants level 4; 6+ points grants level 5. "
+                "Tiers can only be upgraded, never downgraded on re-submit."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "credentials": {
+                        "type": "array",
+                        "maxItems": 20,
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "credential_type": {"type": "string", "enum": ["degree", "certification", "employment"]},
+                                "institution": {"type": "string", "description": "Institution name (e.g. 'Curtin University')"},
+                                "title": {"type": "string", "description": "Credential title (e.g. 'Bachelor of Science in Computer Science')"},
+                                "year": {"type": "integer", "description": "Year awarded/completed"},
+                                "evidence_tier": {"type": "string", "enum": ["confirmed", "supported", "claimed"]},
+                                "evidence_data": {"type": "object", "description": "API responses, URLs, or other verification data"},
+                                "agent_notes": {"type": "string", "description": "How you verified this credential"},
+                            },
+                            "required": ["credential_type", "institution", "title", "evidence_tier"],
+                        },
+                    },
+                    **API_KEY_PARAM,
+                },
+                "required": ["credentials"],
             },
         ),
     ]
@@ -166,8 +326,14 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                 "metadata": {},
                 "options": {"listed": arguments.get("listed", True)},
             }
+            if arguments.get("format"):
+                payload["format"] = arguments["format"]
             if arguments.get("subtitle"):
                 payload["subtitle"] = arguments["subtitle"]
+            if arguments.get("authors"):
+                payload["authors"] = arguments["authors"]
+            if arguments.get("slug"):
+                payload["options"]["slug"] = arguments["slug"]
             if arguments.get("tags"):
                 payload["metadata"]["tags"] = arguments["tags"]
 
@@ -175,16 +341,22 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             return [TextContent(type="text", text=resp.text)]
 
         elif name == "search_lightpapers":
-            params = {"q": arguments["query"], "limit": arguments.get("limit", 10)}
+            params = {"q": arguments["query"], "limit": arguments.get("limit", 20)}
+            if arguments.get("author"):
+                params["author"] = arguments["author"]
             if arguments.get("tags"):
                 params["tags"] = arguments["tags"]
+            if arguments.get("min_quality") is not None:
+                params["min_quality"] = arguments["min_quality"]
+            if arguments.get("sort"):
+                params["sort"] = arguments["sort"]
+            if arguments.get("offset"):
+                params["offset"] = arguments["offset"]
             resp = await client.get("/v1/search", params=params)
             return [TextContent(type="text", text=resp.text)]
 
         elif name == "get_lightpaper":
-            resp = await client.get(
-                f"/v1/documents/{arguments['id']}",
-            )
+            resp = await client.get(f"/v1/documents/{arguments['id']}")
             return [TextContent(type="text", text=resp.text)]
 
         elif name == "update_lightpaper":
@@ -193,9 +365,36 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             resp = await client.put(f"/v1/documents/{doc_id}", json=payload)
             return [TextContent(type="text", text=resp.text)]
 
+        elif name == "delete_lightpaper":
+            resp = await client.delete(f"/v1/documents/{arguments['id']}")
+            if resp.status_code == 204:
+                return [TextContent(type="text", text='{"deleted": true}')]
+            return [TextContent(type="text", text=resp.text)]
+
         elif name == "list_my_lightpapers":
-            params = {"limit": arguments.get("limit", 20)}
-            resp = await client.get("/v1/account/documents", params=params)
+            resp = await client.get("/v1/account/documents")
+            return [TextContent(type="text", text=resp.text)]
+
+        elif name == "get_account_info":
+            resp = await client.get("/v1/account")
+            return [TextContent(type="text", text=resp.text)]
+
+        elif name == "get_gravity_info":
+            resp = await client.get("/v1/account/gravity")
+            return [TextContent(type="text", text=resp.text)]
+
+        elif name == "get_author_profile":
+            handle = arguments["handle"]
+            json_headers = _json_headers(api_key)
+            resp = await client.get(f"/@{handle}", headers=json_headers)
+            return [TextContent(type="text", text=resp.text)]
+
+        elif name == "get_document_versions":
+            resp = await client.get(f"/v1/documents/{arguments['id']}/versions")
+            return [TextContent(type="text", text=resp.text)]
+
+        elif name == "list_credentials":
+            resp = await client.get("/v1/account/credentials")
             return [TextContent(type="text", text=resp.text)]
 
         elif name == "onboard_pilot":
@@ -230,6 +429,11 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                 "/v1/account/verify/orcid",
                 json={"orcid_id": arguments["orcid_id"]},
             )
+            return [TextContent(type="text", text=resp.text)]
+
+        elif name == "verify_credentials":
+            payload = {"credentials": arguments["credentials"]}
+            resp = await client.post("/v1/account/credentials", json=payload)
             return [TextContent(type="text", text=resp.text)]
 
         return [TextContent(type="text", text=f"Unknown tool: {name}")]

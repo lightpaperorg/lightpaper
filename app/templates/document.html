@@ -242,9 +242,92 @@
             font-size: 12px;
             word-break: break-all;
         }
+        .format-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            background: var(--code-bg);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: 12px;
+            text-transform: capitalize;
+        }
+
+        /* --- Format: academic --- */
+        .format-academic {
+            font-family: Georgia, 'Times New Roman', Times, serif;
+            line-height: 1.65;
+        }
+        .format-academic article { counter-reset: h2-counter; }
+        .format-academic article h2 { counter-increment: h2-counter; }
+        .format-academic article h2::before {
+            content: counter(h2-counter) ". ";
+            font-weight: 600;
+        }
+        .format-academic article > blockquote:first-child {
+            border-left: 3px solid var(--heading);
+            background: var(--code-bg);
+            padding: 1.25rem 1.5rem;
+            border-radius: 0 6px 6px 0;
+            font-style: normal;
+            color: var(--body);
+        }
+        .format-academic article > blockquote:first-child::before {
+            content: "Abstract";
+            display: block;
+            font-weight: 700;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--heading);
+            margin-bottom: 0.5rem;
+        }
+
+        /* --- Format: report --- */
+        .format-report .container { max-width: 720px; }
+        .format-report article th {
+            background: var(--heading);
+            color: var(--bg);
+        }
+        .format-report article > blockquote:first-child {
+            border-left: 3px solid var(--heading);
+            background: var(--code-bg);
+            padding: 1.25rem 1.5rem;
+            border-radius: 0 6px 6px 0;
+            font-style: normal;
+            color: var(--body);
+        }
+        .format-report article > blockquote:first-child::before {
+            content: "Executive Summary";
+            display: block;
+            font-weight: 700;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--heading);
+            margin-bottom: 0.5rem;
+        }
+
+        /* --- Format: tutorial --- */
+        .format-tutorial article { counter-reset: step-counter; }
+        .format-tutorial article h2 { counter-increment: step-counter; }
+        .format-tutorial article h2::before {
+            content: "Step " counter(step-counter) ": ";
+            font-weight: 600;
+        }
+        .format-tutorial article pre {
+            border-width: 2px;
+            border-color: var(--heading);
+        }
+        .format-tutorial article blockquote {
+            border-left: 3px solid var(--heading);
+            background: var(--code-bg);
+            padding: 1rem 1.5rem;
+            border-radius: 0 6px 6px 0;
+            font-style: normal;
+        }
     </style>
 </head>
-<body>
+<body class="format-{{ format }}">
     <div class="container">
         <nav class="site-header">
             <a href="/">lightpaper.org</a>
@@ -256,7 +339,7 @@
             <div class="article-meta">
                 {% if authors %}
                     {% for a in authors %}
-                        <span>{% if a.handle %}@{{ a.handle }}{% else %}{{ a.name }}{% endif %}</span>
+                        <span>{% if a.handle %}<a href="/@{{ a.handle }}" style="color: var(--secondary); text-decoration: none;">@{{ a.handle }}</a>{% else %}{{ a.name }}{% endif %}</span>
                         {% if not loop.last %}<span class="sep">&amp;</span>{% endif %}
                     {% endfor %}
                     <span class="sep">&middot;</span>
@@ -270,6 +353,9 @@
                 {% for badge in gravity_badges %}
                     <span class="gravity-badge">{{ badge }}</span>
                 {% endfor %}
+                {% if format and format != "markdown" %}
+                    <span class="format-badge">{{ format }}</span>
+                {% endif %}
             </div>
         </header>
 

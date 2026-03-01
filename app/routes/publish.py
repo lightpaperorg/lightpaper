@@ -10,7 +10,7 @@ from app.auth import AuthResult, authenticate
 from app.config import settings
 from app.database import get_db
 from app.id_gen import generate_doc_id
-from app.models import AnonymousPublish, Document, DocumentVersion
+from app.models import AnonymousPublish, Credential, Document, DocumentVersion
 from app.schemas import PublishRequest, PublishResponse, QualityBreakdown
 from app.services.gravity import get_gravity_badges, get_next_level_instructions
 from app.services.quality import score_quality
@@ -151,10 +151,15 @@ async def publish_document(
     gravity_badges = []
     gravity_note = None
     if auth.account:
+        cred_result = await db.execute(
+            select(Credential).where(Credential.account_id == auth.account.id)
+        )
+        creds = cred_result.scalars().all()
         gravity_badges = get_gravity_badges(
             auth.account.verified_domain,
             auth.account.verified_linkedin,
             auth.account.orcid_id,
+            credentials=creds,
         )
         gravity_note = get_next_level_instructions(gravity_level)
     elif is_anonymous:

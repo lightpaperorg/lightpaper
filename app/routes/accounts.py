@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth import AuthResult, require_account, authenticate
 from app.config import settings
 from app.database import get_db
-from app.models import Account, Document
+from app.models import Account, Credential, Document
 from app.rate_limit import limiter
 from app.schemas import AccountCreateRequest, AccountResponse, AuthorInfo, DocumentResponse
 from app.services.gravity import get_gravity_badges
@@ -15,11 +15,12 @@ from app.services.gravity import get_gravity_badges
 router = APIRouter(prefix="/v1", tags=["accounts"])
 
 
-def _account_response(account: Account) -> AccountResponse:
+def _account_response(account: Account, credentials=None) -> AccountResponse:
     badges = get_gravity_badges(
         account.verified_domain,
         account.verified_linkedin,
         account.orcid_id,
+        credentials=credentials,
     )
     return AccountResponse(
         id=str(account.id),
@@ -79,8 +80,13 @@ async def create_account(
 
 
 @router.get("/account", response_model=AccountResponse)
-async def get_account(auth: AuthResult = Depends(require_account)):
-    return _account_response(auth.account)
+async def get_account(
+    auth: AuthResult = Depends(require_account),
+    db: AsyncSession = Depends(get_db),
+):
+    cred_result = await db.execute(select(Credential).where(Credential.account_id == auth.account.id))
+    creds = cred_result.scalars().all()
+    return _account_response(auth.account, credentials=creds)
 
 
 @router.delete("/account", status_code=204)

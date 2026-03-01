@@ -1,6 +1,8 @@
 """Pydantic request/response schemas for lightpaper.org API."""
 
 from datetime import datetime
+from typing import Literal
+
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -21,7 +23,7 @@ class PublishRequest(BaseModel):
     title: str = Field(..., min_length=1, max_length=500)
     subtitle: str | None = Field(None, max_length=1000)
     content: str = Field(..., min_length=1, max_length=500_000)
-    format: str = "markdown"
+    format: Literal["markdown", "academic", "report", "tutorial"] = "markdown"
     authors: list[AuthorInfo] = Field(default_factory=list, max_length=20)
     metadata: dict = Field(default_factory=dict)
     options: PublishOptions = PublishOptions()
@@ -237,6 +239,49 @@ class OrcidVerifyResponse(BaseModel):
     verified: bool
     gravity_level: int
     orcid_name: str | None = None
+
+
+# --- Credentials ---
+
+class CredentialSubmission(BaseModel):
+    credential_type: Literal["degree", "certification", "employment"]
+    institution: str = Field(..., min_length=1, max_length=500)
+    title: str = Field(..., min_length=1, max_length=500)
+    year: int | None = Field(None, ge=1900, le=2100)
+    evidence_tier: Literal["confirmed", "supported", "claimed"]
+    evidence_data: dict = Field(default_factory=dict)
+    agent_notes: str | None = Field(None, max_length=2000)
+
+    @field_validator("evidence_data")
+    @classmethod
+    def validate_evidence_data(cls, v: dict) -> dict:
+        import json
+        if len(json.dumps(v)) > 50_000:
+            raise ValueError("evidence_data must be less than 50KB when serialized")
+        return v
+
+
+class CredentialSubmitRequest(BaseModel):
+    credentials: list[CredentialSubmission] = Field(..., min_length=1, max_length=20)
+
+
+class CredentialResponse(BaseModel):
+    id: str
+    credential_type: str
+    institution: str
+    title: str
+    year: int | None
+    evidence_tier: str
+    agent_notes: str | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class CredentialSubmitResponse(BaseModel):
+    credentials: list[CredentialResponse]
+    gravity_level: int
+    gravity_badges: list[str]
+    credential_points: int
 
 
 # --- Errors ---

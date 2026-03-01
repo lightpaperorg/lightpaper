@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.database import get_db
-from app.models import Document, DocumentVersion
+from app.models import Account, Credential, Document, DocumentVersion
 from app.schemas import AuthorInfo, DocumentResponse
 from app.rate_limit import limiter
 from app.services.gravity import get_gravity_badges
@@ -15,7 +15,7 @@ from app.services.gravity import get_gravity_badges
 router = APIRouter(tags=["reading"])
 
 # Reserved paths that should NOT match the /{slug} catch-all
-RESERVED_PREFIXES = {"v1", "health", "robots.txt", "sitemap.xml", "llms.txt", "og", "d", "static"}
+RESERVED_PREFIXES = {"v1", "health", "robots.txt", "sitemap.xml", "llms.txt", "og", "d", "static", "@"}
 
 
 async def _load_doc_by_slug(slug: str, db: AsyncSession):
@@ -48,7 +48,7 @@ def _wants_json(request: Request) -> bool:
     return "application/json" in accept and "text/html" not in accept
 
 
-def _render_html(doc: Document, version: DocumentVersion) -> HTMLResponse:
+async def _render_html(doc: Document, version: DocumentVersion, db: AsyncSession) -> HTMLResponse:
     from jinja2 import Environment, FileSystemLoader
     import os
 
@@ -56,16 +56,20 @@ def _render_html(doc: Document, version: DocumentVersion) -> HTMLResponse:
     env = Environment(loader=FileSystemLoader(template_dir), autoescape=True)
     template = env.get_template("document.html")
 
-    # Gravity badges
+    # Gravity badges — load account + credentials for accurate display
     gravity_badges = []
     if doc.account_id:
-        # Simple badges from author_gravity level
-        if doc.author_gravity >= 1:
-            gravity_badges.append("Domain \u2713")
-        if doc.author_gravity >= 2:
-            gravity_badges.append("LinkedIn \u2713")
-        if doc.author_gravity >= 3:
-            gravity_badges.append("ORCID \u2713")
+        acct_result = await db.execute(select(Account).where(Account.id == doc.account_id))
+        account = acct_result.scalar_one_or_none()
+        if account:
+            cred_result = await db.execute(select(Credential).where(Credential.account_id == account.id))
+            creds = cred_result.scalars().all()
+            gravity_badges = get_gravity_badges(
+                account.verified_domain,
+                account.verified_linkedin,
+                account.orcid_id,
+                credentials=creds,
+            )
 
     # Format date
     created_at_formatted = doc.created_at.strftime("%b %d, %Y") if doc.created_at else ""
@@ -85,6 +89,7 @@ def _render_html(doc: Document, version: DocumentVersion) -> HTMLResponse:
         permanent_url=f"{settings.base_url}/d/{doc.id}",
         og_image_url=f"{settings.base_url}/og/{doc.id}.png",
         gravity_badges=gravity_badges,
+        format=doc.format or "markdown",
     )
     return HTMLResponse(
         content=html,
@@ -130,7 +135,7 @@ async def read_by_id(doc_id: str, request: Request, db: AsyncSession = Depends(g
 
     if _wants_json(request):
         return _render_json(doc, version)
-    return _render_html(doc, version)
+    return await _render_html(doc, version, db)
 
 
 @router.get("/{slug:path}")
@@ -138,7 +143,7 @@ async def read_by_id(doc_id: str, request: Request, db: AsyncSession = Depends(g
 async def read_by_slug(slug: str, request: Request, db: AsyncSession = Depends(get_db)):
     # Skip reserved paths
     first_segment = slug.split("/")[0] if "/" in slug else slug
-    if first_segment in RESERVED_PREFIXES:
+    if first_segment in RESERVED_PREFIXES or first_segment.startswith("@"):
         raise HTTPException(status_code=404, detail="Not found")
 
     doc = await _load_doc_by_slug(slug, db)
@@ -151,4 +156,4 @@ async def read_by_slug(slug: str, request: Request, db: AsyncSession = Depends(g
 
     if _wants_json(request):
         return _render_json(doc, version)
-    return _render_html(doc, version)
+    return await _render_html(doc, version, db)
