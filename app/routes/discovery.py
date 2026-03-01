@@ -1,7 +1,9 @@
-"""Discovery routes: robots.txt, sitemap.xml, llms.txt, OG images."""
+"""Discovery routes: robots.txt, sitemap.xml, llms.txt, OG images, IndexNow."""
 
+import logging
 from xml.sax.saxutils import escape as xml_escape
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import PlainTextResponse, Response
 from sqlalchemy import select
@@ -14,7 +16,34 @@ from app.rate_limit import limiter
 from app.services.gravity import get_gravity_badges
 from app.services.og_image import generate_og_image
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(tags=["discovery"])
+
+INDEXNOW_KEY = "d3e5606fbb3758957821a552a4e8f85c"
+
+
+async def notify_indexnow(urls: list[str]):
+    """Submit URLs to IndexNow (Bing, Yandex, DuckDuckGo, Seznam)."""
+    if not urls or "localhost" in settings.base_url:
+        return
+    payload = {
+        "host": "lightpaper.org",
+        "key": INDEXNOW_KEY,
+        "keyLocation": f"{settings.base_url}/{INDEXNOW_KEY}.txt",
+        "urlList": urls[:10000],
+    }
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            await client.post("https://api.indexnow.org/indexnow", json=payload)
+    except Exception:
+        logger.warning("IndexNow submission failed", exc_info=True)
+
+
+@router.get(f"/{INDEXNOW_KEY}.txt", response_class=PlainTextResponse, include_in_schema=False)
+async def indexnow_key_file():
+    """IndexNow key verification file."""
+    return INDEXNOW_KEY
 
 
 @router.get("/robots.txt", response_class=PlainTextResponse)

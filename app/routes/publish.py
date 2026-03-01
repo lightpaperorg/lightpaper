@@ -25,6 +25,19 @@ from app.services.renderer import (
 from app.services.slug import ensure_unique_slug, generate_slug, is_reserved_slug
 from app.utils import get_client_ip
 
+# Lazy import to avoid circular dependency
+_indexnow = None
+
+
+async def _notify_search_engines(urls: list[str]):
+    global _indexnow
+    if _indexnow is None:
+        from app.routes.discovery import notify_indexnow
+
+        _indexnow = notify_indexnow
+    await _indexnow(urls)
+
+
 router = APIRouter(prefix="/v1", tags=["publish"])
 
 ANONYMOUS_RATE_LIMIT = 5  # per hour per IP
@@ -146,6 +159,18 @@ async def publish_document(
 
     await db.commit()
     await db.refresh(doc)
+
+    # Notify search engines (non-blocking, best-effort)
+    if listed:
+        try:
+            await _notify_search_engines(
+                [
+                    f"{settings.base_url}/{slug}",
+                    f"{settings.base_url}/d/{doc_id}",
+                ]
+            )
+        except Exception:
+            pass  # never fail a publish because of indexing
 
     # Build response
     gravity_badges = []
