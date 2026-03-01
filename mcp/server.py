@@ -1,4 +1,4 @@
-"""lightpaper.org MCP server — 14 tools, stdio transport."""
+"""lightpaper.org MCP server — 16 tools + prompts, stdio transport."""
 
 import os
 
@@ -6,12 +6,65 @@ import httpx
 
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
-from mcp.types import TextContent, Tool
+from mcp.types import GetPromptResult, PromptArgument, PromptMessage, TextContent, Tool
 
 BASE_URL = os.getenv("LIGHTPAPER_BASE_URL", "https://lightpaper.org")
 API_KEY = os.getenv("LIGHTPAPER_API_KEY", "")
 
-server = Server("lightpaper")
+SERVER_INSTRUCTIONS = """\
+You are an agent that publishes and manages documents on lightpaper.org — an API-first publishing platform.
+
+## How authentication works
+
+- If LIGHTPAPER_API_KEY is set in the environment, all tools use it automatically.
+- If no API key is configured, you need to create an account first using onboard_pilot.
+  Ask the user for their name, email, and preferred handle, then call onboard_pilot.
+  The returned api_key must be passed to every subsequent tool call via the api_key parameter.
+- Store the api_key for the duration of the conversation. Do not ask the user to manage keys.
+
+## Typical flows
+
+**"Write a post about X"** (most common):
+1. If no API key → ask user for name/email/handle → onboard_pilot → save the returned api_key
+2. Write the article as markdown (300+ words, at least one # heading)
+3. Pick the best format: 'markdown' (blog), 'academic' (research), 'report' (business), 'tutorial' (how-to)
+4. Call publish_lightpaper with title, content, format, and authors (use the user's name + handle)
+5. Share the returned URL with the user
+6. If quality_score < 60, review the suggestions and offer to improve the article
+
+**"Find articles about X"**:
+1. Call search_lightpapers with the query
+
+**"Delete my article"**:
+1. Call list_my_lightpapers to find the document ID
+2. Confirm with the user, then call delete_lightpaper
+
+**Boost author gravity (verification)**:
+1. Check current level: get_gravity_info → shows level, badges, and next_level instructions
+2. Domain: verify_domain (set DNS TXT record, then check) — fully automatable if user has DNS access
+3. LinkedIn: verify_linkedin action='start' → give user the OAuth URL → poll with action='check'
+4. ORCID: verify_orcid with their ORCID iD — fully automatable
+5. Credentials: verify_credentials with degrees/certs/employment — ask user for details
+
+## Quality tips for writing
+
+To score well (60+), articles should have:
+- Multiple headings (h2/h3) for structure (up to 20 pts)
+- 500+ words of substance (up to 25 pts)
+- Varied paragraph lengths, not walls of text (up to 20 pts)
+- Lists, code blocks, or blockquotes for variety
+- No clickbait or ALL CAPS titles
+- Citations or links to sources (up to 15 pts)
+
+## Important notes
+
+- Content must be markdown. Minimum 300 words with at least one heading.
+- The platform auto-generates a quality score (0-100) and a permanent URL.
+- Authors can include multiple people with name + handle.
+- Always tell the user the URL of their published article.
+"""
+
+server = Server("lightpaper", instructions=SERVER_INSTRUCTIONS)
 
 API_KEY_PARAM = {
     "api_key": {
@@ -34,6 +87,79 @@ def _json_headers(api_key: str | None = None) -> dict:
     h = _headers(api_key)
     h["Accept"] = "application/json"
     return h
+
+
+@server.list_prompts()
+async def list_prompts():
+    return [
+        {
+            "name": "write-article",
+            "description": "Write and publish an article on lightpaper.org. Guides you through the full flow.",
+            "arguments": [
+                PromptArgument(name="topic", description="What to write about", required=True),
+                PromptArgument(name="format", description="markdown, academic, report, or tutorial", required=False),
+            ],
+        },
+        {
+            "name": "setup-account",
+            "description": "Create a lightpaper.org account and optionally verify identity for higher gravity.",
+            "arguments": [],
+        },
+    ]
+
+
+@server.get_prompt()
+async def get_prompt(name: str, arguments: dict | None = None) -> GetPromptResult:
+    if name == "write-article":
+        topic = (arguments or {}).get("topic", "a topic of your choice")
+        fmt = (arguments or {}).get("format", "")
+        fmt_hint = f" Use the '{fmt}' format." if fmt else ""
+        return GetPromptResult(
+            description=f"Write and publish an article about: {topic}",
+            messages=[
+                PromptMessage(
+                    role="user",
+                    content=TextContent(
+                        type="text",
+                        text=(
+                            f"Write an article about: {topic}\n\n"
+                            f"Publish it on lightpaper.org using the publish_lightpaper tool.{fmt_hint}\n\n"
+                            "Requirements:\n"
+                            "- At least 300 words of real, substantive content\n"
+                            "- Use markdown with headings (## Section), paragraphs, and at least one list or code block\n"
+                            "- Include a compelling title and subtitle\n"
+                            "- If I don't have an account yet, ask for my name, email, and preferred @handle first\n"
+                            "- After publishing, share the URL with me\n"
+                            "- If the quality score is below 60, offer to improve it"
+                        ),
+                    ),
+                )
+            ],
+        )
+    elif name == "setup-account":
+        return GetPromptResult(
+            description="Set up a lightpaper.org account with identity verification",
+            messages=[
+                PromptMessage(
+                    role="user",
+                    content=TextContent(
+                        type="text",
+                        text=(
+                            "Help me set up my lightpaper.org author account.\n\n"
+                            "1. Ask for my name, email, and preferred @handle, then create the account\n"
+                            "2. After account creation, check my gravity level and explain what it means\n"
+                            "3. Walk me through verification options to increase my gravity:\n"
+                            "   - Domain verification (if I own a website)\n"
+                            "   - LinkedIn verification\n"
+                            "   - ORCID verification (if I'm a researcher)\n"
+                            "   - Academic/professional credentials\n"
+                            "4. Let me choose which verifications to do and guide me through each one"
+                        ),
+                    ),
+                )
+            ],
+        )
+    raise ValueError(f"Unknown prompt: {name}")
 
 
 @server.list_tools()
