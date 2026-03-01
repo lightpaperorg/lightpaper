@@ -68,3 +68,54 @@ jobs:
           python-version: "3.12"
       - run: pip install bandit
       - run: bandit -r app/ -ll -ii
+
+  deploy:
+    name: Deploy to Cloud Run
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: [lint, test, docker, security]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_SA_EMAIL }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Build container
+        run: |
+          gcloud builds submit \
+            --project="${{ secrets.GCP_PROJECT_ID }}" \
+            --tag="us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/lightpaper/api" \
+            --timeout=600
+
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy lightpaper \
+            --project="${{ secrets.GCP_PROJECT_ID }}" \
+            --region=us-central1 \
+            --image="us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/lightpaper/api" \
+            --platform=managed \
+            --allow-unauthenticated \
+            --port=8080 \
+            --cpu=2 \
+            --memory=2Gi \
+            --min-instances=0 \
+            --max-instances=10 \
+            --timeout=120 \
+            --concurrency=100 \
+            --add-cloudsql-instances="${{ secrets.GCP_PROJECT_ID }}:us-central1:lightpaper-db" \
+            --set-env-vars="^||^FIREBASE_PROJECT_ID=${{ secrets.GCP_PROJECT_ID }}||BASE_URL=https://lightpaper.org||CORS_ORIGINS=https://lightpaper.org,http://localhost:3000" \
+            --update-secrets="DATABASE_URL=lightpaper-db-url:latest"
+
+      - name: Health check
+        run: |
+          sleep 10
+          curl -sf https://lightpaper.org/health
