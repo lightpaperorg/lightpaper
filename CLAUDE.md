@@ -43,8 +43,10 @@ uvicorn app.main:app --port 8001 --reload
 ## Running Tests
 
 ```bash
-python -m pytest tests/ -v
+python3 -m pytest tests/ -v
 ```
+
+Note: ~7 tests require PostgreSQL on port 5433 (`docker compose up -d db`). The remaining ~33 tests pass without a database.
 
 ## Security-Sensitive Areas
 
@@ -64,7 +66,19 @@ GCP_PROJECT_ID=refreshing-rune-471208-e5 bash deploy/deploy-cloud-run.sh
 
 Secrets managed via Google Secret Manager: `lightpaper-db-url`, `resend-api-key`, `linkedin-client-id`, `linkedin-client-secret`.
 
+To update a secret without rebuilding: `gcloud run services update lightpaper --project=refreshing-rune-471208-e5 --region=us-central1 --update-secrets="SECRET_NAME=secret-name:latest"`
+
 Database migrations run automatically at startup from the `migrations/` directory (idempotent SQL, executed per-statement).
+
+## Authentication
+
+Two auth flows, no anonymous publishing:
+
+- **Email OTP**: `POST /v1/auth/email` sends code via Resend (`auth@lightpaper.org`), `POST /v1/auth/verify` returns API key
+- **LinkedIn OAuth**: `POST /v1/auth/linkedin` returns auth URL, browser callback at `/v1/auth/linkedin/callback`, agent polls `/v1/auth/linkedin/poll`
+- Email delivery: **Resend** (resend.com), domain `lightpaper.org` verified
+- LinkedIn redirect URI: `https://lightpaper.org/v1/auth/linkedin/callback`
+- API key prefixes: `lp_free_`, `lp_live_`, `lp_test_`
 
 ## Gotchas
 
