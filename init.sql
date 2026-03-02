@@ -2,10 +2,10 @@
 
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
--- Accounts (Firebase Auth backed)
+-- Accounts
 CREATE TABLE accounts (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    firebase_uid    TEXT UNIQUE NOT NULL,
+    firebase_uid    TEXT,
     handle          TEXT UNIQUE,
     display_name    TEXT,
     email           TEXT,
@@ -15,12 +15,18 @@ CREATE TABLE accounts (
     verified_domain TEXT,
     verified_linkedin BOOLEAN DEFAULT false,
     orcid_id        TEXT,
+    linkedin_profile_id TEXT,
     gravity_level   INTEGER NOT NULL DEFAULT 0,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     deleted_at      TIMESTAMPTZ
 );
 
-CREATE INDEX idx_accounts_firebase ON accounts(firebase_uid) WHERE deleted_at IS NULL;
+CREATE UNIQUE INDEX idx_accounts_firebase ON accounts(firebase_uid)
+    WHERE firebase_uid IS NOT NULL AND deleted_at IS NULL;
+CREATE UNIQUE INDEX idx_accounts_email ON accounts(LOWER(email))
+    WHERE deleted_at IS NULL;
+CREATE UNIQUE INDEX idx_accounts_linkedin_profile ON accounts(linkedin_profile_id)
+    WHERE linkedin_profile_id IS NOT NULL AND deleted_at IS NULL;
 
 -- API keys (scoped to accounts)
 CREATE TABLE api_keys (
@@ -98,16 +104,6 @@ CREATE TABLE citations (
 
 CREATE INDEX idx_citations_target ON citations(target_doc_id);
 
--- Anonymous publish tracking (rate limiting)
-CREATE TABLE anonymous_publishes (
-    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    ip_address      TEXT NOT NULL,
-    document_id     TEXT REFERENCES documents(id) ON DELETE SET NULL,
-    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX idx_anon_publishes_ip ON anonymous_publishes(ip_address, created_at);
-
 -- Domain verification tokens
 CREATE TABLE domain_verifications (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -153,3 +149,32 @@ CREATE TABLE credentials (
 
 CREATE INDEX idx_credentials_account ON credentials(account_id);
 CREATE UNIQUE INDEX idx_credentials_unique ON credentials(account_id, credential_type, institution, title);
+
+-- Email auth sessions (OTP login/signup)
+CREATE TABLE email_auth_sessions (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    session_id      TEXT UNIQUE NOT NULL,
+    email           TEXT NOT NULL,
+    code_hash       TEXT NOT NULL,
+    display_name    TEXT,
+    handle          TEXT,
+    attempts        INTEGER NOT NULL DEFAULT 0,
+    max_attempts    INTEGER NOT NULL DEFAULT 5,
+    expires_at      TIMESTAMPTZ NOT NULL,
+    verified_at     TIMESTAMPTZ,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX idx_email_auth_session ON email_auth_sessions(session_id) WHERE verified_at IS NULL;
+
+-- LinkedIn auth sessions (OAuth login, separate from gravity verification)
+CREATE TABLE linkedin_auth_sessions (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    session_id      TEXT UNIQUE NOT NULL,
+    state_token     TEXT UNIQUE NOT NULL,
+    account_id      UUID REFERENCES accounts(id) ON DELETE CASCADE,
+    api_key_plain   TEXT,
+    completed_at    TIMESTAMPTZ,
+    expires_at      TIMESTAMPTZ NOT NULL,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX idx_linkedin_auth_state ON linkedin_auth_sessions(state_token) WHERE completed_at IS NULL;

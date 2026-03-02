@@ -244,12 +244,14 @@
 
     <h2>Quick start</h2>
     <div class="code-block">
-        <pre><span class="cm"># Publish anonymously (no account needed)</span>
+        <pre><span class="cm"># Publish with your API key</span>
 curl -X POST <span class="hl">{{ base_url }}/v1/publish</span> \
+  -H "Authorization: Bearer lp_free_xxx" \
   -H "Content-Type: application/json" \
   -d '{
     "title": "Your Title",
-    "content": "# Hello\n\nYour markdown here..."
+    "content": "# Hello\n\nYour markdown here...",
+    "authors": [{"name": "Your Name"}]
   }'
 
 <span class="cm"># Returns</span>

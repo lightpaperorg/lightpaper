@@ -1,12 +1,30 @@
-"""Test publish endpoint — requires database (integration tests)."""
+"""Test publish endpoint validation — overrides auth since account is required."""
 
 import pytest
 
-# These tests require a running database to work.
-# They are structured to run against the async test client.
-# For unit tests without DB, see test_quality.py.
+from app.auth import AuthResult, require_account
+from app.main import app
 
 LONG_CONTENT = "# Introduction\n\n" + " ".join(["word"] * 350)
+
+# Mock auth that returns a fake authenticated account
+_fake_account = type("Account", (), {
+    "id": "00000000-0000-0000-0000-000000000000",
+    "gravity_level": 0,
+    "verified_domain": None,
+    "verified_linkedin": None,
+    "orcid_id": None,
+})()
+
+_fake_auth = AuthResult(account=_fake_account, gravity_level=0)
+
+
+async def _override_require_account():
+    return _fake_auth
+
+
+# Override auth dependency for all publish tests
+app.dependency_overrides[require_account] = _override_require_account
 
 
 @pytest.mark.asyncio

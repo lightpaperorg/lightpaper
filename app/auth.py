@@ -14,8 +14,8 @@ from app.config import settings
 from app.database import get_db
 from app.models import Account, ApiKey
 
-# Initialize Firebase Admin SDK
-if not firebase_admin._apps:
+# Initialize Firebase Admin SDK (conditional — not all deployments use Firebase)
+if settings.firebase_project_id and not firebase_admin._apps:
     firebase_admin.initialize_app(options={"projectId": settings.firebase_project_id})
 
 security = HTTPBearer(auto_error=False)
@@ -26,7 +26,6 @@ API_KEY_PREFIXES = ("lp_live_", "lp_free_", "lp_test_")
 @dataclass
 class AuthResult:
     account: Account | None
-    is_anonymous: bool
     gravity_level: int
     firebase_uid: str | None = None
 
@@ -57,7 +56,6 @@ async def _auth_via_api_key(token: str, db: AsyncSession) -> AuthResult:
             if account:
                 return AuthResult(
                     account=account,
-                    is_anonymous=False,
                     gravity_level=account.gravity_level,
                 )
             break
@@ -78,7 +76,6 @@ async def _auth_via_firebase(token: str, db: AsyncSession) -> AuthResult:
 
     return AuthResult(
         account=account,
-        is_anonymous=account is None,
         gravity_level=account.gravity_level if account else 0,
         firebase_uid=uid,
     )
@@ -89,9 +86,9 @@ async def authenticate(
     cred: HTTPAuthorizationCredentials | None = Depends(security),
     db: AsyncSession = Depends(get_db),
 ) -> AuthResult:
-    """Optional auth — returns anonymous AuthResult if no credentials."""
+    """Optional auth — returns unauthenticated AuthResult if no credentials."""
     if cred is None:
-        return AuthResult(account=None, is_anonymous=True, gravity_level=0)
+        return AuthResult(account=None, gravity_level=0)
 
     token = cred.credentials
     if _is_api_key(token):

@@ -15,7 +15,7 @@ class Account(Base):
     __tablename__ = "accounts"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    firebase_uid = Column(Text, unique=True, nullable=False)
+    firebase_uid = Column(Text, nullable=True)
     handle = Column(Text, unique=True)
     display_name = Column(Text)
     email = Column(Text)
@@ -25,6 +25,7 @@ class Account(Base):
     verified_domain = Column(Text)
     verified_linkedin = Column(Boolean, default=False)
     orcid_id = Column(Text)
+    linkedin_profile_id = Column(Text)
     gravity_level = Column(Integer, nullable=False, default=0)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=text("NOW()"))
     deleted_at = Column(DateTime(timezone=True))
@@ -101,15 +102,6 @@ class Citation(Base):
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=text("NOW()"))
 
 
-class AnonymousPublish(Base):
-    __tablename__ = "anonymous_publishes"
-
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    ip_address = Column(Text, nullable=False)
-    document_id = Column(Text, ForeignKey("documents.id", ondelete="SET NULL"))
-    created_at = Column(DateTime(timezone=True), nullable=False, server_default=text("NOW()"))
-
-
 class DomainVerification(Base):
     __tablename__ = "domain_verifications"
 
@@ -147,4 +139,33 @@ class LinkedInVerification(Base):
     state_token = Column(Text, unique=True, nullable=False)
     verified = Column(Boolean, default=False)
     linkedin_profile_id = Column(Text)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=text("NOW()"))
+
+
+class EmailAuthSession(Base):
+    __tablename__ = "email_auth_sessions"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    session_id = Column(Text, unique=True, nullable=False)
+    email = Column(Text, nullable=False)
+    code_hash = Column(Text, nullable=False)
+    display_name = Column(Text)
+    handle = Column(Text)
+    attempts = Column(Integer, nullable=False, default=0)
+    max_attempts = Column(Integer, nullable=False, default=5)
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    verified_at = Column(DateTime(timezone=True))
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=text("NOW()"))
+
+
+class LinkedInAuthSession(Base):
+    __tablename__ = "linkedin_auth_sessions"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    session_id = Column(Text, unique=True, nullable=False)
+    state_token = Column(Text, unique=True, nullable=False)
+    account_id = Column(UUID(as_uuid=True), ForeignKey("accounts.id", ondelete="CASCADE"))
+    api_key_plain = Column(Text)
+    completed_at = Column(DateTime(timezone=True))
+    expires_at = Column(DateTime(timezone=True), nullable=False)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=text("NOW()"))

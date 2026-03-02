@@ -98,25 +98,36 @@ Publish documents via a single API call and get beautiful, permanent, discoverab
 
 If a user asks you to write and publish something, follow this flow:
 
-### Step 1: Create an account (if you don't have an API key)
+### Step 1: Sign in or create an account (if you don't have an API key)
 
 Ask the user for three things:
 - Their name (display name)
 - Their email
 - Their preferred handle (like a username — used in their profile URL /@handle)
 
-Then create the account:
+Then send a verification code:
 
-POST {settings.base_url}/v1/onboard
+POST {settings.base_url}/v1/auth/email
 Content-Type: application/json
 
 {{"email": "user@example.com", "display_name": "Alice Smith", "handle": "alice"}}
 
-→ Returns: {{"api_key": "lp_live_xxx", "account_id": "...", "handle": "alice"}}
+→ Returns: {{"session_id": "xxx", "message": "Code sent to u***@example.com", "expires_in": 600}}
+
+Ask the user to check their email for the 6-digit code, then verify:
+
+POST {settings.base_url}/v1/auth/verify
+Content-Type: application/json
+
+{{"session_id": "xxx", "code": "847293"}}
+
+→ Returns: {{"api_key": "lp_free_xxx", "account_id": "...", "handle": "alice", "is_new_account": true}}
 
 SAVE THE api_key — you need it for every subsequent call.
 
-⚠ WITHOUT an account, publishing is anonymous: no author name, not visible in search, not on any profile. Always create an account first.
+Already have an account? Use the same flow — it works for login too. If the email matches an existing account, is_new_account will be false.
+
+⚠ An account is REQUIRED to publish. Use POST /v1/auth/email + /v1/auth/verify to create one first.
 
 ### Step 2: Write the article
 
@@ -152,13 +163,17 @@ Always tell the user:
 - The quality score and any suggestions for improvement
 - If quality < 60, offer to revise and update it (PUT /v1/documents/{{id}})
 
-### Complete example (two HTTP calls from zero to published)
+### Complete example (three HTTP calls from zero to published)
 
 ```
-curl -X POST {settings.base_url}/v1/onboard -H "Content-Type: application/json" -d '{{"email":"alice@example.com","display_name":"Alice Smith","handle":"alice"}}'
-# → {{"api_key":"lp_live_xxx",...}}
+curl -X POST {settings.base_url}/v1/auth/email -H "Content-Type: application/json" -d '{{"email":"alice@example.com","display_name":"Alice Smith","handle":"alice"}}'
+# → {{"session_id":"xxx","message":"Code sent to a***@example.com","expires_in":600}}
 
-curl -X POST {settings.base_url}/v1/publish -H "Authorization: Bearer lp_live_xxx" -H "Content-Type: application/json" -d '{{"title":"My Article","subtitle":"A deep dive into the topic","content":"# Introduction\\n\\n500+ words of markdown...","format":"markdown","authors":[{{"name":"Alice Smith","handle":"alice"}}]}}'
+# User checks email for 6-digit code, then:
+curl -X POST {settings.base_url}/v1/auth/verify -H "Content-Type: application/json" -d '{{"session_id":"xxx","code":"847293"}}'
+# → {{"api_key":"lp_free_xxx","account_id":"...","is_new_account":true}}
+
+curl -X POST {settings.base_url}/v1/publish -H "Authorization: Bearer lp_free_xxx" -H "Content-Type: application/json" -d '{{"title":"My Article","subtitle":"A deep dive into the topic","content":"# Introduction\\n\\n500+ words of markdown...","format":"markdown","authors":[{{"name":"Alice Smith","handle":"alice"}}]}}'
 # → {{"url":"https://lightpaper.org/my-article","quality_score":72}}
 ```
 
@@ -168,7 +183,11 @@ Base URL: {settings.base_url}
 All endpoints return JSON. Authorization via `Authorization: Bearer <api_key>` header.
 
 ### Account & Authentication
-- POST /v1/onboard — Create account + API key in one call (no browser needed). 5/hour.
+- POST /v1/auth/email — Send a 6-digit verification code to an email (signup or login). 5/hour.
+- POST /v1/auth/verify — Verify the code → returns account + API key. 10/hour.
+- POST /v1/auth/linkedin — Start LinkedIn OAuth for login/signup → returns authorization_url. 10/hour.
+- GET /v1/auth/linkedin/callback — LinkedIn OAuth callback (browser, not called by agents).
+- GET /v1/auth/linkedin/poll?session_id=xxx — Poll for LinkedIn OAuth completion → returns API key.
 - GET /v1/account — Get account info (handle, gravity level, verification status, badges)
 - DELETE /v1/account — Hard-delete account and all data (GDPR)
 - POST /v1/account/keys — Generate additional API keys
@@ -220,15 +239,12 @@ Routes:
 
 ## Authentication
 
-⚠ ALWAYS create an account first. Anonymous publishing is severely limited.
+An account is required to publish. Sign in first via POST /v1/auth/email + /v1/auth/verify.
 
 | Method | How | What you get |
 |--------|-----|-------------|
-| **API key** (recommended) | `Authorization: Bearer lp_live_xxx` from POST /v1/onboard | Full access: author names, search visibility, profiles, verification, document management |
-| **Anonymous** (not recommended) | No auth header | 5 publishes/hour, always unlisted (invisible to search), no author name, no profile, cannot edit/delete later |
-| **Firebase** | `Authorization: Bearer <id_token>` | Browser-based flows, same capabilities as API key |
-
-If you publish without authentication, the article has no author, is invisible in search, and cannot be managed later. Always call POST /v1/onboard first.
+| **API key** (recommended) | `Authorization: Bearer lp_free_xxx` from POST /v1/auth/email + /v1/auth/verify | Full access: author names, search visibility, profiles, verification, document management |
+| **Firebase** (legacy) | `Authorization: Bearer <id_token>` | Browser-based flows, same capabilities as API key |
 
 ## Publishing
 
@@ -245,7 +261,7 @@ POST /v1/publish — requires markdown content with at least 300 words and at le
 | authors | array | No | Author attribution: [{{"name": "Alice", "handle": "alice"}}] (max 20) |
 | tags | list | No | Tags for search filtering (max 50) |
 | options.slug | string | No | Custom URL slug (max 80 chars, auto-generated from title if omitted) |
-| options.listed | bool | No | List in search results and sitemap (default true, forced false for anonymous) |
+| options.listed | bool | No | List in search results and sitemap (default true) |
 | metadata | dict | No | Custom metadata (max 50KB serialized) |
 
 ### Response Fields
@@ -368,8 +384,8 @@ GET /v1/account/gravity returns:
 
 ## Listed vs. Unlisted
 
-- **Listed**: Document appears in search results, sitemap.xml, and author profiles. Requires an authenticated account.
-- **Unlisted**: Document is readable via its URL but invisible to search and discovery. Anonymous publishes are always unlisted.
+- **Listed**: Document appears in search results, sitemap.xml, and author profiles (default).
+- **Unlisted**: Document is readable via its URL but invisible to search and discovery.
 
 To unlist an existing document: PUT /v1/documents/{{id}} with {{"listed": false}}
 To re-list: PUT /v1/documents/{{id}} with {{"listed": true}}
@@ -378,10 +394,12 @@ To re-list: PUT /v1/documents/{{id}} with {{"listed": true}}
 
 | Endpoint | Limit |
 |----------|-------|
-| POST /v1/publish | 60/hour (authenticated), 5/hour (anonymous per IP) |
+| POST /v1/publish | 60/hour |
 | GET /v1/search | 60/minute |
 | GET /{{slug}}, /d/{{id}}, /@{{handle}} | 120/minute |
-| POST /v1/onboard | 5/hour |
+| POST /v1/auth/email | 5/hour (+ 3 codes/hour per email) |
+| POST /v1/auth/verify | 10/hour |
+| POST /v1/auth/linkedin | 10/hour |
 | POST /v1/account/verify/orcid | 10/hour |
 | POST /v1/account/verify/linkedin | 10/hour |
 | POST /v1/account/credentials | 20/hour |

@@ -17,15 +17,20 @@ You are an agent that publishes and manages documents on lightpaper.org — an A
 ## How authentication works
 
 - If LIGHTPAPER_API_KEY is set in the environment, all tools use it automatically.
-- If no API key is configured, you need to create an account first using onboard_pilot.
-  Ask the user for their name, email, and preferred handle, then call onboard_pilot.
-  The returned api_key must be passed to every subsequent tool call via the api_key parameter.
+- If no API key is configured, you need to sign in or create an account first:
+  1. Ask the user for their name, email, and preferred handle
+  2. Call auth_email to send a verification code to their email
+  3. Ask the user for the 6-digit code from their email
+  4. Call auth_verify with the session_id and code → returns an api_key
+  5. Use the api_key in all subsequent tool calls via the api_key parameter
+- This flow works for both new signups AND existing accounts (login).
 - Store the api_key for the duration of the conversation. Do not ask the user to manage keys.
+- Alternative: auth_linkedin starts a browser-based LinkedIn OAuth flow. Poll with auth_linkedin_poll.
 
 ## Typical flows
 
 **"Write a post about X"** (most common):
-1. If no API key → ask user for name/email/handle → onboard_pilot → save the returned api_key
+1. If no API key → ask user for name/email/handle → auth_email → ask for code → auth_verify → save the returned api_key
 2. Write the article as markdown (300+ words, at least one # heading)
 3. Pick the best format: 'markdown' (blog), 'academic' (research), 'report' (business), 'tutorial' (how-to)
 4. Call publish_lightpaper with title, content, format, and authors (use the user's name + handle)
@@ -128,7 +133,7 @@ async def get_prompt(name: str, arguments: dict | None = None) -> GetPromptResul
                             "- At least 300 words of real, substantive content\n"
                             "- Use markdown with headings (## Section), paragraphs, and at least one list or code block\n"
                             "- Include a compelling title and subtitle\n"
-                            "- If I don't have an account yet, ask for my name, email, and preferred @handle first\n"
+                            "- If I don't have an account yet, ask for my name, email, and preferred @handle, then use auth_email + auth_verify\n"
                             "- After publishing, share the URL with me\n"
                             "- If the quality score is below 60, offer to improve it"
                         ),
@@ -146,7 +151,7 @@ async def get_prompt(name: str, arguments: dict | None = None) -> GetPromptResul
                         type="text",
                         text=(
                             "Help me set up my lightpaper.org author account.\n\n"
-                            "1. Ask for my name, email, and preferred @handle, then create the account\n"
+                            "1. Ask for my name, email, and preferred @handle, then sign in with auth_email + auth_verify\n"
                             "2. After account creation, check my gravity level and explain what it means\n"
                             "3. Walk me through verification options to increase my gravity:\n"
                             "   - Domain verification (if I own a website)\n"
@@ -219,7 +224,7 @@ async def list_tools() -> list[Tool]:
                     "listed": {
                         "type": "boolean",
                         "default": True,
-                        "description": "If true, document appears in search results and sitemap. Anonymous publishes are always unlisted.",
+                        "description": "If true, document appears in search results and sitemap.",
                     },
                     **API_KEY_PARAM,
                 },
@@ -380,23 +385,71 @@ async def list_tools() -> list[Tool]:
             },
         ),
         Tool(
-            name="onboard_pilot",
+            name="auth_email",
             description=(
-                "Create a lightpaper account for a pilot (human user). Returns an API key. No browser needed. "
-                "Use the returned api_key in subsequent calls to act as that account. "
-                "Returns 409 if email or handle is already taken."
+                "Send a 6-digit verification code to the user's email. Works for both signup and login. "
+                "After calling this, ask the user for the code and call auth_verify."
             ),
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "email": {"type": "string", "description": "Pilot's email address"},
-                    "display_name": {"type": "string", "description": "Pilot's display name"},
+                    "email": {"type": "string", "description": "User's email address"},
+                    "display_name": {"type": "string", "description": "User's display name (for new accounts)"},
                     "handle": {
                         "type": "string",
                         "description": "Unique handle (e.g. 'alice'). Used in author profiles at /@handle.",
                     },
                 },
                 "required": ["email"],
+            },
+        ),
+        Tool(
+            name="auth_verify",
+            description=(
+                "Verify a 6-digit code from the user's email. Returns account info and an API key. "
+                "Use the returned api_key in all subsequent tool calls."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "session_id": {
+                        "type": "string",
+                        "description": "Session ID returned by auth_email",
+                    },
+                    "code": {
+                        "type": "string",
+                        "description": "6-digit code from the user's email",
+                    },
+                },
+                "required": ["session_id", "code"],
+            },
+        ),
+        Tool(
+            name="auth_linkedin",
+            description=(
+                "Start LinkedIn OAuth for login/signup. Returns an authorization URL for the user to open "
+                "in their browser, and a session_id for polling. After the user completes OAuth, call auth_linkedin_poll."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {},
+            },
+        ),
+        Tool(
+            name="auth_linkedin_poll",
+            description=(
+                "Poll for LinkedIn OAuth completion. Returns the API key once the user completes the OAuth flow. "
+                "The API key is only returned on the first poll — subsequent polls return null."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "session_id": {
+                        "type": "string",
+                        "description": "Session ID returned by auth_linkedin",
+                    },
+                },
+                "required": ["session_id"],
             },
         ),
         Tool(
@@ -574,13 +627,32 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             resp = await client.get("/v1/account/credentials")
             return [TextContent(type="text", text=resp.text)]
 
-        elif name == "onboard_pilot":
+        elif name == "auth_email":
             payload = {"email": arguments["email"]}
             if arguments.get("display_name"):
                 payload["display_name"] = arguments["display_name"]
             if arguments.get("handle"):
                 payload["handle"] = arguments["handle"]
-            resp = await client.post("/v1/onboard", json=payload)
+            resp = await client.post("/v1/auth/email", json=payload)
+            return [TextContent(type="text", text=resp.text)]
+
+        elif name == "auth_verify":
+            payload = {
+                "session_id": arguments["session_id"],
+                "code": arguments["code"],
+            }
+            resp = await client.post("/v1/auth/verify", json=payload)
+            return [TextContent(type="text", text=resp.text)]
+
+        elif name == "auth_linkedin":
+            resp = await client.post("/v1/auth/linkedin")
+            return [TextContent(type="text", text=resp.text)]
+
+        elif name == "auth_linkedin_poll":
+            resp = await client.get(
+                "/v1/auth/linkedin/poll",
+                params={"session_id": arguments["session_id"]},
+            )
             return [TextContent(type="text", text=resp.text)]
 
         elif name == "verify_domain":
