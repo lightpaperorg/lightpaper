@@ -621,7 +621,12 @@ async def main():
         await server.run(read_stream, write_stream)
 
 
-if __name__ == "__main__":
+def main_sync():
+    """Synchronous entry point for `lightpaper-mcp` console script."""
     import asyncio
 
     asyncio.run(main())
+
+
+if __name__ == "__main__":
+    main_sync()

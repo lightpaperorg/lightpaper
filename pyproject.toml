@@ -3,6 +3,9 @@ name = "lightpaper"
 version = "0.1.0"
 requires-python = ">=3.12"
 
+[project.scripts]
+lightpaper-mcp = "mcp.server:main_sync"
+
 [tool.ruff]
 target-version = "py312"
 line-length = 120

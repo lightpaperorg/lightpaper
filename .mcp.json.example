@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "lightpaper": {
+      "command": "python",
+      "args": ["mcp/server.py"],
+      "env": {
+        "LIGHTPAPER_API_KEY": "",
+        "LIGHTPAPER_BASE_URL": "https://lightpaper.org"
+      }
+    }
+  }
+}
