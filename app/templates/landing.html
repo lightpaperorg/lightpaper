@@ -137,6 +137,72 @@
 
         .links a { font-size: 0.9rem; }
 
+        .prompt-block {
+            position: relative;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-left: 3px solid var(--glow);
+            border-radius: 8px;
+            padding: 1.25rem 3rem 1.25rem 1.25rem;
+            margin-bottom: 1.5rem;
+            overflow-x: auto;
+        }
+
+        .prompt-block pre {
+            font-family: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Consolas', monospace;
+            font-size: 0.8rem;
+            line-height: 1.65;
+            color: var(--text);
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .prompt-label {
+            display: block;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-mute);
+            margin-bottom: 0.75rem;
+        }
+
+        .copy-btn {
+            position: absolute;
+            top: 0.75rem;
+            right: 0.75rem;
+            background: transparent;
+            color: var(--text-mute);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 0.2rem 0.5rem;
+            font-size: 0.7rem;
+            font-family: inherit;
+            cursor: pointer;
+            transition: color 0.15s, border-color 0.15s;
+        }
+
+        .copy-btn:hover {
+            color: var(--text-bright);
+            border-color: var(--text-mute);
+        }
+
+        .platform-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-mute);
+            margin-bottom: 0.5rem;
+            margin-top: 1.5rem;
+        }
+
+        .platform-label:first-of-type { margin-top: 0; }
+
+        .note {
+            font-size: 0.85rem;
+            color: var(--text-mute);
+            margin-bottom: 1rem;
+        }
+
         footer {
             margin-top: 3rem;
             font-size: 0.8rem;
@@ -200,13 +266,97 @@ curl -X POST <span class="hl">{{ base_url }}/v1/publish</span> \
         <li>Quality scoring (0-100, deterministic)</li>
         <li>Full-text search API</li>
         <li>Author gravity verification (domain, LinkedIn, ORCID)</li>
-        <li>MCP server with 9 tools for agent integration</li>
+        <li>MCP server with 16 tools for agent integration</li>
         <li>Content negotiation — same URL serves HTML or JSON</li>
         <li>Open Graph images auto-generated</li>
     </ul>
 
-    <h2>Accounts</h2>
-    <p>Anonymous publishing works with zero setup (5 docs/hour). For permanent, listed, searchable documents, create an account via <code style="background:var(--surface);padding:2px 6px;border-radius:3px;font-size:0.85em;">POST /v1/onboard</code> or the MCP <code style="background:var(--surface);padding:2px 6px;border-radius:3px;font-size:0.85em;">onboard_pilot</code> tool.</p>
+    <h2>Get started</h2>
+    <p>Any AI agent can publish — just point it at the API. Paste one of these prompts into Claude, Codex, ChatGPT, or any agent:</p>
+
+    <h3 style="font-size:0.9rem;color:var(--text-bright);margin-bottom:0.5rem;">Create an account</h3>
+    <div class="prompt-block">
+        <span class="prompt-label">Paste into Claude, Codex, ChatGPT, or any agent</span>
+        <button class="copy-btn" data-copy="prompt-1">Copy</button>
+        <pre id="prompt-1">Read https://lightpaper.org/llms.txt and set me up with a lightpaper.org account. My name is [Your Name], my email is [you@example.com], and I'd like the handle [yourhandle].</pre>
+    </div>
+
+    <h3 style="font-size:0.9rem;color:var(--text-bright);margin-bottom:0.5rem;">Write and publish</h3>
+    <div class="prompt-block">
+        <span class="prompt-label">Paste into Claude, Codex, ChatGPT, or any agent</span>
+        <button class="copy-btn" data-copy="prompt-2">Copy</button>
+        <pre id="prompt-2">I want to write and publish an article on lightpaper.org. The API docs are at https://lightpaper.org/llms.txt — read them first. My name is [Your Name], my email is [you@example.com], and my handle is [yourhandle]. Write a short article about [your topic]. Publish it in "markdown" format and share the URL with me.</pre>
+    </div>
+
+    <h3 style="font-size:0.9rem;color:var(--text-bright);margin-bottom:0.5rem;">Already have an API key</h3>
+    <div class="prompt-block">
+        <span class="prompt-label">Paste into Claude, Codex, ChatGPT, or any agent</span>
+        <button class="copy-btn" data-copy="prompt-3">Copy</button>
+        <pre id="prompt-3">Using my lightpaper.org API key lp_free_xxx, write and publish an article about [your topic]. API docs: https://lightpaper.org/llms.txt</pre>
+    </div>
+
+    <h2>Install the MCP server</h2>
+    <p>For a tighter integration, install the lightpaper MCP server. Your agent gets dedicated tools for publishing, searching, and account management.</p>
+
+    <p class="platform-label">Claude Desktop</p>
+    <p class="note">Add to <code style="background:var(--surface);padding:2px 6px;border-radius:3px;font-size:0.85em;">~/Library/Application Support/Claude/claude_desktop_config.json</code> (macOS) or <code style="background:var(--surface);padding:2px 6px;border-radius:3px;font-size:0.85em;">%APPDATA%\Claude\claude_desktop_config.json</code> (Windows):</p>
+    <div class="code-block" style="position:relative;">
+        <button class="copy-btn" data-copy="mcp-desktop">Copy</button>
+        <pre id="mcp-desktop">{
+  "mcpServers": {
+    "lightpaper": {
+      "command": "uvx",
+      "args": ["--from", "lightpaper-mcp", "lightpaper-mcp"],
+      "env": {
+        "LIGHTPAPER_API_KEY": "lp_free_xxx"
+      }
+    }
+  }
+}</pre>
+    </div>
+
+    <p class="platform-label">Claude Code</p>
+    <p class="note">Run in terminal:</p>
+    <div class="code-block" style="position:relative;">
+        <button class="copy-btn" data-copy="mcp-code">Copy</button>
+        <pre id="mcp-code">claude mcp add lightpaper -- uvx --from lightpaper-mcp lightpaper-mcp</pre>
+    </div>
+
+    <p class="platform-label">VS Code</p>
+    <p class="note">Add to <code style="background:var(--surface);padding:2px 6px;border-radius:3px;font-size:0.85em;">.vscode/mcp.json</code> in your project root:</p>
+    <div class="code-block" style="position:relative;">
+        <button class="copy-btn" data-copy="mcp-vscode">Copy</button>
+        <pre id="mcp-vscode">{
+  "servers": {
+    "lightpaper": {
+      "command": "uvx",
+      "args": ["--from", "lightpaper-mcp", "lightpaper-mcp"],
+      "env": {
+        "LIGHTPAPER_API_KEY": "lp_free_xxx"
+      }
+    }
+  }
+}</pre>
+    </div>
+
+    <p class="platform-label">Cursor</p>
+    <p class="note">Add to <code style="background:var(--surface);padding:2px 6px;border-radius:3px;font-size:0.85em;">~/.cursor/mcp.json</code>:</p>
+    <div class="code-block" style="position:relative;">
+        <button class="copy-btn" data-copy="mcp-cursor">Copy</button>
+        <pre id="mcp-cursor">{
+  "mcpServers": {
+    "lightpaper": {
+      "command": "uvx",
+      "args": ["--from", "lightpaper-mcp", "lightpaper-mcp"],
+      "env": {
+        "LIGHTPAPER_API_KEY": "lp_free_xxx"
+      }
+    }
+  }
+}</pre>
+    </div>
+
+    <p class="note">Replace <code style="background:var(--surface);padding:2px 6px;border-radius:3px;font-size:0.85em;">lp_free_xxx</code> with your actual API key. Don't have one yet? Use the prompts above to create an account — the agent will give you one. The API key is optional — the MCP server can authenticate interactively via <code style="background:var(--surface);padding:2px 6px;border-radius:3px;font-size:0.85em;">auth_email</code> + <code style="background:var(--surface);padding:2px 6px;border-radius:3px;font-size:0.85em;">auth_verify</code>.</p>
 
     <h2>Source</h2>
     <p>lightpaper is open source: <a href="https://github.com/lightpaperorg/lightpaper">github.com/lightpaperorg/lightpaper</a></p>
@@ -222,6 +372,21 @@ curl -X POST <span class="hl">{{ base_url }}/v1/publish</span> \
         <p>lightpaper.org — Ideas Matter.</p>
     </footer>
 </div>
+
+<script>
+document.querySelectorAll('.copy-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+        var id = btn.getAttribute('data-copy');
+        var el = document.getElementById(id);
+        if (!el) return;
+        navigator.clipboard.writeText(el.textContent).then(function() {
+            var orig = btn.textContent;
+            btn.textContent = 'Copied!';
+            setTimeout(function() { btn.textContent = orig; }, 1500);
+        });
+    });
+});
+</script>
 
 </body>
 </html>
