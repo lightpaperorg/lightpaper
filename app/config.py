@@ -19,6 +19,7 @@ class Settings(BaseModel):
     ]
     linkedin_client_id: str = os.getenv("LINKEDIN_CLIENT_ID", "")
     linkedin_client_secret: str = os.getenv("LINKEDIN_CLIENT_SECRET", "")
+    resend_api_key: str = os.getenv("RESEND_API_KEY", "")
 
 
 settings = Settings()

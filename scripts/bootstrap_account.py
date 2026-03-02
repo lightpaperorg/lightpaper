@@ -18,7 +18,6 @@ This script:
 6. Prints the API key for use in the MCP server
 """
 
-import json
 import os
 import sys
 
@@ -28,7 +27,7 @@ from firebase_admin import auth as firebase_auth
 from firebase_admin import credentials as firebase_credentials
 
 # --- Configuration ---
-FIREBASE_PROJECT_ID = os.getenv("FIREBASE_PROJECT_ID", "refreshing-rune-471208-e5")
+FIREBASE_PROJECT_ID = os.getenv("FIREBASE_PROJECT_ID", "")
 API_URL = os.getenv("LIGHTPAPER_API_URL", "https://lightpaper-tu5pdlncyq-uc.a.run.app")
 FIREBASE_API_KEY = os.getenv("FIREBASE_API_KEY", "")
 GOOGLE_APPLICATION_CREDENTIALS = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "")
@@ -219,22 +218,7 @@ def main():
     print(f'    curl -H "Authorization: Bearer {api_key}" {API_URL}/v1/account')
     print()
 
-    # Also write to a local file for convenience
-    secrets_path = os.path.join(os.path.dirname(__file__), ".bootstrap-secrets.json")
-    with open(secrets_path, "w") as f:
-        json.dump(
-            {
-                "api_key": api_key,
-                "api_url": API_URL,
-                "account_id": account["id"],
-                "firebase_uid": uid,
-                "handle": account.get("handle"),
-            },
-            f,
-            indent=2,
-        )
-    print(f"  Secrets saved to: {secrets_path}")
-    print("  (Add this file to .gitignore!)")
+    print("  Save these credentials in a safe place (e.g. password manager).")
 
 
 if __name__ == "__main__":

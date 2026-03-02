@@ -153,6 +153,16 @@ POST   /v1/collections/{id}/documents # Add document to collection
 GET    /v1/collections/{id}           # List documents in collection
 ```
 
+### Authentication
+
+```
+POST   /v1/auth/email                 # Send OTP code to email, returns session_id
+POST   /v1/auth/verify                # Verify OTP code, returns account + API key
+POST   /v1/auth/linkedin              # Start LinkedIn OAuth, returns authorization URL
+GET    /v1/auth/linkedin/callback     # LinkedIn OAuth callback (browser redirect)
+GET    /v1/auth/linkedin/poll         # Poll for LinkedIn OAuth completion
+```
+
 ### Account and Ownership
 
 ```
@@ -160,7 +170,6 @@ POST   /v1/account                    # Create account (Firebase Auth token requ
 GET    /v1/account                    # Account info, usage stats, verified identities
 GET    /v1/account/documents          # List all documents for this account
 GET    /v1/account/export             # Export all content as ZIP [Planned]
-POST   /v1/account/claim              # Claim anonymous documents [Planned]
 DELETE /v1/account                    # Hard-delete account + all content (GDPR)
 ```
 
@@ -353,29 +362,48 @@ Account (Firebase Auth)
 
 Revoking a key does NOT delete documents. Creating a new key does NOT lose access to existing documents. This solves the "fragile key" problem where losing an API key means losing access to content.
 
-### Three Tiers
+### Two Tiers
 
 | Tier | Auth | Gravity | Capabilities |
 |------|------|---------|-------------|
-| Anonymous | None | Level 0 (no account) | 5 publishes/hour per IP. Unlisted only, noindex. Auto-expire 30 days. Cannot be indexed. |
 | Free Account | `Bearer lp_free_xxx` | Level 0–3 | 100 docs/month. Permanent URLs. Full gravity (verification-dependent). Basic analytics. 1 key. |
 | Pro Account | `Bearer lp_live_xxx` | Level 0–3 | Unlimited docs. Custom slugs. Full analytics. Custom domains. Up to 3 keys. |
 
-**Every API key belongs to a human account.** There is no agent-specific key type. A human creates an account, verifies their identity, generates an API key, and delegates that key to their agent or automation. Every document published with that key is attributed to that human — they are the author of record. The agent is the tool.
+**Every document requires an authenticated author.** There is no anonymous publishing. A human creates an account, verifies their identity, generates an API key, and delegates that key to their agent or automation. Every document published with that key is attributed to that human — they are the author of record. The agent is the tool.
 
 This is the standard professional model: a social media manager posts on behalf of a CEO; the CEO is responsible. A PR firm sends emails on behalf of a founder; the founder is accountable. On lightpaper.org, the account holder is always the author — regardless of who or what typed the words.
 
 ### Key Design
 
 ```
+lp_free_abc123def456ghi789jkl012    (free tier key)
 lp_live_abc123def456ghi789jkl012    (production key)
 lp_test_abc123def456ghi789jkl012    (test key — not indexed, auto-expires)
-lp_anon_                             (anonymous — IP-based limits)
 ```
 
 Prefixed so agents instantly know which environment they're targeting. Test keys let agents iterate on formatting without polluting the namespace.
 
-**Why not OAuth?** OAuth requires redirect flows that make no sense for headless agents. API keys are the right abstraction for the publish flow. Firebase Auth handles the account/identity layer.
+### Authentication Flows
+
+**Email OTP** (primary — works for any agent):
+```
+POST /v1/auth/email       → sends 6-digit code to email, returns session_id
+POST /v1/auth/verify      → verifies code, returns account + API key
+```
+
+**LinkedIn OAuth** (for users with LinkedIn):
+```
+POST /v1/auth/linkedin           → returns authorization URL + session_id
+GET  /v1/auth/linkedin/callback  → OAuth callback (browser redirect)
+GET  /v1/auth/linkedin/poll      → agent polls for completion, returns API key
+```
+
+**API key** (returning users):
+```
+Authorization: Bearer lp_free_xxx
+```
+
+**Why not OAuth for the publish flow?** OAuth requires redirect flows that make no sense for headless agents. API keys are the right abstraction for the publish flow. Email OTP and LinkedIn OAuth handle the account creation layer.
 
 ## Agent Discovery
 
@@ -492,7 +520,6 @@ Idempotency-Key: agent-session-2026-02-26-report-v1
 
 | Tier | Publish | Read API | Burst |
 |------|---------|----------|-------|
-| Anonymous | 5/hour | 60/hour | 3/second |
 | Free | 100/month, 10/hour | 1,000/hour | 10/second |
 | Pro | Unlimited, 60/hour | 10,000/hour | 30/second |
 

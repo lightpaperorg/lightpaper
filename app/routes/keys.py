@@ -1,9 +1,7 @@
 """API key management: CRUD /v1/account/keys."""
 
-import secrets
 from datetime import UTC
 
-import bcrypt
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,18 +11,11 @@ from app.database import get_db
 from app.models import ApiKey
 from app.rate_limit import limiter
 from app.schemas import KeyCreateRequest, KeyCreateResponse, KeyResponse
+from app.services.api_keys import generate_api_key
 
 router = APIRouter(prefix="/v1/account", tags=["keys"])
 
 KEY_LIMITS = {"free": 1, "pro": 3, "team": 10}
-
-
-def _generate_key(tier: str) -> str:
-    """Generate an API key: lp_{tier}_ + 24-char token."""
-    prefix_map = {"free": "lp_free_", "pro": "lp_live_", "test": "lp_test_"}
-    prefix = prefix_map.get(tier, "lp_free_")
-    token = secrets.token_urlsafe(24)
-    return f"{prefix}{token}"
 
 
 @router.post("/keys", response_model=KeyCreateResponse, status_code=201)
@@ -51,9 +42,7 @@ async def create_key(
         )
 
     # Generate key
-    full_key = _generate_key(body.tier)
-    key_hash = bcrypt.hashpw(full_key.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
-    key_prefix = full_key[:8]
+    full_key, key_hash, key_prefix = generate_api_key(body.tier)
 
     api_key = ApiKey(
         account_id=auth.account.id,

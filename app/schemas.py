@@ -198,21 +198,47 @@ class GravityResponse(BaseModel):
     featured_threshold: int
 
 
-# --- Onboard ---
+# --- Auth (Email OTP + LinkedIn OAuth) ---
 
 
-class OnboardRequest(BaseModel):
+class AuthEmailRequest(BaseModel):
     email: str = Field(..., max_length=320)
     display_name: str | None = Field(None, max_length=200)
     handle: str | None = Field(None, max_length=100)
 
 
-class OnboardResponse(BaseModel):
+class AuthEmailResponse(BaseModel):
+    session_id: str
+    message: str
+    expires_in: int
+
+
+class AuthVerifyRequest(BaseModel):
+    session_id: str
+    code: str = Field(..., min_length=6, max_length=6)
+
+
+class AuthVerifyResponse(BaseModel):
     account_id: str
     handle: str | None
     api_key: str
+    is_new_account: bool
     gravity_level: int
     next_level: str | None
+
+
+class LinkedInAuthStartResponse(BaseModel):
+    authorization_url: str
+    session_id: str
+    instructions: str
+
+
+class LinkedInAuthPollResponse(BaseModel):
+    completed: bool
+    account_id: str | None = None
+    handle: str | None = None
+    api_key: str | None = None
+    gravity_level: int | None = None
 
 
 # --- LinkedIn Verification ---

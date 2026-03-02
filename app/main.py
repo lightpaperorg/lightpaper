@@ -109,6 +109,24 @@ async def health():
     return {"status": "ok", "service": "lightpaper", "version": "0.1.0"}
 
 
+@app.get("/health/ready")
+async def health_ready():
+    """Readiness check — verifies database connectivity."""
+    from sqlalchemy import text
+
+    from app.database import engine
+
+    try:
+        async with engine.connect() as conn:
+            await conn.execute(text("SELECT 1"))
+        db_status = "ok"
+    except Exception:
+        db_status = "error"
+
+    status = "ok" if db_status == "ok" else "degraded"
+    return {"status": status, "service": "lightpaper", "version": "0.1.0", "database": db_status}
+
+
 @app.get("/favicon.ico", include_in_schema=False)
 async def favicon():
     import os

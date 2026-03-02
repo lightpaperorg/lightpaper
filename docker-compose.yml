@@ -28,6 +28,9 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://lightpaper:${POSTGRES_PASSWORD:-lightpaper_dev}@db:5432/lightpaper
       FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-your-firebase-project-id}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      LINKEDIN_CLIENT_ID: ${LINKEDIN_CLIENT_ID:-}
+      LINKEDIN_CLIENT_SECRET: ${LINKEDIN_CLIENT_SECRET:-}
       BASE_URL: ${BASE_URL:-http://localhost:8001}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,https://lightpaper.org}
     volumes:

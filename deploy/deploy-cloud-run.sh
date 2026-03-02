@@ -34,7 +34,7 @@ gcloud run deploy "$SERVICE_NAME" \
   --concurrency=100 \
   --add-cloudsql-instances="$CLOUD_SQL_CONNECTION" \
   --set-env-vars="^||^FIREBASE_PROJECT_ID=$PROJECT_ID||BASE_URL=https://lightpaper.org||CORS_ORIGINS=https://lightpaper.org,http://localhost:3000" \
-  --update-secrets="DATABASE_URL=lightpaper-db-url:latest"
+  --update-secrets="DATABASE_URL=lightpaper-db-url:latest,RESEND_API_KEY=resend-api-key:latest,LINKEDIN_CLIENT_ID=linkedin-client-id:latest,LINKEDIN_CLIENT_SECRET=linkedin-client-secret:latest"
 
 echo ""
 echo "=== Deployment complete ==="
