@@ -23,6 +23,7 @@ app = FastAPI(
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     DOCS_PATHS = {"/v1/docs", "/v1/openapi.json", "/v1/redoc"}
+    INLINE_SCRIPT_PATHS = {"/"}
 
     async def dispatch(self, request: Request, call_next):
         response: Response = await call_next(request)
@@ -34,6 +35,12 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
                 "img-src 'self' https: data:; "
                 "font-src 'self' https://cdn.jsdelivr.net; "
                 "frame-ancestors 'none'"
+            )
+        elif request.url.path in self.INLINE_SCRIPT_PATHS:
+            response.headers["Content-Security-Policy"] = (
+                "default-src 'self'; script-src 'self' 'unsafe-inline'; "
+                "style-src 'self' 'unsafe-inline'; "
+                "img-src 'self' https:; frame-ancestors 'none'"
             )
         else:
             response.headers["Content-Security-Policy"] = (
@@ -132,6 +139,7 @@ def mount_routes():
     """Mount all routers. Called after all route modules are defined."""
     from app.routes import (
         accounts,
+        auth,
         author,
         credentials,
         discovery,
@@ -139,7 +147,6 @@ def mount_routes():
         keys,
         landing,
         linkedin,
-        onboard,
         publish,
         reading,
         search,
@@ -152,7 +159,7 @@ def mount_routes():
     app.include_router(accounts.router)
     app.include_router(keys.router)
     app.include_router(verification.router)
-    app.include_router(onboard.router)
+    app.include_router(auth.router)
     app.include_router(linkedin.router)
     app.include_router(credentials.router)
     app.include_router(discovery.router)
@@ -164,3 +171,40 @@ def mount_routes():
 
 
 mount_routes()
+
+
+@app.on_event("startup")
+async def run_migrations():
+    """Apply pending migrations on startup (idempotent)."""
+    import logging
+    import os
+
+    from sqlalchemy import text
+
+    from app.database import engine
+
+    migration_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "migrations")
+    if not os.path.isdir(migration_dir):
+        return
+
+    logger = logging.getLogger("lightpaper.migrations")
+    for filename in sorted(os.listdir(migration_dir)):
+        if not filename.endswith(".sql"):
+            continue
+        filepath = os.path.join(migration_dir, filename)
+        sql = open(filepath).read()
+        # Execute each statement in its own transaction (idempotent — skip on error)
+        for statement in sql.split(";"):
+            statement = statement.strip()
+            # Skip empty lines and pure comments
+            if not statement or all(
+                line.strip().startswith("--") or not line.strip()
+                for line in statement.split("\n")
+            ):
+                continue
+            try:
+                async with engine.begin() as conn:
+                    await conn.execute(text(statement))
+            except Exception as e:
+                logger.warning("Migration %s: skipped statement: %s", filename, str(e)[:200])
+        logger.info("Migration completed: %s", filename)
