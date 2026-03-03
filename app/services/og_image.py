@@ -68,7 +68,7 @@ def generate_og_image(
         draw.text((WIDTH - 60 - sw - 10, 60), score_text, fill=BODY_COLOR, font=font_regular)
 
     # Format badge (below quality score, top right)
-    if format and format != "markdown":
+    if format and format not in ("markdown", "post"):
         fmt_text = format.upper()
         fmt_bbox = draw.textbbox((0, 0), fmt_text, font=font_small)
         fmt_w = fmt_bbox[2] - fmt_bbox[0]

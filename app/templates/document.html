@@ -42,7 +42,7 @@
     <script type="application/ld+json">
     {
         "@context": "https://schema.org",
-        "@type": "Article",
+        "@type": {% if format == "paper" %}"ScholarlyArticle"{% elif format == "post" %}"BlogPosting"{% else %}"Article"{% endif %},
         "headline": {{ title|tojson }},
         {% if subtitle %}"description": {{ subtitle|tojson }},{% endif %}
         "url": {{ permanent_url|tojson }},
@@ -60,6 +60,9 @@
     </script>
 
     <style>
+        /* ================================================================
+           BASE RESET & CSS VARIABLES
+           ================================================================ */
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
         :root {
@@ -70,6 +73,7 @@
             --border: #E5E7EB;
             --code-bg: #F9FAFB;
             --link: #374151;
+            --accent: #4B5563;
         }
 
         @media (prefers-color-scheme: dark) {
@@ -81,9 +85,13 @@
                 --border: #374151;
                 --code-bg: #1F2937;
                 --link: #D1D5DB;
+                --accent: #9CA3AF;
             }
         }
 
+        /* ================================================================
+           BASE LAYOUT
+           ================================================================ */
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             font-size: 18px;
@@ -99,7 +107,9 @@
             padding: 3rem 1.5rem;
         }
 
-        /* Header */
+        /* ================================================================
+           SITE HEADER
+           ================================================================ */
         .site-header {
             color: var(--secondary);
             font-size: 14px;
@@ -108,8 +118,11 @@
         }
         .site-header a { color: var(--secondary); text-decoration: none; }
         .site-header a:hover { color: var(--heading); }
+        .header-format { opacity: 0.7; }
 
-        /* Article header */
+        /* ================================================================
+           ARTICLE HEADER
+           ================================================================ */
         .article-header { margin-bottom: 2.5rem; }
         .article-header h1 {
             font-size: 2em;
@@ -130,6 +143,8 @@
             flex-wrap: wrap;
             gap: 0.5rem;
         }
+        .article-meta a { color: var(--secondary); text-decoration: none; }
+        .article-meta a:hover { color: var(--heading); }
         .article-meta .sep { opacity: 0.5; }
         .quality-badge {
             display: inline-block;
@@ -146,6 +161,16 @@
             border-radius: 4px;
             font-size: 12px;
         }
+        .format-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            background: var(--code-bg);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
 
         .divider {
             border: none;
@@ -153,7 +178,9 @@
             margin: 2rem 0;
         }
 
-        /* Article content */
+        /* ================================================================
+           ARTICLE CONTENT — SHARED BASE
+           ================================================================ */
         article h1, article h2, article h3, article h4, article h5, article h6 {
             color: var(--heading);
             font-weight: 600;
@@ -212,9 +239,7 @@
             margin: 1.5em 0;
         }
 
-        article figure {
-            margin: 1.5em 0;
-        }
+        article figure { margin: 1.5em 0; }
         article figcaption {
             text-align: center;
             font-size: 14px;
@@ -239,7 +264,28 @@
             color: var(--heading);
         }
 
-        /* Footer */
+        /* Tables: horizontal scroll on narrow screens */
+        article .table-wrapper {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            margin-bottom: 1.5em;
+        }
+        article .table-wrapper table { margin-bottom: 0; }
+
+        /* Footnotes (markdown-it plugin) */
+        article .footnotes {
+            font-size: 14px;
+            color: var(--secondary);
+            border-top: 1px solid var(--border);
+            margin-top: 3rem;
+            padding-top: 1.5rem;
+        }
+        article .footnotes ol { padding-left: 1.5em; }
+        article .footnotes li { margin-bottom: 0.5em; }
+
+        /* ================================================================
+           ARTICLE FOOTER
+           ================================================================ */
         .article-footer {
             margin-top: 3rem;
             padding-top: 2rem;
@@ -253,101 +299,379 @@
             font-size: 12px;
             word-break: break-all;
         }
-        .format-badge {
-            display: inline-block;
-            padding: 2px 8px;
-            background: var(--code-bg);
-            border: 1px solid var(--border);
-            border-radius: 4px;
-            font-size: 12px;
-            text-transform: capitalize;
-        }
 
-        /* --- Format: academic --- */
-        .format-academic {
-            font-family: Georgia, 'Times New Roman', Times, serif;
+        /* ================================================================
+           FORMAT: PAPER
+           Inspired by LaTeX / arXiv / journal articles.
+           Dense, precise, scholarly. Serif typography, numbered sections,
+           abstract block, clean academic tables.
+           ================================================================ */
+        .format-paper {
+            font-family: Palatino, 'Palatino Linotype', 'Book Antiqua', Georgia, 'Noto Serif', serif;
+            font-size: 17px;
             line-height: 1.65;
         }
-        .format-academic article { counter-reset: h2-counter; }
-        .format-academic article h2 { counter-increment: h2-counter; }
-        .format-academic article h2::before {
-            content: counter(h2-counter) ". ";
-            font-weight: 600;
+
+        /* Centered title block */
+        .format-paper .article-header {
+            text-align: center;
+            margin-bottom: 2rem;
         }
-        .format-academic article > blockquote:first-child {
-            border-left: 3px solid var(--heading);
+        .format-paper .article-header h1 {
+            font-size: 1.75em;
+            font-weight: 700;
+            letter-spacing: -0.01em;
+            margin-bottom: 0.3rem;
+        }
+        .format-paper .article-header .subtitle {
+            font-style: italic;
+            font-size: 1.1em;
+        }
+        .format-paper .article-meta {
+            justify-content: center;
+        }
+
+        /* Numbered sections: 1. 2. 3. for h2, 1.1 1.2 for h3 */
+        .format-paper article {
+            counter-reset: h2-counter;
+        }
+        .format-paper article h2 {
+            counter-increment: h2-counter;
+            counter-reset: h3-counter;
+            font-size: 1.3em;
+            font-weight: 700;
+            margin-top: 2.5em;
+        }
+        .format-paper article h2::before {
+            content: counter(h2-counter) ". ";
+            font-weight: 700;
+        }
+        .format-paper article h3 {
+            counter-increment: h3-counter;
+            font-size: 1.15em;
+            font-weight: 600;
+            font-style: italic;
+        }
+        .format-paper article h3::before {
+            content: counter(h2-counter) "." counter(h3-counter) " ";
+            font-style: normal;
+        }
+
+        /* Abstract — first blockquote becomes labeled abstract box */
+        .format-paper article > blockquote:first-child {
+            border-left: none;
+            border: 1px solid var(--border);
             background: var(--code-bg);
-            padding: 1.25rem 1.5rem;
-            border-radius: 0 6px 6px 0;
+            padding: 1.5rem 1.75rem;
+            border-radius: 0;
             font-style: normal;
             color: var(--body);
+            margin-bottom: 2.5em;
+            font-size: 0.95em;
+            line-height: 1.6;
         }
-        .format-academic article > blockquote:first-child::before {
+        .format-paper article > blockquote:first-child::before {
             content: "Abstract";
             display: block;
             font-weight: 700;
-            font-size: 14px;
+            font-size: 12px;
             text-transform: uppercase;
-            letter-spacing: 0.05em;
+            letter-spacing: 0.12em;
             color: var(--heading);
-            margin-bottom: 0.5rem;
+            margin-bottom: 0.75rem;
         }
 
-        /* --- Format: report --- */
-        .format-report .container { max-width: 720px; }
-        .format-report article th {
-            background: var(--heading);
-            color: var(--bg);
-        }
-        .format-report article > blockquote:first-child {
-            border-left: 3px solid var(--heading);
-            background: var(--code-bg);
-            padding: 1.25rem 1.5rem;
-            border-radius: 0 6px 6px 0;
-            font-style: normal;
-            color: var(--body);
-        }
-        .format-report article > blockquote:first-child::before {
-            content: "Executive Summary";
-            display: block;
-            font-weight: 700;
-            font-size: 14px;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            color: var(--heading);
-            margin-bottom: 0.5rem;
+        /* Non-abstract blockquotes — academic indented style */
+        .format-paper article blockquote {
+            border-left: 2px solid var(--border);
+            padding-left: 1.25em;
+            font-style: italic;
+            color: var(--secondary);
+            font-size: 0.95em;
         }
 
-        /* --- Format: tutorial --- */
-        .format-tutorial article { counter-reset: step-counter; }
-        .format-tutorial article h2 { counter-increment: step-counter; }
-        .format-tutorial article h2::before {
-            content: "Step " counter(step-counter) ": ";
+        /* Tables — clean academic: ruled top/bottom, no cell borders */
+        .format-paper article table {
+            border: none;
+            font-size: 15px;
+        }
+        .format-paper article th {
+            background: transparent;
+            border: none;
+            border-top: 2px solid var(--heading);
+            border-bottom: 1px solid var(--heading);
             font-weight: 600;
+            padding: 0.5rem 0.75rem;
         }
-        .format-tutorial article pre {
-            border-width: 2px;
-            border-color: var(--heading);
+        .format-paper article td {
+            border: none;
+            border-bottom: 1px solid var(--border);
+            padding: 0.4rem 0.75rem;
         }
-        .format-tutorial article blockquote {
-            border-left: 3px solid var(--heading);
-            background: var(--code-bg);
-            padding: 1rem 1.5rem;
-            border-radius: 0 6px 6px 0;
-            font-style: normal;
+        .format-paper article tr:last-child td {
+            border-bottom: 2px solid var(--heading);
         }
 
-        /* Tables: horizontal scroll on narrow screens */
-        article .table-wrapper {
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
-            margin-bottom: 1.5em;
+        /* Code — subdued, no rounded corners */
+        .format-paper article pre {
+            border-radius: 0;
+            font-size: 13px;
+            border-color: var(--border);
         }
-        article .table-wrapper table {
+
+        /* Figures — centered captions, italic */
+        .format-paper article figcaption {
+            font-style: italic;
+            font-size: 13px;
+        }
+
+        /* Images — no rounded corners */
+        .format-paper article img {
+            border-radius: 0;
+        }
+
+        /* Paragraphs — tighter */
+        .format-paper article p {
+            margin-bottom: 1.25em;
+            text-align: justify;
+            hyphens: auto;
+        }
+
+        /* Links — subtle for academic text */
+        .format-paper article a {
+            text-decoration-thickness: 1px;
+            text-underline-offset: 2px;
+        }
+
+        /* Paper divider — thinner */
+        .format-paper .divider {
+            border-top: 1px solid var(--border);
+            margin: 1.5rem 0;
+        }
+
+        /* ================================================================
+           FORMAT: ESSAY
+           Inspired by The New Yorker / Aeon / literary journals.
+           Spacious, elegant, immersive. Generous whitespace, drop cap,
+           pull-quote blockquotes, ornamental dividers.
+           ================================================================ */
+        .format-essay {
+            font-family: Georgia, 'Iowan Old Style', Baskerville, 'Noto Serif', serif;
+            font-size: 20px;
+            line-height: 1.9;
+        }
+
+        .format-essay .container {
+            max-width: 640px;
+        }
+
+        /* Centered, elegant header */
+        .format-essay .article-header {
+            text-align: center;
+            margin-bottom: 3.5rem;
+        }
+        .format-essay .article-header h1 {
+            font-size: 2.5em;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            line-height: 1.15;
+            margin-bottom: 0.75rem;
+        }
+        .format-essay .article-header .subtitle {
+            font-style: italic;
+            font-size: 1.1em;
+            color: var(--secondary);
+            margin-bottom: 1.25rem;
+        }
+        .format-essay .article-meta {
+            justify-content: center;
+            font-size: 13px;
+            letter-spacing: 0.02em;
+        }
+
+        /* Hide badges — the design speaks for itself */
+        .format-essay .quality-badge { display: none; }
+        .format-essay .format-badge { display: none; }
+
+        /* Elegant divider */
+        .format-essay .divider {
+            border: none;
+            text-align: center;
+            margin: 2.5rem 0;
+        }
+        .format-essay .divider::after {
+            content: "\2014\00a0\00a0\2014\00a0\00a0\2014";
+            color: var(--border);
+            font-size: 14px;
+        }
+
+        /* Drop cap on first paragraph */
+        .format-essay article > p:first-of-type::first-letter {
+            float: left;
+            font-size: 3.6em;
+            line-height: 0.8;
+            padding-right: 0.08em;
+            padding-top: 0.07em;
+            font-weight: 700;
+            color: var(--heading);
+        }
+
+        /* Headings — centered section markers */
+        .format-essay article h2 {
+            font-size: 1.35em;
+            text-align: center;
+            margin-top: 3em;
+            margin-bottom: 1.25em;
+            font-weight: 600;
+            letter-spacing: -0.01em;
+        }
+        .format-essay article h3 {
+            font-size: 1.15em;
+            font-style: italic;
+            font-weight: 600;
+            margin-top: 2.5em;
+        }
+
+        /* Pull-quote blockquotes */
+        .format-essay article blockquote {
+            border-left: none;
+            text-align: center;
+            font-size: 1.2em;
+            font-style: italic;
+            color: var(--heading);
+            padding: 1.5em 2em;
+            margin: 2.5em 0;
+            position: relative;
+            line-height: 1.6;
+        }
+        .format-essay article blockquote::before {
+            content: "\201C";
+            display: block;
+            font-size: 3em;
+            line-height: 0.5;
+            color: var(--border);
+            margin-bottom: 0.3em;
+        }
+        .format-essay article blockquote p {
             margin-bottom: 0;
         }
 
-        /* Mobile refinements */
+        /* Ornamental section dividers */
+        .format-essay article hr {
+            border: none;
+            text-align: center;
+            margin: 3em 0;
+        }
+        .format-essay article hr::after {
+            content: "\2726";
+            color: var(--secondary);
+            font-size: 1em;
+            letter-spacing: 0.5em;
+        }
+
+        /* Generous paragraph spacing */
+        .format-essay article p {
+            margin-bottom: 1.75em;
+        }
+
+        /* Links — subtle bottom border instead of underline */
+        .format-essay article a {
+            text-decoration: none;
+            border-bottom: 1px solid var(--border);
+            transition: border-color 0.2s ease;
+        }
+        .format-essay article a:hover {
+            border-bottom-color: var(--heading);
+        }
+
+        /* Images — wider than text column for dramatic effect */
+        .format-essay article img {
+            border-radius: 0;
+            margin: 2.5em -1.5rem;
+            max-width: calc(100% + 3rem);
+            width: calc(100% + 3rem);
+        }
+        .format-essay article figure {
+            margin: 2.5em -1.5rem;
+        }
+        .format-essay article figure img {
+            margin: 0;
+            width: 100%;
+            max-width: 100%;
+        }
+        .format-essay article figcaption {
+            font-style: italic;
+            font-size: 14px;
+            margin-top: 0.75em;
+            padding: 0 1.5rem;
+        }
+
+        /* Code — minimal, de-emphasized */
+        .format-essay article pre {
+            font-size: 14px;
+            border-radius: 0;
+            background: var(--code-bg);
+        }
+
+        /* Lists — gentle */
+        .format-essay article ul, .format-essay article ol {
+            padding-left: 1.25em;
+        }
+
+        /* Footnotes — elegant */
+        .format-essay article .footnotes {
+            font-size: 14px;
+            margin-top: 4rem;
+            border-top-color: var(--border);
+        }
+
+        /* ================================================================
+           FORMAT: POST
+           Inspired by Substack / modern blogs.
+           Clean, scannable, practical. Sans-serif, callout-box quotes,
+           prominent code blocks, all metadata visible.
+           ================================================================ */
+        .format-post {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-size: 18px;
+            line-height: 1.75;
+        }
+
+        /* Left-aligned header (default) */
+        .format-post .article-header h1 {
+            font-size: 2em;
+        }
+
+        /* Callout-box blockquotes */
+        .format-post article blockquote {
+            border-left: 3px solid var(--accent);
+            background: var(--code-bg);
+            padding: 1rem 1.5rem;
+            border-radius: 0 8px 8px 0;
+            font-style: normal;
+            color: var(--body);
+        }
+
+        /* Prominent code blocks */
+        .format-post article pre {
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            font-size: 14px;
+        }
+
+        /* Tables — standard with colored header */
+        .format-post article th {
+            background: var(--code-bg);
+        }
+
+        /* Images — rounded */
+        .format-post article img {
+            border-radius: 8px;
+        }
+
+        /* ================================================================
+           MOBILE REFINEMENTS
+           ================================================================ */
         @media (max-width: 640px) {
             body { font-size: 17px; }
             .container { padding: 2rem 1.25rem; }
@@ -358,13 +682,36 @@
             }
             article table { font-size: 14px; }
             article pre { font-size: 13px; }
+
+            /* Paper mobile */
+            .format-paper { font-size: 16px; }
+            .format-paper .article-header h1 { font-size: 1.5em; }
+            .format-paper article p { text-align: left; hyphens: none; }
+
+            /* Essay mobile */
+            .format-essay { font-size: 18px; }
+            .format-essay .container { max-width: 100%; }
+            .format-essay .article-header h1 { font-size: 2em; }
+            .format-essay article > p:first-of-type::first-letter {
+                font-size: 3em;
+            }
+            .format-essay article img {
+                margin-left: -1.25rem;
+                margin-right: -1.25rem;
+                max-width: calc(100% + 2.5rem);
+                width: calc(100% + 2.5rem);
+            }
+            .format-essay article figure {
+                margin-left: -1.25rem;
+                margin-right: -1.25rem;
+            }
         }
     </style>
 </head>
 <body class="format-{{ format }}">
     <div class="container">
         <nav class="site-header">
-            <a href="/">lightpaper.org</a>
+            <a href="/">lightpaper.org</a>{% if format == "paper" %}<span class="header-format"> &middot; Paper</span>{% elif format == "essay" %}<span class="header-format"> &middot; Essay</span>{% endif %}
         </nav>
 
         <header class="article-header">
@@ -373,7 +720,7 @@
             <div class="article-meta">
                 {% if authors %}
                     {% for a in authors %}
-                        <span>{% if a.handle %}<a href="/@{{ a.handle }}" style="color: var(--secondary); text-decoration: none;">@{{ a.handle }}</a>{% else %}{{ a.name }}{% endif %}</span>
+                        <span>{% if a.handle %}<a href="/@{{ a.handle }}">@{{ a.handle }}</a>{% else %}{{ a.name }}{% endif %}</span>
                         {% if not loop.last %}<span class="sep">&amp;</span>{% endif %}
                     {% endfor %}
                     <span class="sep">&middot;</span>
@@ -387,7 +734,7 @@
                 {% for badge in gravity_badges %}
                     <span class="gravity-badge">{{ badge }}</span>
                 {% endfor %}
-                {% if format and format != "markdown" %}
+                {% if format and format != "post" %}
                     <span class="format-badge">{{ format }}</span>
                 {% endif %}
             </div>

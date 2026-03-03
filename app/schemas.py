@@ -23,7 +23,7 @@ class PublishRequest(BaseModel):
     title: str = Field(..., min_length=1, max_length=500)
     subtitle: str | None = Field(None, max_length=1000)
     content: str = Field(..., min_length=1, max_length=500_000)
-    format: Literal["markdown", "academic", "report", "tutorial"] = "markdown"
+    format: Literal["paper", "essay", "post", "markdown", "academic", "report", "tutorial"] = "post"
     authors: list[AuthorInfo] = Field(default_factory=list, max_length=20)
     metadata: dict = Field(default_factory=dict)
     options: PublishOptions = PublishOptions()

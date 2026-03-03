@@ -17,6 +17,14 @@ router = APIRouter(tags=["reading"])
 # Reserved paths that should NOT match the /{slug} catch-all
 RESERVED_PREFIXES = {"v1", "health", "robots.txt", "sitemap.xml", "llms.txt", "og", "d", "static", "@"}
 
+# Normalize legacy format values to new taxonomy
+FORMAT_NORMALIZE = {
+    "markdown": "post",
+    "academic": "paper",
+    "report": "paper",
+    "tutorial": "post",
+}
+
 
 async def _load_doc_by_slug(slug: str, db: AsyncSession):
     result = await db.execute(select(Document).where(Document.slug == slug, Document.deleted_at.is_(None)))
@@ -88,7 +96,7 @@ async def _render_html(doc: Document, version: DocumentVersion, db: AsyncSession
         permanent_url=f"{settings.base_url}/d/{doc.id}",
         og_image_url=f"{settings.base_url}/og/{doc.id}.png",
         gravity_badges=gravity_badges,
-        format=doc.format or "markdown",
+        format=FORMAT_NORMALIZE.get(doc.format, doc.format) or "post",
     )
     return HTMLResponse(
         content=html,

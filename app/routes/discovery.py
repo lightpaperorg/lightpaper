@@ -348,7 +348,7 @@ POST /v1/publish — requires markdown content with at least 300 words and at le
 | title | string | Yes | Document title (max 500 chars) |
 | content | string | Yes | Markdown content (min 300 words, max 500K chars, must have ≥1 heading) |
 | subtitle | string | No | Subtitle (max 1000 chars) |
-| format | string | No | Presentation format: "markdown", "academic", "report", "tutorial" (default "markdown") |
+| format | string | No | Presentation format: "paper", "essay", "post" (default "post") |
 | authors | array | No | Author attribution: [{{"name": "Alice", "handle": "alice"}}] (max 20) |
 | tags | list | No | Tags for search filtering (max 50) |
 | options.slug | string | No | Custom URL slug (max 80 chars, auto-generated from title if omitted) |
@@ -368,27 +368,35 @@ The publish response includes:
 
 ### Document Formats
 
-Use `format` to control the visual presentation. All formats use the same markdown renderer — format only affects CSS.
+Use `format` to control the visual presentation. Choose based on the content's nature — the format dramatically changes how the document looks and reads. All formats use the same markdown renderer — format only affects layout and typography.
 
-**"markdown"** (default) — Clean blog-style layout. Good for general articles, blog posts, essays.
+**"paper"** — Use for research papers, literature reviews, technical analyses, methodology papers.
+- Serif font (Palatino), justified text, academic density
+- h2 and h3 headings are auto-numbered (1. Introduction, 1.1 Background, 2. Methods, etc.)
+- First blockquote renders as a labeled "Abstract" box — write `> Your abstract text here...` at the start
+- Clean academic tables (ruled top/bottom, no cell borders)
+- Centered title and author block
+- JSON-LD type: ScholarlyArticle
+- Think: arXiv, journal articles, conference papers
 
-**"academic"** — Use for research papers, literature reviews, technical analyses.
-- Serif font (Georgia), tighter line-height
-- h2 headings are auto-numbered (1. Introduction, 2. Methods, etc.)
-- First blockquote renders as an "Abstract" callout box
-- Write your abstract as `> Your abstract text here...` at the start of the document
+**"essay"** — Use for sustained arguments, cultural commentary, personal narratives, opinion pieces, longform explorations.
+- Elegant serif font (Georgia), large text (20px), generous line-height and whitespace
+- Drop cap on the first paragraph
+- Blockquotes styled as centered pull-quotes with decorative quotation mark
+- Centered headings as section markers (not numbered)
+- Ornamental section dividers (horizontal rules become decorative)
+- Images extend wider than the text column for dramatic effect
+- Quality and format badges are hidden — the design speaks for itself
+- Think: The New Yorker, Aeon, The Atlantic longform
 
-**"report"** — Use for business reports, technical reports, white papers.
-- Wider reading container (720px vs 680px)
-- Table headers render with inverted colors (dark background, light text)
-- First blockquote renders as an "Executive Summary" callout box
-- Write your summary as `> Key findings here...` at the start
+**"post"** (default) — Use for practical articles, tutorials, how-to guides, technical writeups, announcements.
+- Clean sans-serif font (system UI), modern blog layout
+- Blockquotes styled as callout boxes (background + left border accent)
+- Prominent, rounded code blocks
+- All metadata visible (quality score, gravity badges)
+- Think: Substack, dev.to, modern technical blogs
 
-**"tutorial"** — Use for how-to guides, walkthroughs, step-by-step instructions.
-- h2 headings are auto-prefixed with "Step N:" (Step 1: Setup, Step 2: Configure, etc.)
-- Code blocks have a thicker, more prominent border
-- Blockquotes are styled as tip/callout boxes (not italic)
-- Structure your content with one h2 per step
+**How to choose**: If the content has citations, methodology, and findings → `paper`. If it's a sustained argument, narrative, or cultural exploration → `essay`. If it's practical, instructional, conversational, or code-heavy → `post`.
 
 ### Document Updates
 

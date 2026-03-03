@@ -22,6 +22,14 @@ from app.services.renderer import (
 )
 from app.services.slug import ensure_unique_slug, generate_slug, is_reserved_slug
 
+# Normalize legacy format values to new taxonomy
+FORMAT_NORMALIZE = {
+    "markdown": "post",
+    "academic": "paper",
+    "report": "paper",
+    "tutorial": "post",
+}
+
 # Lazy import to avoid circular dependency
 _indexnow = None
 
@@ -91,6 +99,9 @@ async def publish_document(
     # Extract tags from metadata
     tags = body.metadata.get("tags", [])
 
+    # Normalize format
+    normalized_format = FORMAT_NORMALIZE.get(body.format, body.format)
+
     # Create document
     doc = Document(
         id=doc_id,
@@ -98,7 +109,7 @@ async def publish_document(
         slug=slug,
         title=body.title,
         subtitle=body.subtitle,
-        format=body.format,
+        format=normalized_format,
         current_version=1,
         authors=[a.model_dump() for a in body.authors],
         doc_metadata=body.metadata,

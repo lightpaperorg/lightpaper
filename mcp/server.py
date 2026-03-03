@@ -33,7 +33,7 @@ This flow works for both new signups AND existing accounts (login). Alternative:
 **"Write a post about X"** (most common):
 1. If no API key → run the onboarding flow above
 2. Write the article as markdown (300+ words, at least one # heading)
-3. Pick the best format: 'markdown' (blog), 'academic' (research), 'report' (business), 'tutorial' (how-to)
+3. Pick the best format: 'paper' (research/academic), 'essay' (longform argument/narrative), 'post' (blog/tutorial/practical)
 4. Call publish_lightpaper with title, content, format, and authors (use the user's name + handle)
 5. Share the returned URL with the user
 6. If quality_score < 60, review the suggestions and offer to improve the article
@@ -104,7 +104,7 @@ async def list_prompts():
             "description": "Write and publish an article on lightpaper.org. Guides you through the full flow.",
             "arguments": [
                 PromptArgument(name="topic", description="What to write about", required=True),
-                PromptArgument(name="format", description="markdown, academic, report, or tutorial", required=False),
+                PromptArgument(name="format", description="paper, essay, or post", required=False),
             ],
         },
         {
@@ -188,13 +188,13 @@ async def list_tools() -> list[Tool]:
                     "subtitle": {"type": "string", "description": "Optional subtitle (max 1000 chars)"},
                     "format": {
                         "type": "string",
-                        "enum": ["markdown", "academic", "report", "tutorial"],
-                        "default": "markdown",
+                        "enum": ["paper", "essay", "post"],
+                        "default": "post",
                         "description": (
-                            "Presentation format. 'markdown': default blog style. "
-                            "'academic': use for research papers, literature reviews — serif font, auto-numbered h2 headings, first blockquote renders as Abstract callout. "
-                            "'report': use for business/technical reports — wider layout, inverted table headers, first blockquote renders as Executive Summary callout. "
-                            "'tutorial': use for how-to guides, walkthroughs — h2 headings auto-prefixed 'Step N:', prominent code blocks, blockquotes styled as tip callouts."
+                            "Presentation format — choose based on the content's nature. "
+                            "'paper': research papers, literature reviews, technical analyses — serif font, numbered sections, first blockquote as Abstract, academic tables. "
+                            "'essay': sustained arguments, cultural commentary, longform narratives — elegant serif, drop cap, pull-quote blockquotes, ornamental dividers. "
+                            "'post': practical articles, tutorials, technical writeups — clean sans-serif, callout-box blockquotes, prominent code blocks."
                         ),
                     },
                     "authors": {
