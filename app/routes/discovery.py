@@ -23,21 +23,37 @@ router = APIRouter(tags=["discovery"])
 INDEXNOW_KEY = "d3e5606fbb3758957821a552a4e8f85c"
 
 
-async def notify_indexnow(urls: list[str]):
-    """Submit URLs to IndexNow (Bing, Yandex, DuckDuckGo, Seznam)."""
+async def notify_search_engines(urls: list[str]):
+    """Notify search engines of new/updated URLs.
+
+    - IndexNow: Bing, Yandex, DuckDuckGo, Seznam (instant)
+    - Google: sitemap ping (triggers re-crawl of sitemap.xml)
+    """
     if not urls or "localhost" in settings.base_url:
         return
-    payload = {
-        "host": "lightpaper.org",
-        "key": INDEXNOW_KEY,
-        "keyLocation": f"{settings.base_url}/{INDEXNOW_KEY}.txt",
-        "urlList": urls[:10000],
-    }
     try:
         async with httpx.AsyncClient(timeout=10) as client:
+            # IndexNow — covers Bing, Yandex, DuckDuckGo, Seznam
+            payload = {
+                "host": "lightpaper.org",
+                "key": INDEXNOW_KEY,
+                "keyLocation": f"{settings.base_url}/{INDEXNOW_KEY}.txt",
+                "urlList": urls[:10000],
+            }
             await client.post("https://api.indexnow.org/indexnow", json=payload)
+
+            # Google sitemap ping — triggers Google to re-crawl sitemap.xml
+            sitemap_url = f"{settings.base_url}/sitemap.xml"
+            await client.get(
+                "https://www.google.com/ping",
+                params={"sitemap": sitemap_url},
+            )
     except Exception:
-        logger.warning("IndexNow submission failed", exc_info=True)
+        logger.warning("Search engine notification failed", exc_info=True)
+
+
+# Keep old name as alias for existing imports
+notify_indexnow = notify_search_engines
 
 
 @router.get(f"/{INDEXNOW_KEY}.txt", response_class=PlainTextResponse, include_in_schema=False)
@@ -59,6 +75,56 @@ Sitemap: {settings.base_url}/sitemap.xml
 # See https://llmstxt.org for the llms.txt standard
 LLMs-txt: {settings.base_url}/llms.txt
 """
+
+
+@router.get("/feed.xml")
+async def atom_feed(db: AsyncSession = Depends(get_db)):
+    """Atom feed of recent published documents."""
+    result = await db.execute(
+        select(Document)
+        .where(
+            Document.deleted_at.is_(None),
+            Document.listed.is_(True),
+            Document.quality_score >= 40,
+        )
+        .order_by(Document.created_at.desc())
+        .limit(50)
+    )
+    docs = result.scalars().all()
+
+    updated = docs[0].updated_at.strftime("%Y-%m-%dT%H:%M:%SZ") if docs else "2026-01-01T00:00:00Z"
+
+    entries = []
+    for doc in docs:
+        slug_url = f"{settings.base_url}/{doc.slug}" if doc.slug else f"{settings.base_url}/d/{doc.id}"
+        published = doc.created_at.strftime("%Y-%m-%dT%H:%M:%SZ") if doc.created_at else ""
+        doc_updated = doc.updated_at.strftime("%Y-%m-%dT%H:%M:%SZ") if doc.updated_at else published
+        author_name = ""
+        if doc.authors:
+            author_name = doc.authors[0].get("name", "")
+        subtitle_text = f"\n      <subtitle>{xml_escape(doc.subtitle)}</subtitle>" if doc.subtitle else ""
+        entries.append(f"""  <entry>
+    <title>{xml_escape(doc.title)}</title>{subtitle_text}
+    <link href="{xml_escape(slug_url)}" rel="alternate"/>
+    <id>urn:lightpaper:{doc.id}</id>
+    <published>{published}</published>
+    <updated>{doc_updated}</updated>
+    <author><name>{xml_escape(author_name)}</name></author>
+    <summary>{xml_escape(doc.subtitle or doc.title)}</summary>
+  </entry>""")
+
+    xml = f"""<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>lightpaper.org</title>
+  <subtitle>API-first publishing. One call, one permanent URL.</subtitle>
+  <link href="{settings.base_url}/feed.xml" rel="self"/>
+  <link href="{settings.base_url}/" rel="alternate"/>
+  <id>urn:lightpaper:feed</id>
+  <updated>{updated}</updated>
+{"".join(entries)}
+</feed>"""
+
+    return Response(content=xml, media_type="application/atom+xml")
 
 
 @router.get("/.well-known/ai-plugin.json")

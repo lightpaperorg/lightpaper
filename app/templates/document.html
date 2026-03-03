@@ -9,6 +9,7 @@
     <meta name="description" content="{{ subtitle or title }}">
     {% if quality_score is not none and quality_score < 40 %}<meta name="robots" content="noindex">{% endif %}
     <link rel="canonical" href="{{ permanent_url }}">
+    <link rel="alternate" type="application/atom+xml" title="lightpaper.org feed" href="/feed.xml">
 
     <!-- Favicon & Icons -->
     <link rel="icon" type="image/x-icon" href="/favicon.ico">

@@ -1,5 +1,6 @@
 """GET/PUT/DELETE /v1/documents/{id} — document CRUD."""
 
+import logging
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -19,6 +20,20 @@ from app.services.renderer import (
     extract_toc,
     render_markdown,
 )
+
+logger = logging.getLogger(__name__)
+
+# Lazy import to avoid circular dependency
+_notify = None
+
+
+async def _notify_search_engines(urls: list[str]):
+    global _notify
+    if _notify is None:
+        from app.routes.discovery import notify_search_engines
+
+        _notify = notify_search_engines
+    await _notify(urls)
 
 router = APIRouter(prefix="/v1", tags=["documents"])
 
@@ -145,6 +160,16 @@ async def update_document(
     await db.commit()
     await db.refresh(doc)
 
+    # Notify search engines of updated content
+    if doc.listed:
+        try:
+            urls = [f"{settings.base_url}/d/{doc.id}"]
+            if doc.slug:
+                urls.insert(0, f"{settings.base_url}/{doc.slug}")
+            await _notify_search_engines(urls)
+        except Exception:
+            pass  # never fail an update because of indexing
+
     current_version = await _get_current_version(doc.id, doc.current_version, db)
     return _doc_to_response(doc, current_version)
 
@@ -161,6 +186,12 @@ async def delete_document(
 
     doc.deleted_at = datetime.now(UTC)
     await db.commit()
+
+    # Ping search engines so they re-crawl sitemap and drop the deleted URL
+    try:
+        await _notify_search_engines([f"{settings.base_url}/d/{doc.id}"])
+    except Exception:
+        pass
 
 
 @router.get("/documents/{doc_id}/versions", response_model=list[VersionResponse])

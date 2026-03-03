@@ -9,25 +9,28 @@ FastAPI + async SQLAlchemy + PostgreSQL 16. Single-process async app deployed on
 |------|---------|
 | `app/main.py` | FastAPI app, middleware (CORS, security headers, body size, rate limiting) |
 | `app/config.py` | Pydantic settings from env vars |
-| `app/auth.py` | Firebase + API key + email OTP + LinkedIn OAuth authentication |
-| `app/models.py` | SQLAlchemy ORM models (10 tables) |
+| `app/auth.py` | API key + email OTP + LinkedIn OAuth authentication |
+| `app/models.py` | SQLAlchemy ORM models (11 tables) |
 | `app/schemas.py` | Pydantic request/response schemas with size limits |
 | `app/rate_limit.py` | slowapi limiter singleton |
 | `app/utils.py` | get_client_ip() for Cloud Run proxy |
 | `app/routes/publish.py` | POST /v1/publish — the core endpoint |
 | `app/routes/search.py` | GET /v1/search — full-text + gravity ranking |
-| `app/routes/documents.py` | CRUD /v1/documents/{id} |
+| `app/routes/documents.py` | CRUD /v1/documents/{id}, notifies search engines on update/delete |
 | `app/routes/reading.py` | GET /{slug} — content negotiation (HTML/JSON) |
-| `app/routes/discovery.py` | robots.txt, sitemap.xml, llms.txt, OG images |
+| `app/routes/discovery.py` | robots.txt, sitemap.xml, feed.xml, llms.txt, OG images, IndexNow + Google ping |
+| `app/routes/auth.py` | Email OTP + LinkedIn OAuth login/signup endpoints |
+| `app/routes/linkedin.py` | LinkedIn OAuth verification for existing accounts |
+| `app/routes/verification.py` | Domain DNS, ORCID verification, gravity status |
+| `app/routes/credentials.py` | Agent-driven credential verification |
 | `app/services/renderer.py` | markdown-it-py + nh3 HTML sanitization |
 | `app/services/quality.py` | Deterministic quality scoring (0-100) |
-| `app/services/gravity.py` | Author verification levels (0-3) |
+| `app/services/gravity.py` | Non-hierarchical author gravity (0-5) |
 | `app/services/slug.py` | URL slug generation + reserved slug list |
 | `app/services/og_image.py` | Pillow-based OG image generation |
 | `app/services/api_keys.py` | API key generation utility |
 | `app/services/email.py` | Resend API email delivery for OTP |
-| `app/routes/auth.py` | Email OTP + LinkedIn OAuth auth endpoints |
-| `mcp/server.py` | MCP server with 16 tools |
+| `mcp/server.py` | MCP server with 16 tools + 2 prompts |
 | `init.sql` | Database schema (11 tables) |
 | `migrations/*.sql` | Idempotent SQL migrations (run at startup) |
 
@@ -46,7 +49,50 @@ uvicorn app.main:app --port 8001 --reload
 python3 -m pytest tests/ -v
 ```
 
-Note: ~7 tests require PostgreSQL on port 5433 (`docker compose up -d db`). The remaining ~33 tests pass without a database.
+Note: ~7 tests require PostgreSQL on port 5433 (`docker compose up -d db`). The remaining ~40 tests pass without a database (including test_gravity.py with 42 gravity unit tests).
+
+## Indexing & Discovery
+
+Search engine notifications fire automatically on publish, update, and delete:
+- **IndexNow**: Bing, Yandex, DuckDuckGo, Seznam — instant URL submission
+- **Google sitemap ping**: `GET https://www.google.com/ping?sitemap=...` triggers re-crawl
+- **Atom feed**: `GET /feed.xml` — 50 most recent listed documents
+- **Sitemap**: `GET /sitemap.xml` — all listed documents with quality >= 40, plus author profiles
+- **robots.txt**: References sitemap.xml and llms.txt
+- **llms.txt**: Full agent instructions including onboarding flow, API reference, gravity system
+- **ai-plugin.json**: OpenAI plugin manifest at `/.well-known/ai-plugin.json`
+- **HTML meta**: OG tags, Twitter cards, JSON-LD structured data, canonical URLs, noindex for quality < 40
+- **OG images**: Auto-generated per document at `/og/{doc_id}.png`
+
+Implementation: `notify_search_engines()` in discovery.py, called from publish.py, documents.py.
+
+## Author Gravity (non-hierarchical)
+
+Verifications are independent — any combination reaches any level:
+
+| Level | Requirement | Multiplier |
+|-------|------------|-----------|
+| 0 | Nothing | 1.0x |
+| 1 | Any 1 identity (domain, LinkedIn, or ORCID) | 1.1x |
+| 2 | 2 identities | 1.25x |
+| 3 | 3 ids, OR 2 ids + 1 cred pt, OR 1 id + 3 cred pts | 1.4x |
+| 4 | 2+ ids + 3 cred pts, OR 1 id + 6 cred pts | 1.55x |
+| 5 | 2+ ids + 6 cred pts | 1.7x |
+
+Key: LinkedIn + confirmed degree (3 pts) = Level 3. No domain or ORCID needed.
+
+`get_next_level_instructions()` takes verification state and gives context-sensitive advice.
+
+## Authentication
+
+Two auth flows, no anonymous publishing:
+
+- **Email OTP**: `POST /v1/auth/email` sends code via Resend (`auth@lightpaper.org`), `POST /v1/auth/verify` returns API key
+- **LinkedIn OAuth login**: `POST /v1/auth/linkedin` returns auth URL, browser callback, agent polls `/v1/auth/linkedin/poll`
+- **LinkedIn verification** (for existing accounts): `POST /v1/account/verify/linkedin` — also sets `verified_linkedin=True`
+- Email delivery: **Resend** (resend.com), domain `lightpaper.org` verified
+- LinkedIn redirect URIs: `/v1/auth/linkedin/callback` (login) and `/v1/account/verify/linkedin/callback` (verification)
+- API key prefixes: `lp_free_`, `lp_live_`, `lp_test_`
 
 ## Security-Sensitive Areas
 
@@ -54,7 +100,8 @@ Note: ~7 tests require PostgreSQL on port 5433 (`docker compose up -d db`). The 
 - **`app/routes/search.py`**: JSONB filters use `sqlalchemy.cast()` — never use f-strings for SQL.
 - **`app/templates/document.html`**: JSON-LD uses `|tojson` filter — never use raw `{{ var }}` inside `<script>` blocks.
 - **`app/auth.py`**: API key lookup uses bcrypt — timing-safe comparison.
-- **`app/routes/auth.py`**: OTP verification uses `hmac.compare_digest()` for timing-safe comparison. OAuth callback HTML-escapes all output.
+- **`app/routes/auth.py`**: OTP verification uses `hmac.compare_digest()`. OAuth callback HTML-escapes all output.
+- **`app/routes/linkedin.py`**: `_result_page()` uses `html.escape()` on all parameters.
 - **`app/services/slug.py`**: Reserved slugs prevent squatting of platform paths.
 
 ## Deployment
@@ -70,23 +117,15 @@ To update a secret without rebuilding: `gcloud run services update lightpaper --
 
 Database migrations run automatically at startup from the `migrations/` directory (idempotent SQL, executed per-statement).
 
-## Authentication
-
-Two auth flows, no anonymous publishing:
-
-- **Email OTP**: `POST /v1/auth/email` sends code via Resend (`auth@lightpaper.org`), `POST /v1/auth/verify` returns API key
-- **LinkedIn OAuth**: `POST /v1/auth/linkedin` returns auth URL, browser callback at `/v1/auth/linkedin/callback`, agent polls `/v1/auth/linkedin/poll`
-- Email delivery: **Resend** (resend.com), domain `lightpaper.org` verified
-- LinkedIn redirect URI: `https://lightpaper.org/v1/auth/linkedin/callback`
-- API key prefixes: `lp_free_`, `lp_live_`, `lp_test_`
-
 ## Gotchas
 
 - **Catch-all route**: `/{slug:path}` in reading.py must be the LAST router mounted.
 - **`metadata` is a reserved name**: SQLAlchemy model uses `doc_metadata` to avoid collision.
 - **Rate limiter**: Imported from `app/rate_limit.py` (not `app/main.py`) to avoid circular imports.
+- **Lazy imports for discovery**: `notify_search_engines` imported lazily in publish.py and documents.py to avoid circular deps.
 - **Body size limit**: 2MB enforced by middleware — large documents will get 413.
 - **Version limit**: 100 versions per document — returns 422 when exceeded.
 - **Content size**: max 500K chars in content field, enforced by Pydantic schema.
 - **Migrations**: SQL files in `migrations/` run at startup, per-statement with individual transactions. Use `IF NOT EXISTS`/`IF EXISTS` for idempotency.
 - **Cloud SQL**: Private VPC only, no public IP. Migrations must run via app startup (not local scripts).
+- **Python 3.12**: Codebase uses `str | None` union syntax — requires 3.10+, targets 3.12.
