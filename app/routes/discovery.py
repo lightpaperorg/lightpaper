@@ -232,7 +232,13 @@ Each additional identity verification increases gravity level.
 
 ### Returning users
 
-If the user already has an API key, skip onboarding. Just use the key in the Authorization header. If the user needs to sign in again, use the same email OTP flow — it works for login too (is_new_account will be false).
+If the user already has an API key, skip onboarding. Just use the key in the Authorization header.
+
+If the user needs to sign in again, use the same email OTP flow — it works for login too. Check the `is_new_account` field in the auth_verify response:
+- **true** → new account, proceed with LinkedIn/credentials/verification steps above
+- **false** → returning user, check GET /v1/account/gravity to see current level before offering further verifications
+
+If the user signed in via LinkedIn OAuth (POST /v1/auth/linkedin), they already have LinkedIn verified.
 
 ### Writing the article
 
@@ -246,10 +252,37 @@ Write real, substantive markdown content. To score well (60+ quality), include:
 
 ### Pick the right format
 
-- "markdown" — default blog style. Use for general articles, essays, opinion pieces.
-- "academic" — serif font, numbered headings, first blockquote becomes an Abstract box. Use for research, analysis, literature reviews.
-- "report" — wider layout, inverted table headers, first blockquote becomes Executive Summary. Use for business/technical reports, white papers.
-- "tutorial" — headings become "Step 1:", "Step 2:", prominent code blocks. Use for how-to guides, walkthroughs.
+- **"post"** (default) — Clean sans-serif blog style. Use for tutorials, how-to guides, technical writeups, announcements, general articles.
+- **"paper"** — Serif font (Palatino), numbered headings (1., 1.1), first blockquote becomes labeled "Abstract" box. Use for research papers, literature reviews, technical analyses. Start content with `> Your abstract text here...`
+- **"essay"** — Elegant serif (Georgia), drop cap on first paragraph, pull-quote blockquotes, ornamental dividers. Use for sustained arguments, cultural commentary, personal narratives, opinion pieces.
+
+How to choose: citations + methodology + findings → `paper`. Sustained argument or narrative → `essay`. Practical, instructional, or code-heavy → `post`.
+
+### Format-specific writing tips
+
+**Paper format** — start with a blockquote abstract, use ## headings for sections (they auto-number), include a ## References section:
+```
+> This paper examines the effects of X on Y. We find that...
+
+## Introduction
+
+The problem of X has been studied extensively [^1]...
+
+## References
+
+[^1]: Smith, J. (2024). Title. *Journal*, 12(3), 45-67.
+```
+
+**Essay format** — start directly with a paragraph (gets a drop cap), use ## headings as section markers, use > for pull-quotes:
+```
+The thing about revolutions is that nobody sees them coming...
+
+## The Quiet Shift
+
+> We were so busy watching the front door that we missed the window.
+```
+
+**Footnote syntax** — use `[^1]` in text and `[^1]: Citation text` at the bottom. Footnotes earn up to 7 quality points (3+ footnotes = 7 pts).
 
 ### Publish with all fields
 
@@ -257,7 +290,7 @@ POST {settings.base_url}/v1/publish
 Authorization: Bearer <api_key>
 Content-Type: application/json
 
-{{"title": "Why Pigs Can't Fly", "subtitle": "The biomechanics, evolution, and physics behind grounded swine", "content": "# Why Pigs Can't Fly\\n\\nMarkdown content here with 500+ words...", "format": "markdown", "authors": [{{"name": "Alice Smith", "handle": "alice"}}]}}
+{{"title": "Why Pigs Can't Fly", "subtitle": "The biomechanics, evolution, and physics behind grounded swine", "content": "# Why Pigs Can't Fly\\n\\nMarkdown content here with 500+ words...", "format": "post", "authors": [{{"name": "Alice Smith", "handle": "alice"}}], "tags": ["biology", "physics"]}}
 
 → Returns: {{"url": "https://lightpaper.org/why-pigs-cant-fly", "permanent_url": "https://lightpaper.org/d/doc_xxx", "quality_score": 72, "quality_suggestions": [...]}}
 
@@ -267,6 +300,17 @@ Always tell the user:
 - The URL of their published article
 - The quality score and any suggestions for improvement
 - If quality < 60, offer to revise and update it (PUT /v1/documents/{{id}})
+
+### Update an existing article
+
+To update, you need the document ID. List the user's documents first:
+GET {settings.base_url}/v1/account/documents (requires auth) → returns all documents with IDs.
+Then: PUT /v1/documents/{{id}} with the fields to update (title, subtitle, content, authors, tags, listed).
+Content changes create a new version (max 100). Quality score is recalculated on content change.
+
+### Account is required
+
+Anonymous publishing is not supported. All publishing, updating, and verification endpoints require authentication. If the user doesn't have an account, walk them through the email signup flow (Step 1 above) — it takes 30 seconds.
 
 ## API Reference
 

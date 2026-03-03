@@ -96,8 +96,8 @@ async def publish_document(
     account_id = auth.account.id
     gravity_level = auth.gravity_level
 
-    # Extract tags from metadata
-    tags = body.metadata.get("tags", [])
+    # Tags: prefer top-level field, fall back to metadata for backward compat
+    tags = body.tags or body.metadata.get("tags", [])
 
     # Normalize format
     normalized_format = FORMAT_NORMALIZE.get(body.format, body.format)

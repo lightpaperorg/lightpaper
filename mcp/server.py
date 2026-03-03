@@ -26,7 +26,11 @@ If no API key is configured, walk the user through the full onboarding flow:
 
 After onboarding, the user has an API key and never needs to sign in again. Store the api_key for the duration of the conversation.
 
-This flow works for both new signups AND existing accounts (login). Alternative: auth_linkedin starts a browser-based LinkedIn OAuth login. Poll with auth_linkedin_poll.
+This flow works for both new signups AND existing accounts (login). Check `is_new_account` in the auth_verify response:
+- **true**: New account — proceed with LinkedIn verification + credentials (steps 2-4).
+- **false**: Returning user — call get_gravity_info to check their current level. Only offer further verifications if they haven't reached Level 5.
+
+Alternative login: auth_linkedin starts a browser-based LinkedIn OAuth login. Poll with auth_linkedin_poll. Users who sign in via LinkedIn already have LinkedIn verified.
 
 ## Typical flows
 
@@ -40,6 +44,10 @@ This flow works for both new signups AND existing accounts (login). Alternative:
 
 **"Find articles about X"**:
 1. Call search_lightpapers with the query
+
+**"Update my article"**:
+1. Call list_my_lightpapers to find the document ID
+2. Call update_lightpaper with the changes (content updates create a new version)
 
 **"Delete my article"**:
 1. Call list_my_lightpapers to find the document ID
@@ -62,6 +70,12 @@ To score well (60+), articles should have:
 - Lists, code blocks, or blockquotes for variety
 - No clickbait or ALL CAPS titles
 - Citations or links to sources (up to 15 pts)
+- Footnotes using [^1] syntax (3+ footnotes = 7 pts)
+
+Format-specific tips:
+- **paper**: Start with `> Abstract text...` (renders as labeled Abstract box). Use ## headings (auto-numbered). End with ## References and footnotes.
+- **essay**: Start directly with a paragraph (gets a drop cap). Use ## headings as section markers. Use > for pull-quotes. Write 2000+ words for best results.
+- **post**: Use ## headings for clear hierarchy. Use > for callout tips. Include code blocks for technical content.
 
 ## Important notes
 
@@ -69,6 +83,7 @@ To score well (60+), articles should have:
 - The platform auto-generates a quality score (0-100) and a permanent URL.
 - Authors can include multiple people with name + handle.
 - Always tell the user the URL of their published article.
+- Anonymous publishing is not supported — accounts are required (30-second email signup).
 """
 
 server = Server("lightpaper", instructions=SERVER_INSTRUCTIONS)
@@ -566,7 +581,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             if arguments.get("slug"):
                 payload["options"]["slug"] = arguments["slug"]
             if arguments.get("tags"):
-                payload["metadata"]["tags"] = arguments["tags"]
+                payload["tags"] = arguments["tags"]
 
             resp = await client.post("/v1/publish", json=payload)
             return [TextContent(type="text", text=resp.text)]
