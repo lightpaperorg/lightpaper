@@ -200,8 +200,12 @@ async def check_linkedin_verification(
 
 def _result_page(title: str, message: str) -> str:
     """Simple HTML result page for OAuth callback."""
+    from html import escape
+
+    t = escape(title)
+    m = escape(message)
     return f"""<!DOCTYPE html>
-<html><head><title>{title} — lightpaper.org</title>
+<html><head><title>{t} — lightpaper.org</title>
 <style>body{{font-family:system-ui,sans-serif;max-width:480px;margin:80px auto;text-align:center}}
 h1{{font-size:1.5rem}}p{{color:#555}}</style></head>
-<body><h1>{title}</h1><p>{message}</p></body></html>"""
+<body><h1>{t}</h1><p>{m}</p></body></html>"""

@@ -98,7 +98,11 @@ Publish documents via a single API call and get beautiful, permanent, discoverab
 
 If a user asks you to write and publish something, follow this flow:
 
-### Step 1: Sign in or create an account (if you don't have an API key)
+### First-time onboarding (email → LinkedIn → credentials → done)
+
+Do all of these steps in the same session. Once complete, the user has an API key and never needs to onboard again.
+
+**Step 1: Create account via email OTP**
 
 Ask the user for three things:
 - Their name (display name)
@@ -121,15 +125,50 @@ Content-Type: application/json
 
 {{"session_id": "xxx", "code": "847293"}}
 
-→ Returns: {{"api_key": "lp_free_xxx", "account_id": "...", "handle": "alice", "is_new_account": true}}
+→ Returns: {{"api_key": "lp_free_xxx", "account_id": "...", "handle": "alice", "is_new_account": true, "gravity_level": 0, "next_level": "..."}}
 
 SAVE THE api_key — you need it for every subsequent call.
 
-Already have an account? Use the same flow — it works for login too. If the email matches an existing account, is_new_account will be false.
+**Step 2: Connect LinkedIn (recommended — gets gravity Level 1)**
 
-⚠ An account is REQUIRED to publish. Use POST /v1/auth/email + /v1/auth/verify to create one first.
+Immediately offer LinkedIn verification. This is the easiest identity verification and most users have LinkedIn.
 
-### Step 2: Write the article
+POST {settings.base_url}/v1/account/verify/linkedin
+Authorization: Bearer <api_key>
+
+→ Returns: {{"authorization_url": "https://linkedin.com/oauth/...", "state": "xxx"}}
+
+Tell the user to open the URL in their browser. Poll until complete:
+
+GET {settings.base_url}/v1/account/verify/linkedin/check
+Authorization: Bearer <api_key>
+
+→ Returns: {{"verified": true, "gravity_level": 1}}
+
+Note: LinkedIn login (POST /v1/auth/linkedin) and LinkedIn verification (POST /v1/account/verify/linkedin) both set verified_linkedin=True. If the user signed in via LinkedIn auth, they already have this verification.
+
+**Step 3: Submit credentials (recommended — can reach Level 3 with just LinkedIn)**
+
+Ask the user about their qualifications (degrees, certifications, employment) and investigate them. With LinkedIn verified + a confirmed degree (3 credential points), the user reaches gravity Level 3 (1.4x search boost) — no domain or ORCID needed.
+
+POST {settings.base_url}/v1/account/credentials
+Authorization: Bearer <api_key>
+Content-Type: application/json
+
+{{"credentials": [{{"credential_type": "degree", "institution": "University of Melbourne", "title": "Bachelor of Science", "year": 2019, "evidence_tier": "confirmed", "evidence_data": {{"api_response": {{"found": true}}}}, "agent_notes": "Verified via graduation API"}}]}}
+
+**Step 4 (optional): Additional identity verifications**
+
+- Domain verification: POST /v1/account/verify/domain (DNS TXT record)
+- ORCID verification: POST /v1/account/verify/orcid (fully automatable, no browser)
+
+Each additional identity verification increases gravity level.
+
+### Returning users
+
+If the user already has an API key, skip onboarding. Just use the key in the Authorization header. If the user needs to sign in again, use the same email OTP flow — it works for login too (is_new_account will be false).
+
+### Writing the article
 
 Write real, substantive markdown content. To score well (60+ quality), include:
 - A compelling title AND subtitle (subtitle shows in sharing previews on WhatsApp, Slack, LinkedIn, etc.)
@@ -139,14 +178,14 @@ Write real, substantive markdown content. To score well (60+ quality), include:
 - 2+ external links to sources, and ideally a ## References section at the end
 - Professional tone — no clickbait, no ALL CAPS, no excessive exclamation marks
 
-### Step 3: Pick the right format
+### Pick the right format
 
 - "markdown" — default blog style. Use for general articles, essays, opinion pieces.
 - "academic" — serif font, numbered headings, first blockquote becomes an Abstract box. Use for research, analysis, literature reviews.
 - "report" — wider layout, inverted table headers, first blockquote becomes Executive Summary. Use for business/technical reports, white papers.
 - "tutorial" — headings become "Step 1:", "Step 2:", prominent code blocks. Use for how-to guides, walkthroughs.
 
-### Step 4: Publish with all fields
+### Publish with all fields
 
 POST {settings.base_url}/v1/publish
 Authorization: Bearer <api_key>
@@ -156,26 +195,12 @@ Content-Type: application/json
 
 → Returns: {{"url": "https://lightpaper.org/why-pigs-cant-fly", "permanent_url": "https://lightpaper.org/d/doc_xxx", "quality_score": 72, "quality_suggestions": [...]}}
 
-### Step 5: Share the result
+### Share the result
 
 Always tell the user:
 - The URL of their published article
 - The quality score and any suggestions for improvement
 - If quality < 60, offer to revise and update it (PUT /v1/documents/{{id}})
-
-### Complete example (three HTTP calls from zero to published)
-
-```
-curl -X POST {settings.base_url}/v1/auth/email -H "Content-Type: application/json" -d '{{"email":"alice@example.com","display_name":"Alice Smith","handle":"alice"}}'
-# → {{"session_id":"xxx","message":"Code sent to a***@example.com","expires_in":600}}
-
-# User checks email for 6-digit code, then:
-curl -X POST {settings.base_url}/v1/auth/verify -H "Content-Type: application/json" -d '{{"session_id":"xxx","code":"847293"}}'
-# → {{"api_key":"lp_free_xxx","account_id":"...","is_new_account":true}}
-
-curl -X POST {settings.base_url}/v1/publish -H "Authorization: Bearer lp_free_xxx" -H "Content-Type: application/json" -d '{{"title":"My Article","subtitle":"A deep dive into the topic","content":"# Introduction\\n\\n500+ words of markdown...","format":"markdown","authors":[{{"name":"Alice Smith","handle":"alice"}}]}}'
-# → {{"url":"https://lightpaper.org/my-article","quality_score":72}}
-```
 
 ## API Reference
 
@@ -355,22 +380,30 @@ For a score of 80+, a document should have:
 
 ## Author Gravity (0-5)
 
-Gravity is an author verification level that boosts search ranking. Higher gravity = documents rank higher.
+Gravity is an author verification level that boosts search ranking. Higher gravity = documents rank higher. Verifications are non-hierarchical — any combination of identity verifications and credentials can reach any level.
+
+### Identity Verifications (independent, any combination)
+
+- **Domain**: Verify ownership of a personal/professional domain via DNS TXT record
+- **LinkedIn**: Connect LinkedIn profile via OAuth (login or verification — both count)
+- **ORCID**: Link an ORCID iD (fully automatable, no browser needed)
 
 ### Levels and Multipliers
 
 | Level | Requirement | Search Multiplier | Featured Threshold |
 |-------|------------|-------------------|-------------------|
-| 0 | None (default) | 1.0x | Quality ≥ 70 |
-| 1 | Domain verified | 1.1x | Quality ≥ 68 |
-| 2 | Domain + LinkedIn | 1.25x | Quality ≥ 65 |
-| 3 | Domain + LinkedIn + ORCID | 1.4x | Quality ≥ 60 |
-| 4 | Level 3 + 3 credential points | 1.55x | Quality ≥ 57 |
-| 5 | Level 3 + 6 credential points | 1.7x | Quality ≥ 55 |
+| 0 | Nothing | 1.0x | Quality >= 70 |
+| 1 | Any 1 identity verification | 1.1x | Quality >= 68 |
+| 2 | 2 identity verifications | 1.25x | Quality >= 65 |
+| 3 | 3 identities, OR 2 ids + 1 cred pt, OR 1 id + 3 cred pts | 1.4x | Quality >= 60 |
+| 4 | 2+ ids + 3 cred pts, OR 1 id + 6 cred pts | 1.55x | Quality >= 57 |
+| 5 | 2+ ids + 6 cred pts | 1.7x | Quality >= 55 |
+
+Example: LinkedIn (1 identity) + confirmed degree (3 credential points) = Level 3 (1.4x boost). No domain or ORCID needed.
 
 ### Search Ranking Formula
 
-Documents are ranked by: `text_relevance × quality_score × gravity_multiplier`
+Documents are ranked by: `text_relevance x quality_score x gravity_multiplier`
 
 A level-3 author with quality 60 ranks equivalently to a level-0 author with quality 84.
 Gravity verification is the most impactful thing an author can do for discoverability.
@@ -379,7 +412,7 @@ Gravity verification is the most impactful thing an author can do for discoverab
 
 GET /v1/account/gravity returns:
 ```json
-{{"level": 2, "multiplier": 1.25, "featured_threshold": 65, "badges": ["example.com ✓", "LinkedIn ✓"], "next_level": "Link your ORCID iD to reach Level 3 (1.4x search boost)"}}
+{{"level": 2, "multiplier": 1.25, "featured_threshold": 65, "badges": ["example.com ✓", "LinkedIn ✓"], "next_level": "To reach Level 3 (1.4x search boost): submit verified credentials (POST /v1/account/credentials)"}}
 ```
 
 ## Listed vs. Unlisted
@@ -408,7 +441,8 @@ To re-list: PUT /v1/documents/{{id}} with {{"listed": true}}
 ## Credential Verification (for agents)
 
 Agents can investigate a user's qualifications (degrees, certifications, employment) and submit
-results with evidence tiers. This is how authors reach gravity levels 4-5.
+results with evidence tiers. Credentials contribute points toward gravity levels — they work
+alongside any identity verification, not just domain+LinkedIn+ORCID.
 
 ### Evidence Tiers
 
@@ -416,11 +450,29 @@ results with evidence tiers. This is how authors reach gravity levels 4-5.
 - **supported** (2 points) — Corroborating evidence from a credible source. Examples: ORCID education record with institution-verified source, university staff page listing, My eQuals verified link.
 - **claimed** (1 point) — User's word only, no independent verification.
 
-### Credential Points → Gravity Levels
+### Credential Points + Identity → Gravity Levels
 
-Levels 4-5 require level 3 (all three identity verifications) PLUS credential points:
-- **Level 4**: 3+ points (e.g., 1 confirmed credential OR 1 supported + 1 claimed)
-- **Level 5**: 6+ points (e.g., 2 confirmed credentials OR 3 supported credentials)
+Credential points combine with identity verifications to determine gravity level:
+- **1 identity + 3 cred pts** = Level 3 (e.g., LinkedIn + confirmed degree)
+- **2 identities + 3 cred pts** = Level 4 (e.g., LinkedIn + ORCID + confirmed degree)
+- **1 identity + 6 cred pts** = Level 4 (e.g., domain + 2 confirmed credentials)
+- **2 identities + 6 cred pts** = Level 5
+
+Note: At least 1 identity verification is required for credential points to count.
+
+### Investigation Strategies
+
+**If the institution has an API:**
+- Query it directly (see Known Verification APIs below)
+- If it returns a match → evidence_tier="confirmed" (3 pts)
+
+**If no API exists, look for corroborating evidence:**
+- University web forms: Some universities offer online graduate verification forms
+- ORCID education records: GET https://pub.orcid.org/v3.0/{{orcid_id}}/educations — if the source is the institution (not self-asserted) → "supported"
+- My eQuals (myequals.edu.au): Users can share verified qualification links → "supported"
+- University staff pages: If the user appears on a faculty/staff page → "supported" for employment
+- Credly / digital badges: Verified digital badges from institutions → "supported"
+- If none of the above are available → "claimed" (1 pt, user's word only)
 
 ### Known Verification APIs
 
@@ -439,7 +491,7 @@ the institution verified it → evidence_tier="supported". If self-asserted → 
 
 1. Ask the user what qualifications they want verified (degree, certification, employment).
 2. Check if there's a known API for the institution (see above). If so, query it directly.
-3. If no API exists, look for corroborating evidence: university staff pages, My eQuals links, ORCID education records.
+3. If no API exists, look for corroborating evidence using the strategies above.
 4. Assign the appropriate evidence tier based on what you found.
 5. Submit via POST /v1/account/credentials.
 

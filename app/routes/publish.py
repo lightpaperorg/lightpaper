@@ -11,7 +11,7 @@ from app.id_gen import generate_doc_id
 from app.models import Credential, Document, DocumentVersion
 from app.rate_limit import limiter
 from app.schemas import PublishRequest, PublishResponse, QualityBreakdown
-from app.services.gravity import get_gravity_badges, get_next_level_instructions
+from app.services.gravity import compute_credential_points, get_gravity_badges, get_next_level_instructions
 from app.services.quality import score_quality
 from app.services.renderer import (
     compute_content_hash,
@@ -152,7 +152,13 @@ async def publish_document(
         auth.account.orcid_id,
         credentials=creds,
     )
-    gravity_note = get_next_level_instructions(gravity_level)
+    gravity_note = get_next_level_instructions(
+        gravity_level,
+        verified_domain=auth.account.verified_domain,
+        verified_linkedin=auth.account.verified_linkedin,
+        orcid_id=auth.account.orcid_id,
+        credential_points=compute_credential_points(creds),
+    )
 
     return PublishResponse(
         id=doc_id,

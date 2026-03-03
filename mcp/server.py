@@ -14,23 +14,24 @@ API_KEY = os.getenv("LIGHTPAPER_API_KEY", "")
 SERVER_INSTRUCTIONS = """\
 You are an agent that publishes and manages documents on lightpaper.org — an API-first publishing platform.
 
-## How authentication works
+## First-time onboarding (do all steps in one session)
 
-- If LIGHTPAPER_API_KEY is set in the environment, all tools use it automatically.
-- If no API key is configured, you need to sign in or create an account first:
-  1. Ask the user for their name, email, and preferred handle
-  2. Call auth_email to send a verification code to their email
-  3. Ask the user for the 6-digit code from their email
-  4. Call auth_verify with the session_id and code → returns an api_key
-  5. Use the api_key in all subsequent tool calls via the api_key parameter
-- This flow works for both new signups AND existing accounts (login).
-- Store the api_key for the duration of the conversation. Do not ask the user to manage keys.
-- Alternative: auth_linkedin starts a browser-based LinkedIn OAuth flow. Poll with auth_linkedin_poll.
+If LIGHTPAPER_API_KEY is set in the environment, skip onboarding — all tools use it automatically.
+If no API key is configured, walk the user through the full onboarding flow:
+
+1. **Email sign-in**: Ask for name, email, handle → auth_email → ask for 6-digit code → auth_verify → save the api_key
+2. **LinkedIn verification** (recommended): Immediately offer verify_linkedin action='start' → give user the OAuth URL → poll with action='check'. Most users have LinkedIn and it's the easiest gravity boost.
+3. **Credential verification** (recommended): Ask about degrees, certifications, or employment → investigate evidence → verify_credentials. With LinkedIn + a confirmed degree, the user reaches gravity Level 3 (1.4x search boost).
+4. **Optional extras**: verify_domain (DNS TXT record) or verify_orcid (ORCID iD, no browser needed) for additional identity verifications.
+
+After onboarding, the user has an API key and never needs to sign in again. Store the api_key for the duration of the conversation.
+
+This flow works for both new signups AND existing accounts (login). Alternative: auth_linkedin starts a browser-based LinkedIn OAuth login. Poll with auth_linkedin_poll.
 
 ## Typical flows
 
 **"Write a post about X"** (most common):
-1. If no API key → ask user for name/email/handle → auth_email → ask for code → auth_verify → save the returned api_key
+1. If no API key → run the onboarding flow above
 2. Write the article as markdown (300+ words, at least one # heading)
 3. Pick the best format: 'markdown' (blog), 'academic' (research), 'report' (business), 'tutorial' (how-to)
 4. Call publish_lightpaper with title, content, format, and authors (use the user's name + handle)
@@ -44,12 +45,13 @@ You are an agent that publishes and manages documents on lightpaper.org — an A
 1. Call list_my_lightpapers to find the document ID
 2. Confirm with the user, then call delete_lightpaper
 
-**Boost author gravity (verification)**:
-1. Check current level: get_gravity_info → shows level, badges, and next_level instructions
-2. Domain: verify_domain (set DNS TXT record, then check) — fully automatable if user has DNS access
-3. LinkedIn: verify_linkedin action='start' → give user the OAuth URL → poll with action='check'
-4. ORCID: verify_orcid with their ORCID iD — fully automatable
-5. Credentials: verify_credentials with degrees/certs/employment — ask user for details
+**Boost author gravity**:
+1. Check current level: get_gravity_info → shows level, badges, and context-sensitive next_level instructions
+2. Gravity is non-hierarchical — any combination of identities and credentials works:
+   - 1 identity = Level 1, 2 identities = Level 2
+   - LinkedIn + confirmed degree (3 cred pts) = Level 3
+   - 2 identities + 3 cred pts = Level 4
+   - 2 identities + 6 cred pts = Level 5
 
 ## Quality tips for writing
 
@@ -150,15 +152,14 @@ async def get_prompt(name: str, arguments: dict | None = None) -> GetPromptResul
                     content=TextContent(
                         type="text",
                         text=(
-                            "Help me set up my lightpaper.org author account.\n\n"
+                            "Help me set up my lightpaper.org author account. Do everything in this session.\n\n"
                             "1. Ask for my name, email, and preferred @handle, then sign in with auth_email + auth_verify\n"
-                            "2. After account creation, check my gravity level and explain what it means\n"
-                            "3. Walk me through verification options to increase my gravity:\n"
-                            "   - Domain verification (if I own a website)\n"
-                            "   - LinkedIn verification\n"
-                            "   - ORCID verification (if I'm a researcher)\n"
-                            "   - Academic/professional credentials\n"
-                            "4. Let me choose which verifications to do and guide me through each one"
+                            "2. Immediately offer LinkedIn verification (most users have it, easiest gravity boost)\n"
+                            "3. Ask about my qualifications (degrees, certifications, employment) and investigate them\n"
+                            "   - LinkedIn + a confirmed degree = gravity Level 3 (1.4x search boost)\n"
+                            "4. Optionally offer domain verification or ORCID if relevant\n"
+                            "5. Show my final gravity level and explain what it means for discoverability\n\n"
+                            "Goal: get me fully onboarded with the highest gravity level possible in one session."
                         ),
                     ),
                 )
@@ -499,8 +500,8 @@ async def list_tools() -> list[Tool]:
             description=(
                 "Submit verified credentials (degrees, certifications, employment) for an account. "
                 "Evidence tiers: 'confirmed' (3pts, institutional API match), 'supported' (2pts, corroborating evidence), "
-                "'claimed' (1pt, user's word). Reaching 3+ points with level 3 base grants level 4; 6+ points grants level 5. "
-                "Tiers can only be upgraded, never downgraded on re-submit."
+                "'claimed' (1pt, user's word). Credential points combine with identity verifications for gravity: "
+                "e.g., LinkedIn + confirmed degree (3 pts) = Level 3. Tiers can only be upgraded, never downgraded on re-submit."
             ),
             inputSchema={
                 "type": "object",

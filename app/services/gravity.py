@@ -23,32 +23,60 @@ def compute_credential_points(credentials: list[Credential] | None) -> int:
     return sum(EVIDENCE_TIER_POINTS.get(c.evidence_tier, 0) for c in credentials)
 
 
+def _count_identities(
+    verified_domain: str | None,
+    verified_linkedin: bool,
+    orcid_id: str | None,
+) -> int:
+    """Count independent identity verifications (0-3)."""
+    return sum([bool(verified_domain), bool(verified_linkedin), bool(orcid_id)])
+
+
 def compute_gravity_level(
     verified_domain: str | None,
     verified_linkedin: bool,
     orcid_id: str | None,
     credentials: list[Credential] | None = None,
 ) -> int:
-    """Compute gravity level 0-5 from verification fields + credentials."""
-    # Base level 0-3 from identity verifications
-    if verified_domain and verified_linkedin and orcid_id:
-        base = 3
-    elif verified_domain and verified_linkedin:
-        base = 2
-    elif verified_domain:
-        base = 1
-    else:
-        base = 0
+    """Compute gravity level 0-5 from independent verifications + credentials.
 
-    # Credential points can push to levels 4-5 (requires base level 3)
-    if base >= 3 and credentials:
-        points = compute_credential_points(credentials)
-        if points >= CREDENTIAL_LEVEL_THRESHOLDS[5]:
-            return 5
-        if points >= CREDENTIAL_LEVEL_THRESHOLDS[4]:
-            return 4
+    Non-hierarchical: any combination of identity verifications and credential
+    points can reach any level. No single verification is a prerequisite.
 
-    return base
+    | Level | Requirement                                            |
+    |-------|--------------------------------------------------------|
+    | 0     | Nothing                                                |
+    | 1     | Any 1 identity verification                            |
+    | 2     | 2 identities                                           |
+    | 3     | 3 identities, OR 2 ids + cred_pts >= 1, OR 1 id + cred_pts >= 3 |
+    | 4     | 2+ ids + cred_pts >= 3, OR 1 id + cred_pts >= 6       |
+    | 5     | 2+ ids + cred_pts >= 6                                 |
+    """
+    ids = _count_identities(verified_domain, verified_linkedin, orcid_id)
+    pts = compute_credential_points(credentials)
+
+    # Credentials without at least one identity verification don't count
+    if ids == 0:
+        return 0
+
+    # Level 5: 2+ ids + 6+ pts
+    if ids >= 2 and pts >= 6:
+        return 5
+
+    # Level 4: 2+ ids + 3+ pts, OR 1 id + 6+ pts
+    if (ids >= 2 and pts >= 3) or (ids >= 1 and pts >= 6):
+        return 4
+
+    # Level 3: 3 ids, OR 2 ids + 1+ pts, OR 1 id + 3+ pts
+    if ids >= 3 or (ids >= 2 and pts >= 1) or (ids >= 1 and pts >= 3):
+        return 3
+
+    # Level 2: 2 ids
+    if ids >= 2:
+        return 2
+
+    # Level 1: 1 id
+    return 1
 
 
 def get_gravity_multiplier(level: int) -> float:
@@ -92,16 +120,79 @@ def compute_ranking_score(quality_score: int, gravity_level: int, ts_rank: float
     return ts_rank * quality_score * multiplier
 
 
-def get_next_level_instructions(level: int) -> str | None:
-    """Return instructions for reaching the next gravity level."""
+def get_next_level_instructions(
+    level: int,
+    verified_domain: str | None = None,
+    verified_linkedin: bool = False,
+    orcid_id: str | None = None,
+    credential_points: int = 0,
+) -> str | None:
+    """Return context-sensitive instructions for reaching the next gravity level."""
+    if level >= 5:
+        return None
+
+    # Collect missing identity verifications
+    missing: list[str] = []
+    if not verified_domain:
+        missing.append("verify your domain via DNS TXT record (POST /v1/account/verify/domain)")
+    if not verified_linkedin:
+        missing.append("connect LinkedIn (POST /v1/account/verify/linkedin)")
+    if not orcid_id:
+        missing.append("link your ORCID iD (POST /v1/account/verify/orcid)")
+
+    ids = _count_identities(verified_domain, verified_linkedin, orcid_id)
+    target = level + 1
+    target_mult = GRAVITY_MULTIPLIERS.get(target, 1.0)
+    boost = f"Level {target} ({target_mult}x search boost)"
+
     if level == 0:
-        return "Verify your domain via DNS TXT record to reach Level 1 (1.1x search boost)"
+        # Need any one identity
+        return f"To reach {boost}: {missing[0]}" if missing else None
+
     if level == 1:
-        return "Connect LinkedIn to reach Level 2 (1.25x search boost)"
+        # Need: 2 ids, or 1 id + 3 cred pts → level 2 or jump to 3
+        parts = []
+        if missing:
+            parts.append(missing[0])
+        if credential_points < 3:
+            parts.append("submit verified credentials (POST /v1/account/credentials)")
+        if parts:
+            return f"To reach {boost}: {parts[0]}"
+        return None
+
     if level == 2:
-        return "Link your ORCID iD to reach Level 3 (1.4x search boost)"
+        # Need: 3 ids, or 2 ids + 1 cred pt, or 1 id + 3 cred pts
+        parts = []
+        if missing:
+            parts.append(missing[0])
+        if credential_points < 1:
+            parts.append("submit verified credentials (POST /v1/account/credentials)")
+        if parts:
+            return f"To reach {boost}: {parts[0]}"
+        return None
+
     if level == 3:
-        return "Submit verified credentials to reach Level 4 (1.55x search boost). Use POST /v1/account/credentials"
+        # Need: 2+ ids + 3 pts, or 1 id + 6 pts
+        parts = []
+        if ids < 2 and missing:
+            parts.append(missing[0])
+        if credential_points < 3:
+            needed = 3 - credential_points
+            parts.append(f"earn {needed} more credential point(s) (POST /v1/account/credentials)")
+        if parts:
+            return f"To reach {boost}: {', and '.join(parts)}"
+        return None
+
     if level == 4:
-        return "Submit more verified credentials to reach Level 5 (1.7x search boost). Need 6 credential points total"
+        # Need: 2+ ids + 6 pts
+        parts = []
+        if ids < 2 and missing:
+            parts.append(missing[0])
+        if credential_points < 6:
+            needed = 6 - credential_points
+            parts.append(f"earn {needed} more credential point(s) (POST /v1/account/credentials)")
+        if parts:
+            return f"To reach {boost}: {', and '.join(parts)}"
+        return None
+
     return None

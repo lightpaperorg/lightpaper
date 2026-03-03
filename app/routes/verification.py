@@ -20,6 +20,7 @@ from app.schemas import (
     OrcidVerifyResponse,
 )
 from app.services.gravity import (
+    compute_credential_points,
     compute_gravity_level,
     get_featured_threshold,
     get_gravity_badges,
@@ -228,7 +229,13 @@ async def get_gravity(
             account.orcid_id,
             credentials=creds,
         ),
-        next_level=get_next_level_instructions(level),
+        next_level=get_next_level_instructions(
+            level,
+            verified_domain=account.verified_domain,
+            verified_linkedin=account.verified_linkedin,
+            orcid_id=account.orcid_id,
+            credential_points=compute_credential_points(creds),
+        ),
         multiplier=get_gravity_multiplier(level),
         featured_threshold=get_featured_threshold(level),
     )

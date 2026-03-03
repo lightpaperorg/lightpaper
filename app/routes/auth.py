@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.database import get_db
-from app.models import Account, ApiKey, EmailAuthSession, LinkedInAuthSession
+from app.models import Account, ApiKey, Credential, EmailAuthSession, LinkedInAuthSession
 from app.rate_limit import limiter
 from app.schemas import (
     AuthEmailRequest,
@@ -29,7 +29,7 @@ from app.schemas import (
 )
 from app.services.api_keys import generate_api_key
 from app.services.email import send_otp_email
-from app.services.gravity import get_next_level_instructions
+from app.services.gravity import compute_credential_points, get_next_level_instructions
 
 logger = logging.getLogger(__name__)
 
@@ -218,7 +218,17 @@ async def auth_verify(
         api_key=full_key,
         is_new_account=is_new,
         gravity_level=account.gravity_level,
-        next_level=get_next_level_instructions(account.gravity_level),
+        next_level=get_next_level_instructions(
+            account.gravity_level,
+            verified_domain=account.verified_domain,
+            verified_linkedin=account.verified_linkedin,
+            orcid_id=account.orcid_id,
+            credential_points=compute_credential_points(
+                (await db.execute(
+                    select(Credential).where(Credential.account_id == account.id)
+                )).scalars().all()
+            ),
+        ),
     )
 
 
