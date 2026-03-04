@@ -6,7 +6,7 @@ import httpx
 
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
-from mcp.types import GetPromptResult, PromptArgument, PromptMessage, TextContent, Tool
+from mcp.types import GetPromptResult, PromptArgument, PromptMessage, TextContent, Tool, ToolAnnotations
 
 BASE_URL = os.getenv("LIGHTPAPER_BASE_URL", "https://lightpaper.org")
 API_KEY = os.getenv("LIGHTPAPER_API_KEY", "")
@@ -218,6 +218,13 @@ async def list_tools() -> list[Tool]:
                 "Publish a document to lightpaper.org. Returns a permanent URL, quality score (0-100), "
                 "and quality suggestions. Content must be markdown with at least 300 words and one heading."
             ),
+            annotations=ToolAnnotations(
+                title="Publish Document",
+                readOnlyHint=False,
+                destructiveHint=False,
+                idempotentHint=False,
+                openWorldHint=True,
+            ),
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -276,6 +283,13 @@ async def list_tools() -> list[Tool]:
         Tool(
             name="search_lightpapers",
             description="Search published documents on lightpaper.org. Returns titles, URLs, authors, quality scores.",
+            annotations=ToolAnnotations(
+                title="Search Documents",
+                readOnlyHint=True,
+                destructiveHint=False,
+                idempotentHint=True,
+                openWorldHint=True,
+            ),
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -305,6 +319,13 @@ async def list_tools() -> list[Tool]:
         Tool(
             name="get_lightpaper",
             description="Get a document by ID from lightpaper.org. Returns full content, metadata, quality score, and author info.",
+            annotations=ToolAnnotations(
+                title="Get Document",
+                readOnlyHint=True,
+                destructiveHint=False,
+                idempotentHint=True,
+                openWorldHint=True,
+            ),
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -319,6 +340,13 @@ async def list_tools() -> list[Tool]:
             description=(
                 "Update an existing document. Only the document owner can update. "
                 "Content updates create a new version (max 100 versions). Quality score is recalculated on content change."
+            ),
+            annotations=ToolAnnotations(
+                title="Update Document",
+                readOnlyHint=False,
+                destructiveHint=False,
+                idempotentHint=True,
+                openWorldHint=True,
             ),
             inputSchema={
                 "type": "object",
@@ -358,6 +386,13 @@ async def list_tools() -> list[Tool]:
         Tool(
             name="delete_lightpaper",
             description="Delete a document (soft-delete). Only the document owner can delete. Returns 204 on success.",
+            annotations=ToolAnnotations(
+                title="Delete Document",
+                readOnlyHint=False,
+                destructiveHint=True,
+                idempotentHint=True,
+                openWorldHint=True,
+            ),
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -370,6 +405,13 @@ async def list_tools() -> list[Tool]:
         Tool(
             name="list_my_lightpapers",
             description="List all documents published by the authenticated account. Returns id, title, slug, quality_score, listed status, URLs, and timestamps.",
+            annotations=ToolAnnotations(
+                title="List My Documents",
+                readOnlyHint=True,
+                destructiveHint=False,
+                idempotentHint=True,
+                openWorldHint=True,
+            ),
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -380,6 +422,13 @@ async def list_tools() -> list[Tool]:
         Tool(
             name="get_account_info",
             description="Get the authenticated account's info: handle, display name, email, gravity level, verification badges, and tier.",
+            annotations=ToolAnnotations(
+                title="Get Account Info",
+                readOnlyHint=True,
+                destructiveHint=False,
+                idempotentHint=True,
+                openWorldHint=True,
+            ),
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -390,6 +439,13 @@ async def list_tools() -> list[Tool]:
         Tool(
             name="update_account",
             description="Update account profile fields: display_name, bio, and linkedin_url (shown as clickable badge on published documents).",
+            annotations=ToolAnnotations(
+                title="Update Account",
+                readOnlyHint=False,
+                destructiveHint=False,
+                idempotentHint=True,
+                openWorldHint=True,
+            ),
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -409,6 +465,13 @@ async def list_tools() -> list[Tool]:
                 "Get the authenticated account's gravity level details: current level (0-5), search ranking multiplier, "
                 "featured quality threshold, verification badges, and instructions for reaching the next level."
             ),
+            annotations=ToolAnnotations(
+                title="Get Gravity Info",
+                readOnlyHint=True,
+                destructiveHint=False,
+                idempotentHint=True,
+                openWorldHint=True,
+            ),
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -419,6 +482,13 @@ async def list_tools() -> list[Tool]:
         Tool(
             name="get_author_profile",
             description="Get a public author profile by handle. Returns display name, bio, gravity level, badges, and their published documents.",
+            annotations=ToolAnnotations(
+                title="Get Author Profile",
+                readOnlyHint=True,
+                destructiveHint=False,
+                idempotentHint=True,
+                openWorldHint=True,
+            ),
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -430,6 +500,13 @@ async def list_tools() -> list[Tool]:
         Tool(
             name="get_document_versions",
             description="List version history for a document. Each version has a content hash, word count, reading time, and timestamp.",
+            annotations=ToolAnnotations(
+                title="Get Document Versions",
+                readOnlyHint=True,
+                destructiveHint=False,
+                idempotentHint=True,
+                openWorldHint=True,
+            ),
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -442,6 +519,13 @@ async def list_tools() -> list[Tool]:
         Tool(
             name="list_credentials",
             description="List all verified credentials submitted for the authenticated account.",
+            annotations=ToolAnnotations(
+                title="List Credentials",
+                readOnlyHint=True,
+                destructiveHint=False,
+                idempotentHint=True,
+                openWorldHint=True,
+            ),
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -454,6 +538,13 @@ async def list_tools() -> list[Tool]:
             description=(
                 "Send a 6-digit verification code to the user's email. Works for both signup and login. "
                 "After calling this, ask the user for the code and call auth_verify."
+            ),
+            annotations=ToolAnnotations(
+                title="Send Email Code",
+                readOnlyHint=False,
+                destructiveHint=False,
+                idempotentHint=False,
+                openWorldHint=True,
             ),
             inputSchema={
                 "type": "object",
@@ -473,6 +564,13 @@ async def list_tools() -> list[Tool]:
             description=(
                 "Verify a 6-digit code from the user's email. Returns account info and an API key. "
                 "Use the returned api_key in all subsequent tool calls."
+            ),
+            annotations=ToolAnnotations(
+                title="Verify Email Code",
+                readOnlyHint=False,
+                destructiveHint=False,
+                idempotentHint=False,
+                openWorldHint=True,
             ),
             inputSchema={
                 "type": "object",
@@ -495,6 +593,13 @@ async def list_tools() -> list[Tool]:
                 "Start LinkedIn OAuth for login/signup. Returns an authorization URL for the user to open "
                 "in their browser, and a session_id for polling. After the user completes OAuth, call auth_linkedin_poll."
             ),
+            annotations=ToolAnnotations(
+                title="Start LinkedIn Login",
+                readOnlyHint=False,
+                destructiveHint=False,
+                idempotentHint=False,
+                openWorldHint=True,
+            ),
             inputSchema={
                 "type": "object",
                 "properties": {},
@@ -505,6 +610,13 @@ async def list_tools() -> list[Tool]:
             description=(
                 "Poll for LinkedIn OAuth completion. Returns the API key once the user completes the OAuth flow. "
                 "The API key is only returned on the first poll — subsequent polls return null."
+            ),
+            annotations=ToolAnnotations(
+                title="Poll LinkedIn Login",
+                readOnlyHint=True,
+                destructiveHint=False,
+                idempotentHint=True,
+                openWorldHint=True,
             ),
             inputSchema={
                 "type": "object",
@@ -520,6 +632,13 @@ async def list_tools() -> list[Tool]:
         Tool(
             name="verify_domain",
             description="Start or check domain DNS verification. Call with domain to start (returns TXT record to add), call without to check status.",
+            annotations=ToolAnnotations(
+                title="Verify Domain",
+                readOnlyHint=False,
+                destructiveHint=False,
+                idempotentHint=False,
+                openWorldHint=True,
+            ),
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -534,6 +653,13 @@ async def list_tools() -> list[Tool]:
         Tool(
             name="verify_linkedin",
             description="Start or check LinkedIn verification. Call with action='start' to get OAuth URL (user must open in browser), action='check' to poll completion.",
+            annotations=ToolAnnotations(
+                title="Verify LinkedIn",
+                readOnlyHint=False,
+                destructiveHint=False,
+                idempotentHint=False,
+                openWorldHint=True,
+            ),
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -550,6 +676,13 @@ async def list_tools() -> list[Tool]:
         Tool(
             name="verify_orcid",
             description="Verify an ORCID iD. Validates against the public ORCID API. Fully automatable — no browser needed.",
+            annotations=ToolAnnotations(
+                title="Verify ORCID",
+                readOnlyHint=False,
+                destructiveHint=False,
+                idempotentHint=True,
+                openWorldHint=True,
+            ),
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -566,6 +699,13 @@ async def list_tools() -> list[Tool]:
                 "Evidence tiers: 'confirmed' (3pts, institutional API match), 'supported' (2pts, corroborating evidence), "
                 "'claimed' (1pt, user's word). Credential points combine with identity verifications for gravity: "
                 "e.g., LinkedIn + confirmed degree (3 pts) = Level 3. Tiers can only be upgraded, never downgraded on re-submit."
+            ),
+            annotations=ToolAnnotations(
+                title="Verify Credentials",
+                readOnlyHint=False,
+                destructiveHint=False,
+                idempotentHint=False,
+                openWorldHint=True,
             ),
             inputSchema={
                 "type": "object",
