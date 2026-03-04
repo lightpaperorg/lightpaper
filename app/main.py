@@ -170,7 +170,7 @@ def mount_routes():
         search,
         verification,
     )
-    from app.routes.mcp_sse import create_mcp_routes
+    from app.routes.mcp_http import create_mcp_routes
 
     app.include_router(publish.router)
     app.include_router(documents.router)
@@ -183,7 +183,7 @@ def mount_routes():
     app.include_router(credentials.router)
     app.include_router(discovery.router)
     app.include_router(landing.router)
-    # MCP SSE routes — before catch-all
+    # MCP Streamable HTTP route — before catch-all
     for route in create_mcp_routes():
         app.routes.append(route)
     # Author profiles before catch-all
@@ -193,6 +193,24 @@ def mount_routes():
 
 
 mount_routes()
+
+
+@app.on_event("startup")
+async def start_mcp_session_manager():
+    """Start the MCP Streamable HTTP session manager."""
+    from app.routes.mcp_http import _session_manager
+
+    if _session_manager is not None:
+        app.state.mcp_cm = _session_manager.run()
+        await app.state.mcp_cm.__aenter__()
+
+
+@app.on_event("shutdown")
+async def stop_mcp_session_manager():
+    """Stop the MCP Streamable HTTP session manager."""
+    cm = getattr(app.state, "mcp_cm", None)
+    if cm is not None:
+        await cm.__aexit__(None, None, None)
 
 
 @app.on_event("startup")

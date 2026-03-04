@@ -311,7 +311,7 @@ curl -X POST <span class="hl">{{ base_url }}/v1/publish</span> \
         <pre id="mcp-remote-desktop">{
   "mcpServers": {
     "lightpaper": {
-      "url": "https://lightpaper.org/mcp/sse"
+      "url": "https://lightpaper.org/mcp"
     }
   }
 }</pre>
@@ -321,7 +321,7 @@ curl -X POST <span class="hl">{{ base_url }}/v1/publish</span> \
     <p class="note">Run in terminal:</p>
     <div class="code-block" style="position:relative;">
         <button class="copy-btn" data-copy="mcp-remote-code">Copy</button>
-        <pre id="mcp-remote-code">claude mcp add lightpaper --transport sse https://lightpaper.org/mcp/sse</pre>
+        <pre id="mcp-remote-code">claude mcp add lightpaper --transport streamable-http https://lightpaper.org/mcp</pre>
     </div>
 
     <p class="platform-label">VS Code / Cursor</p>
@@ -330,7 +330,7 @@ curl -X POST <span class="hl">{{ base_url }}/v1/publish</span> \
         <pre id="mcp-remote-vscode">{
   "servers": {
     "lightpaper": {
-      "url": "https://lightpaper.org/mcp/sse"
+      "url": "https://lightpaper.org/mcp"
     }
   }
 }</pre>

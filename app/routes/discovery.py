@@ -260,7 +260,7 @@ async def a2a_agent_json():
         "endpoints": {
             "openapi": f"{settings.base_url}/v1/openapi.json",
             "llms_txt": f"{settings.base_url}/llms.txt",
-            "mcp_sse": f"{settings.base_url}/mcp/sse",
+            "mcp": f"{settings.base_url}/mcp",
         },
     }
 
@@ -801,15 +801,15 @@ These published guides explain each feature in depth:
 
 Connect to lightpaper.org via the Model Context Protocol for tool-based access.
 
-### Remote SSE (no install)
+### Remote (no install)
 
 Connect directly — no package install needed:
 
-URL: {settings.base_url}/mcp/sse
+URL: {settings.base_url}/mcp
 
 Claude Desktop config:
 ```json
-{{"mcpServers": {{"lightpaper": {{"url": "{settings.base_url}/mcp/sse"}}}}}}
+{{"mcpServers": {{"lightpaper": {{"url": "{settings.base_url}/mcp"}}}}}}
 ```
 
 ### Install from PyPI

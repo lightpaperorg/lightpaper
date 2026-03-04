@@ -35,8 +35,8 @@
   ],
   "remotes": [
     {
-      "transportType": "sse",
-      "url": "https://lightpaper.org/mcp/sse"
+      "transportType": "streamable-http",
+      "url": "https://lightpaper.org/mcp"
     }
   ],
   "tools": [

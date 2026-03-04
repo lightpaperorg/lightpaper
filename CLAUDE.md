@@ -31,7 +31,7 @@ FastAPI + async SQLAlchemy + PostgreSQL 16. Single-process async app deployed on
 | `app/services/api_keys.py` | API key generation utility |
 | `app/services/email.py` | Resend API email delivery for OTP |
 | `mcp/server.py` | MCP server with 20 tools + 2 prompts (stdio transport) |
-| `app/routes/mcp_sse.py` | Remote MCP endpoint (SSE transport at /mcp/sse) |
+| `app/routes/mcp_http.py` | Remote MCP endpoint (Streamable HTTP transport at /mcp) |
 | `lightpaper_mcp/` | Standalone PyPI package for MCP server distribution |
 | `AGENTS.md` | OpenAI AGENTS.md standard — project-level agent instructions |
 | `init.sql` | Database schema (11 tables) |

@@ -41,7 +41,7 @@ Or without an API key — the server will walk you through account creation:
 }
 ```
 
-### Remote SSE (no install needed)
+### Remote (no install needed)
 
 Connect directly to the hosted MCP server:
 
@@ -49,7 +49,7 @@ Connect directly to the hosted MCP server:
 {
   "mcpServers": {
     "lightpaper": {
-      "url": "https://lightpaper.org/mcp/sse"
+      "url": "https://lightpaper.org/mcp"
     }
   }
 }

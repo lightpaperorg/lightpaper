@@ -14,7 +14,7 @@ lightpaper.org publishes markdown documents as permanent, discoverable web pages
 pip install lightpaper-mcp
 ```
 
-Or connect to the remote SSE endpoint (no install): `https://lightpaper.org/mcp/sse`
+Or connect to the remote endpoint (no install): `https://lightpaper.org/mcp`
 
 ### Direct API
 
@@ -43,7 +43,7 @@ curl -X POST https://lightpaper.org/v1/publish \
 | `app/` | FastAPI application (routes, services, models) |
 | `mcp/server.py` | MCP server (20 tools, 2 prompts) — stdio transport |
 | `lightpaper_mcp/` | Standalone MCP package for PyPI distribution |
-| `app/routes/mcp_sse.py` | Remote MCP endpoint (SSE transport) |
+| `app/routes/mcp_http.py` | Remote MCP endpoint (Streamable HTTP transport) |
 | `tests/` | Pytest test suite |
 | `migrations/` | Idempotent SQL migrations |
 | `CLAUDE.md` | Detailed development instructions |
