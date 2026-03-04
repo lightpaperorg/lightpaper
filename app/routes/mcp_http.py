@@ -69,6 +69,7 @@ def create_mcp_routes() -> list[BaseRoute]:
     _session_manager = StreamableHTTPSessionManager(
         app=mcp_server,
         json_response=False,
+        stateless=True,
     )
 
     return [
