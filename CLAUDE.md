@@ -65,6 +65,7 @@ Search engine notifications fire automatically on publish, update, and delete:
 - **llms.txt**: Full agent instructions including onboarding flow, API reference, gravity system
 - **ai-plugin.json**: OpenAI plugin manifest at `/.well-known/ai-plugin.json`
 - **MCP server card**: `/.well-known/mcp/server-card.json` — config schema for Smithery/registries
+- **MCP registry auth**: `/.well-known/mcp-registry-auth` — ed25519 public key for Official MCP Registry HTTP auth
 - **A2A agent card**: `/.well-known/agent.json` — Google A2A protocol
 - **HTML meta**: OG tags, Twitter cards, JSON-LD structured data, canonical URLs, noindex for quality < 40
 - **OG images**: Auto-generated per document at `/og/{doc_id}.png`
@@ -137,6 +138,19 @@ Database migrations run automatically at startup from the `migrations/` director
 - **Migrations**: SQL files in `migrations/` run at startup, per-statement with individual transactions. Use `IF NOT EXISTS`/`IF EXISTS` for idempotency.
 - **Cloud SQL**: Private VPC only, no public IP. Migrations must run via app startup (not local scripts).
 - **Python 3.12**: Codebase uses `str | None` union syntax — requires 3.10+, targets 3.12.
+
+## MCP Distribution
+
+| Channel | Identifier | Notes |
+|---------|-----------|-------|
+| Official MCP Registry | `org.lightpaper/lightpaper-mcp` | Canonical source; Cursor, Claude, PulseMCP auto-ingest |
+| PyPI | `lightpaper-mcp` v0.1.1 | `pip install lightpaper-mcp` |
+| Smithery | `@lightpaper/lightpaper` | 97/100 quality score, proxy: `https://lightpaper--lightpaper.run.tools` |
+| Remote endpoint | `https://lightpaper.org/mcp` | Streamable HTTP, stateless, no install needed |
+| mcp.so | Submitted | Web directory |
+| Glama / awesome-mcp-servers | PR #2710 | Auto-syncs to glama.ai |
+
+To update PyPI + registry: bump version in `lightpaper_mcp/pyproject.toml` + `server.json`, rebuild (`python3 -m build`), upload (`twine upload dist/*`), publish (`mcp-publisher publish`).
 
 ## Published Blog Content
 
