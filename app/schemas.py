@@ -94,6 +94,7 @@ class DocumentUpdateRequest(BaseModel):
     title: str | None = Field(None, max_length=500)
     subtitle: str | None = Field(None, max_length=1000)
     content: str | None = Field(None, max_length=500_000)
+    format: Literal["paper", "essay", "post", "markdown", "academic", "report", "tutorial"] | None = None
     authors: list[AuthorInfo] | None = Field(None, max_length=20)
     metadata: dict | None = None
     tags: list[str] | None = Field(None, max_length=50)

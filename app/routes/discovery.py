@@ -204,7 +204,7 @@ Authorization: Bearer <api_key>
 
 → Returns: {{"authorization_url": "https://linkedin.com/oauth/...", "state": "xxx"}}
 
-Tell the user to open the URL in their browser. Poll until complete:
+Tell the user to open the URL in their browser. Poll every 3-5 seconds until complete (timeout after 5 minutes):
 
 GET {settings.base_url}/v1/account/verify/linkedin/check
 Authorization: Bearer <api_key>
@@ -232,13 +232,22 @@ Each additional identity verification increases gravity level.
 
 ### Returning users
 
-If the user already has an API key, skip onboarding. Just use the key in the Authorization header.
+If the user already has an API key, skip onboarding. Just use it in the Authorization header.
+If the user says they have a key but you don't have it in your environment, ask them for it.
 
 If the user needs to sign in again, use the same email OTP flow — it works for login too. Check the `is_new_account` field in the auth_verify response:
 - **true** → new account, proceed with LinkedIn/credentials/verification steps above
 - **false** → returning user, check GET /v1/account/gravity to see current level before offering further verifications
 
 If the user signed in via LinkedIn OAuth (POST /v1/auth/linkedin), they already have LinkedIn verified.
+
+### Publishing existing content
+
+If the user already has written content (a markdown file, draft, or pasted text):
+1. Read the file or accept the pasted content
+2. Ensure it has 300+ words and at least one heading — add headings if missing
+3. Add a title and subtitle if not already present
+4. Publish with the appropriate format
 
 ### Writing the article
 
@@ -304,9 +313,27 @@ Always tell the user:
 ### Update an existing article
 
 To update, you need the document ID. List the user's documents first:
-GET {settings.base_url}/v1/account/documents (requires auth) → returns all documents with IDs.
-Then: PUT /v1/documents/{{id}} with the fields to update (title, subtitle, content, authors, tags, listed).
+GET {settings.base_url}/v1/account/documents (requires auth) → returns all documents with IDs, format, tags, and quality scores.
+Then: PUT /v1/documents/{{id}} with the fields to update (title, subtitle, content, format, authors, tags, listed).
 Content changes create a new version (max 100). Quality score is recalculated on content change.
+Format can be changed at any time (e.g., switching from "post" to "paper").
+
+### Improving quality on existing articles
+
+To improve an existing article's quality score:
+1. GET /v1/documents/{{id}} — fetch the current content
+2. Review against quality criteria: structure (headings, paragraphs), substance (word count, code/lists/tables), tone (no clickbait), attribution (links, references, footnotes)
+3. Rewrite to address gaps
+4. PUT /v1/documents/{{id}} with the improved content — quality score is recalculated
+
+### Browsing and discovering articles
+
+GET /v1/search supports browsing without a search query:
+- `?sort=recent&limit=10` — latest published articles
+- `?sort=quality&limit=10` — highest-rated articles
+- `?author=alice` — articles by a specific author
+- `?tags=python,ml` — articles with specific tags
+All filters can be combined.
 
 ### Account is required
 
@@ -322,7 +349,7 @@ All endpoints return JSON. Authorization via `Authorization: Bearer <api_key>` h
 - POST /v1/auth/verify — Verify the code → returns account + API key. 10/hour.
 - POST /v1/auth/linkedin — Start LinkedIn OAuth for login/signup → returns authorization_url. 10/hour.
 - GET /v1/auth/linkedin/callback — LinkedIn OAuth callback (browser, not called by agents).
-- GET /v1/auth/linkedin/poll?session_id=xxx — Poll for LinkedIn OAuth completion → returns API key.
+- GET /v1/auth/linkedin/poll?session_id=xxx — Poll for LinkedIn OAuth completion → returns API key. Poll every 3-5 seconds.
 - GET /v1/account — Get account info (handle, gravity level, verification status, badges)
 - DELETE /v1/account — Hard-delete account and all data (GDPR)
 - POST /v1/account/keys — Generate additional API keys
@@ -338,7 +365,7 @@ All endpoints return JSON. Authorization via `Authorization: Bearer <api_key>` h
 
 ### Search
 - GET /v1/search?q=query — Full-text search with ranking. 60/minute.
-  - `q` (required) — Full-text query
+  - `q` (optional) — Full-text query. Omit to browse all listed articles.
   - `author` — Filter by author handle (e.g. `?author=alice`)
   - `tags` — Comma-separated tag filter (e.g. `?tags=python,ml`)
   - `min_quality` — Minimum quality score 0-100 (default 40)
@@ -393,7 +420,7 @@ POST /v1/publish — requires markdown content with at least 300 words and at le
 | content | string | Yes | Markdown content (min 300 words, max 500K chars, must have ≥1 heading) |
 | subtitle | string | No | Subtitle (max 1000 chars) |
 | format | string | No | Presentation format: "paper", "essay", "post" (default "post") |
-| authors | array | No | Author attribution: [{{"name": "Alice", "handle": "alice"}}] (max 20) |
+| authors | array | No | Author attribution: [{{"name": "Alice", "handle": "alice"}}] (max 20). Co-authors don't need accounts — just include their name. |
 | tags | list | No | Tags for search filtering (max 50) |
 | options.slug | string | No | Custom URL slug (max 80 chars, auto-generated from title if omitted) |
 | options.listed | bool | No | List in search results and sitemap (default true) |
@@ -444,7 +471,7 @@ Use `format` to control the visual presentation. Choose based on the content's n
 
 ### Document Updates
 
-PUT /v1/documents/{{id}} — Update title, subtitle, content, authors, tags, listed status, or metadata.
+PUT /v1/documents/{{id}} — Update title, subtitle, content, format, authors, tags, listed status, or metadata.
 - Content updates create a new version (max 100 versions per document). Returns 422 when limit exceeded.
 - Quality score is recalculated whenever content changes.
 - Only the document owner (the account that published it) can update.

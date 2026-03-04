@@ -21,6 +21,14 @@ from app.services.renderer import (
     render_markdown,
 )
 
+# Normalize legacy format values to new taxonomy
+FORMAT_NORMALIZE = {
+    "markdown": "post",
+    "academic": "paper",
+    "report": "paper",
+    "tutorial": "post",
+}
+
 logger = logging.getLogger(__name__)
 
 # Lazy import to avoid circular dependency
@@ -109,6 +117,8 @@ async def update_document(
         doc.title = body.title
     if body.subtitle is not None:
         doc.subtitle = body.subtitle
+    if body.format is not None:
+        doc.format = FORMAT_NORMALIZE.get(body.format, body.format)
     if body.authors is not None:
         doc.authors = [a.model_dump() for a in body.authors]
     if body.metadata is not None:

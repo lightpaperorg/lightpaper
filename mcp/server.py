@@ -17,6 +17,7 @@ You are an agent that publishes and manages documents on lightpaper.org — an A
 ## First-time onboarding (do all steps in one session)
 
 If LIGHTPAPER_API_KEY is set in the environment, skip onboarding — all tools use it automatically.
+If the user says they have an API key but it's not in the environment, ask them for it and pass it via the `api_key` parameter on each tool call.
 If no API key is configured, walk the user through the full onboarding flow:
 
 1. **Email sign-in**: Ask for name, email, handle → auth_email → ask for 6-digit code → auth_verify → save the api_key
@@ -30,7 +31,7 @@ This flow works for both new signups AND existing accounts (login). Check `is_ne
 - **true**: New account — proceed with LinkedIn verification + credentials (steps 2-4).
 - **false**: Returning user — call get_gravity_info to check their current level. Only offer further verifications if they haven't reached Level 5.
 
-Alternative login: auth_linkedin starts a browser-based LinkedIn OAuth login. Poll with auth_linkedin_poll. Users who sign in via LinkedIn already have LinkedIn verified.
+Alternative login: auth_linkedin starts a browser-based LinkedIn OAuth login. Poll with auth_linkedin_poll (poll every 3-5 seconds, timeout after 5 minutes). Users who sign in via LinkedIn already have LinkedIn verified.
 
 ## Typical flows
 
@@ -42,12 +43,20 @@ Alternative login: auth_linkedin starts a browser-based LinkedIn OAuth login. Po
 5. Share the returned URL with the user
 6. If quality_score < 60, review the suggestions and offer to improve the article
 
-**"Find articles about X"**:
-1. Call search_lightpapers with the query
+**"Publish my existing content"**:
+1. If the user has a markdown file, read it (using file reading tools) and use its content with publish_lightpaper
+2. If the user pastes content directly, use it as-is — ensure it has 300+ words and at least one heading
+3. Add a title and subtitle if the content doesn't have them
+
+**"Find articles about X"** / **"Browse articles"**:
+1. Call search_lightpapers — query is optional, so you can browse without a search term
+2. Use sort="recent" to see latest articles, sort="quality" for best-rated
+3. Filter by author handle or tags without needing a query
 
 **"Update my article"**:
 1. Call list_my_lightpapers to find the document ID
 2. Call update_lightpaper with the changes (content updates create a new version)
+3. You can also change the format (e.g. from post to paper) via update_lightpaper
 
 **"Delete my article"**:
 1. Call list_my_lightpapers to find the document ID
@@ -81,9 +90,11 @@ Format-specific tips:
 
 - Content must be markdown. Minimum 300 words with at least one heading.
 - The platform auto-generates a quality score (0-100) and a permanent URL.
-- Authors can include multiple people with name + handle.
+- Authors can include multiple people with name + handle. Co-authors don't need lightpaper accounts — just include their name (handle is optional).
 - Always tell the user the URL of their published article.
 - Anonymous publishing is not supported — accounts are required (30-second email signup).
+- To improve quality on an existing article: fetch it with get_lightpaper, review the content against the quality criteria (structure, substance, tone, attribution), rewrite to address gaps, then update_lightpaper with improved content.
+- Format can be changed after publishing via update_lightpaper (e.g., switching from 'post' to 'paper').
 """
 
 server = Server("lightpaper", instructions=SERVER_INSTRUCTIONS)
@@ -253,7 +264,10 @@ async def list_tools() -> list[Tool]:
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "query": {"type": "string", "description": "Full-text search query"},
+                    "query": {
+                        "type": "string",
+                        "description": "Full-text search query. Omit to browse all articles (use with sort/author/tags filters).",
+                    },
                     "author": {"type": "string", "description": "Filter by author handle (e.g. 'alice')"},
                     "tags": {"type": "string", "description": "Comma-separated tag filter (e.g. 'python,ml')"},
                     "min_quality": {
@@ -271,7 +285,6 @@ async def list_tools() -> list[Tool]:
                     "offset": {"type": "integer", "default": 0, "description": "Pagination offset"},
                     **API_KEY_PARAM,
                 },
-                "required": ["query"],
             },
         ),
         Tool(
@@ -299,6 +312,11 @@ async def list_tools() -> list[Tool]:
                     "title": {"type": "string", "description": "New title"},
                     "subtitle": {"type": "string", "description": "New subtitle"},
                     "content": {"type": "string", "description": "New markdown content (creates a new version)"},
+                    "format": {
+                        "type": "string",
+                        "enum": ["paper", "essay", "post"],
+                        "description": "Change presentation format (paper/essay/post)",
+                    },
                     "authors": {
                         "type": "array",
                         "items": {
@@ -587,7 +605,9 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             return [TextContent(type="text", text=resp.text)]
 
         elif name == "search_lightpapers":
-            params = {"q": arguments["query"], "limit": arguments.get("limit", 20)}
+            params = {"limit": arguments.get("limit", 20)}
+            if arguments.get("query"):
+                params["q"] = arguments["query"]
             if arguments.get("author"):
                 params["author"] = arguments["author"]
             if arguments.get("tags"):
