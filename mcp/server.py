@@ -365,8 +365,8 @@ async def list_tools() -> list[Tool]:
                         "items": {
                             "type": "object",
                             "properties": {
-                                "name": {"type": "string"},
-                                "handle": {"type": "string"},
+                                "name": {"type": "string", "description": "Author display name"},
+                                "handle": {"type": "string", "description": "Author handle on lightpaper.org"},
                             },
                             "required": ["name"],
                         },
@@ -719,6 +719,7 @@ async def list_tools() -> list[Tool]:
                                 "credential_type": {
                                     "type": "string",
                                     "enum": ["degree", "certification", "employment"],
+                                    "description": "Type of credential (degree, certification, or employment)",
                                 },
                                 "institution": {
                                     "type": "string",
@@ -729,7 +730,7 @@ async def list_tools() -> list[Tool]:
                                     "description": "Credential title (e.g. 'Bachelor of Science in Computer Science')",
                                 },
                                 "year": {"type": "integer", "description": "Year awarded/completed"},
-                                "evidence_tier": {"type": "string", "enum": ["confirmed", "supported", "claimed"]},
+                                "evidence_tier": {"type": "string", "enum": ["confirmed", "supported", "claimed"], "description": "Evidence strength (confirmed=3pts, supported=2pts, claimed=1pt)"},
                                 "evidence_data": {
                                     "type": "object",
                                     "description": "API responses, URLs, or other verification data",
