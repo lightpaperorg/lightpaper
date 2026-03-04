@@ -163,6 +163,9 @@ async def linkedin_callback(
     verification.verified = True
     verification.linkedin_profile_id = profile.get("sub", "")
     account.verified_linkedin = True
+    linkedin_url = profile.get("profile", "")  # OIDC profile claim (vanity URL)
+    if linkedin_url and not account.linkedin_url:
+        account.linkedin_url = linkedin_url
     cred_result = await db.execute(select(Credential).where(Credential.account_id == account.id))
     creds = cred_result.scalars().all()
     account.gravity_level = compute_gravity_level(

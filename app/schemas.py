@@ -147,12 +147,19 @@ class AccountResponse(BaseModel):
     verified_domain: str | None
     verified_linkedin: bool
     orcid_id: str | None
+    linkedin_url: str | None = None
     created_at: datetime
 
 
 class AccountCreateRequest(BaseModel):
     handle: str | None = None
     display_name: str | None = None
+
+
+class AccountUpdateRequest(BaseModel):
+    display_name: str | None = Field(None, max_length=200)
+    bio: str | None = Field(None, max_length=2000)
+    linkedin_url: str | None = Field(None, max_length=500)
 
 
 # --- API Keys ---

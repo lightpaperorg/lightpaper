@@ -161,6 +161,14 @@
             border-radius: 4px;
             font-size: 12px;
         }
+        a.gravity-badge {
+            color: inherit;
+            text-decoration: none;
+        }
+        a.gravity-badge:hover {
+            text-decoration: underline;
+            text-underline-offset: 2px;
+        }
         .format-badge {
             display: inline-block;
             padding: 2px 8px;
@@ -732,7 +740,13 @@
                     <span class="quality-badge">{{ quality_score }}/100</span>
                 {% endif %}
                 {% for badge in gravity_badges %}
-                    <span class="gravity-badge">{{ badge }}</span>
+                    {% if linkedin_url and 'LinkedIn' in badge %}
+                        <a href="{{ linkedin_url }}" class="gravity-badge" target="_blank" rel="noopener">{{ badge }}</a>
+                    {% elif orcid_id and 'ORCID' in badge %}
+                        <a href="https://orcid.org/{{ orcid_id }}" class="gravity-badge" target="_blank" rel="noopener">{{ badge }}</a>
+                    {% else %}
+                        <span class="gravity-badge">{{ badge }}</span>
+                    {% endif %}
                 {% endfor %}
                 {% if format and format != "post" %}
                     <span class="format-badge">{{ format }}</span>

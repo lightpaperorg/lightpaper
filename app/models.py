@@ -26,6 +26,7 @@ class Account(Base):
     verified_linkedin = Column(Boolean, default=False)
     orcid_id = Column(Text)
     linkedin_profile_id = Column(Text)
+    linkedin_url = Column(Text)
     gravity_level = Column(Integer, nullable=False, default=0)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=text("NOW()"))
     deleted_at = Column(DateTime(timezone=True))

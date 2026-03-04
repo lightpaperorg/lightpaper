@@ -1,4 +1,4 @@
-"""lightpaper.org MCP server — 16 tools + prompts, stdio transport."""
+"""lightpaper.org MCP server — 17 tools + prompts, stdio transport."""
 
 import os
 
@@ -373,6 +373,22 @@ async def list_tools() -> list[Tool]:
             },
         ),
         Tool(
+            name="update_account",
+            description="Update account profile fields: display_name, bio, and linkedin_url (shown as clickable badge on published documents).",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "display_name": {"type": "string", "description": "New display name (max 200 chars)"},
+                    "bio": {"type": "string", "description": "Short bio (max 2000 chars)"},
+                    "linkedin_url": {
+                        "type": "string",
+                        "description": "LinkedIn profile URL (e.g. 'https://www.linkedin.com/in/username/'). Makes the LinkedIn badge clickable on all published documents.",
+                    },
+                    **API_KEY_PARAM,
+                },
+            },
+        ),
+        Tool(
             name="get_gravity_info",
             description=(
                 "Get the authenticated account's gravity level details: current level (0-5), search ranking multiplier, "
@@ -643,6 +659,11 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
 
         elif name == "get_account_info":
             resp = await client.get("/v1/account")
+            return [TextContent(type="text", text=resp.text)]
+
+        elif name == "update_account":
+            payload = {k: v for k, v in arguments.items() if v is not None}
+            resp = await client.patch("/v1/account", json=payload)
             return [TextContent(type="text", text=resp.text)]
 
         elif name == "get_gravity_info":

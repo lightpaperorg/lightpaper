@@ -65,6 +65,8 @@ async def _render_html(doc: Document, version: DocumentVersion, db: AsyncSession
 
     # Gravity badges — load account + credentials for accurate display
     gravity_badges = []
+    linkedin_url = None
+    orcid_id = None
     if doc.account_id:
         acct_result = await db.execute(select(Account).where(Account.id == doc.account_id))
         account = acct_result.scalar_one_or_none()
@@ -77,6 +79,8 @@ async def _render_html(doc: Document, version: DocumentVersion, db: AsyncSession
                 account.orcid_id,
                 credentials=creds,
             )
+            linkedin_url = account.linkedin_url
+            orcid_id = account.orcid_id
 
     # Format date
     created_at_formatted = doc.created_at.strftime("%b %d, %Y") if doc.created_at else ""
@@ -96,6 +100,8 @@ async def _render_html(doc: Document, version: DocumentVersion, db: AsyncSession
         permanent_url=f"{settings.base_url}/d/{doc.id}",
         og_image_url=f"{settings.base_url}/og/{doc.id}.png",
         gravity_badges=gravity_badges,
+        linkedin_url=linkedin_url,
+        orcid_id=orcid_id,
         format=FORMAT_NORMALIZE.get(doc.format, doc.format) or "post",
     )
     return HTMLResponse(

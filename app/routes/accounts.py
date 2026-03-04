@@ -9,7 +9,7 @@ from app.config import settings
 from app.database import get_db
 from app.models import Account, Credential, Document
 from app.rate_limit import limiter
-from app.schemas import AccountCreateRequest, AccountResponse
+from app.schemas import AccountCreateRequest, AccountResponse, AccountUpdateRequest
 from app.services.gravity import get_gravity_badges
 
 router = APIRouter(prefix="/v1", tags=["accounts"])
@@ -34,6 +34,7 @@ def _account_response(account: Account, credentials=None) -> AccountResponse:
         verified_domain=account.verified_domain,
         verified_linkedin=account.verified_linkedin,
         orcid_id=account.orcid_id,
+        linkedin_url=account.linkedin_url,
         created_at=account.created_at,
     )
 
@@ -73,6 +74,25 @@ async def create_account(
     await db.refresh(account)
 
     return _account_response(account)
+
+
+@router.patch("/account", response_model=AccountResponse)
+async def update_account(
+    body: AccountUpdateRequest,
+    auth: AuthResult = Depends(require_account),
+    db: AsyncSession = Depends(get_db),
+):
+    if body.display_name is not None:
+        auth.account.display_name = body.display_name
+    if body.bio is not None:
+        auth.account.bio = body.bio
+    if body.linkedin_url is not None:
+        auth.account.linkedin_url = body.linkedin_url
+    await db.commit()
+    await db.refresh(auth.account)
+    cred_result = await db.execute(select(Credential).where(Credential.account_id == auth.account.id))
+    creds = cred_result.scalars().all()
+    return _account_response(auth.account, credentials=creds)
 
 
 @router.get("/account", response_model=AccountResponse)

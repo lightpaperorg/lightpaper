@@ -87,6 +87,31 @@ def get_featured_threshold(level: int) -> int:
     return FEATURED_THRESHOLDS.get(level, 70)
 
 
+_DEGREE_ABBREV = {
+    "Bachelor of Science": "BSc",
+    "Bachelor of Arts": "BA",
+    "Bachelor of Applied Science": "BASc",
+    "Bachelor of Engineering": "BEng",
+    "Bachelor of Commerce": "BCom",
+    "Master of Science": "MSc",
+    "Master of Arts": "MA",
+    "Master of Business Administration": "MBA",
+    "Master of Engineering": "MEng",
+    "Doctor of Philosophy": "PhD",
+    "Graduate Diploma": "GradDip",
+    "Graduate Certificate": "GradCert",
+}
+
+
+def _abbreviate_title(title: str) -> str:
+    """Abbreviate common degree prefixes: 'Bachelor of Science (Physics)' → 'BSc (Physics)'."""
+    for full, abbrev in _DEGREE_ABBREV.items():
+        if title.startswith(full):
+            remainder = title[len(full):]
+            return f"{abbrev}{remainder}" if remainder else abbrev
+    return title
+
+
 def get_gravity_badges(
     verified_domain: str | None,
     verified_linkedin: bool,
@@ -104,7 +129,8 @@ def get_gravity_badges(
     if credentials:
         for c in credentials:
             tier_label = {"confirmed": "\u2713\u2713", "supported": "\u2713", "claimed": "\u00b7"}
-            badge = f"{c.institution} {tier_label.get(c.evidence_tier, '')}"
+            short_title = _abbreviate_title(c.title)
+            badge = f"{short_title} \u00b7 {c.institution} {tier_label.get(c.evidence_tier, '')}"
             badges.append(badge)
     return badges
 

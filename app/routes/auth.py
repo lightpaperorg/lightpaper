@@ -360,6 +360,7 @@ async def auth_linkedin_callback(
     linkedin_sub = profile.get("sub", "")
     linkedin_email = profile.get("email", "")
     linkedin_name = profile.get("name", "")
+    linkedin_url = profile.get("profile", "")  # OIDC profile claim (vanity URL)
 
     # Match account: first by linkedin_profile_id, then by email
     account = None
@@ -417,6 +418,8 @@ async def auth_linkedin_callback(
     # Ensure LinkedIn profile data is stored on account
     if linkedin_sub and not account.linkedin_profile_id:
         account.linkedin_profile_id = linkedin_sub
+    if linkedin_url and not account.linkedin_url:
+        account.linkedin_url = linkedin_url
     if not account.verified_linkedin:
         account.verified_linkedin = True
 
