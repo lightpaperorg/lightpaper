@@ -64,6 +64,8 @@ Search engine notifications fire automatically on publish, update, and delete:
 - **robots.txt**: References sitemap.xml and llms.txt
 - **llms.txt**: Full agent instructions including onboarding flow, API reference, gravity system
 - **ai-plugin.json**: OpenAI plugin manifest at `/.well-known/ai-plugin.json`
+- **MCP server card**: `/.well-known/mcp/server-card.json` — config schema for Smithery/registries
+- **A2A agent card**: `/.well-known/agent.json` — Google A2A protocol
 - **HTML meta**: OG tags, Twitter cards, JSON-LD structured data, canonical URLs, noindex for quality < 40
 - **OG images**: Auto-generated per document at `/og/{doc_id}.png`
 
@@ -122,6 +124,9 @@ Database migrations run automatically at startup from the `migrations/` director
 
 ## Gotchas
 
+- **Two repo directories**: `/Users/jon/lightpaper/` (outer, deploy context) and `/Users/jon/lightpaper/lightpaper/` (inner, git repo). Files must be synced to outer before deploy. Deploy script runs from outer dir.
+- **MCP session on Cloud Run**: `StreamableHTTPSessionManager` must use `stateless=True` because Cloud Run routes requests to different instances (in-memory sessions break).
+- **MCP path matching**: Custom `MCPRoute(BaseRoute)` needed because Starlette's `Mount` redirects POST /mcp → /mcp/ (307), breaking MCP clients.
 - **Catch-all route**: `/{slug:path}` in reading.py must be the LAST router mounted.
 - **`metadata` is a reserved name**: SQLAlchemy model uses `doc_metadata` to avoid collision.
 - **Rate limiter**: Imported from `app/rate_limit.py` (not `app/main.py`) to avoid circular imports.
