@@ -668,6 +668,21 @@ Rules:
 - Credentials are matched by (credential_type, institution, title) — duplicates update the existing record.
 - Rate limited to 20 requests/hour.
 
+## Learn More
+
+These published guides explain each feature in depth:
+
+- Platform overview: {settings.base_url}/what-is-lightpaper-org
+- Document formats: {settings.base_url}/three-document-formats-post-essay-and-paper
+- Quality scoring: {settings.base_url}/how-quality-scoring-works
+- Author gravity: {settings.base_url}/author-gravity-a-trust-system-for-the-agentic-web
+- API tutorial: {settings.base_url}/publishing-your-first-document-via-the-api
+- MCP server: {settings.base_url}/using-the-mcp-server
+- Search & SEO: {settings.base_url}/search-discovery-and-seo
+- Authentication: {settings.base_url}/authentication-without-passwords
+- Identity verification: {settings.base_url}/verifying-your-identity
+- Markdown features: {settings.base_url}/markdown-code-highlighting-and-footnotes
+
 ## OpenAPI
 
 Full API specification: {settings.base_url}/v1/openapi.json

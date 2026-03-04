@@ -95,6 +95,21 @@ Format-specific tips:
 - Anonymous publishing is not supported — accounts are required (30-second email signup).
 - To improve quality on an existing article: fetch it with get_lightpaper, review the content against the quality criteria (structure, substance, tone, attribution), rewrite to address gaps, then update_lightpaper with improved content.
 - Format can be changed after publishing via update_lightpaper (e.g., switching from 'post' to 'paper').
+
+## Learn more
+
+These published guides on lightpaper.org explain each feature in depth:
+
+- Platform overview: https://lightpaper.org/what-is-lightpaper-org
+- Document formats: https://lightpaper.org/three-document-formats-post-essay-and-paper
+- Quality scoring: https://lightpaper.org/how-quality-scoring-works
+- Author gravity: https://lightpaper.org/author-gravity-a-trust-system-for-the-agentic-web
+- API tutorial: https://lightpaper.org/publishing-your-first-document-via-the-api
+- MCP server: https://lightpaper.org/using-the-mcp-server
+- Search & SEO: https://lightpaper.org/search-discovery-and-seo
+- Authentication: https://lightpaper.org/authentication-without-passwords
+- Identity verification: https://lightpaper.org/verifying-your-identity
+- Markdown features: https://lightpaper.org/markdown-code-highlighting-and-footnotes
 """
 
 server = Server("lightpaper", instructions=SERVER_INSTRUCTIONS)

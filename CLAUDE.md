@@ -85,7 +85,7 @@ Key: LinkedIn + confirmed degree (3 pts) = Level 3. No domain or ORCID needed.
 
 ## Authentication
 
-Two auth flows, no anonymous publishing:
+Two auth flows, no anonymous publishing. Auth uses `Authorization: Bearer <api_key>` header (HTTPBearer scheme, NOT `X-API-Key`).
 
 - **Email OTP**: `POST /v1/auth/email` sends code via Resend (`auth@lightpaper.org`), `POST /v1/auth/verify` returns API key
 - **LinkedIn OAuth login**: `POST /v1/auth/linkedin` returns auth URL, browser callback, agent polls `/v1/auth/linkedin/poll`
@@ -129,3 +129,22 @@ Database migrations run automatically at startup from the `migrations/` director
 - **Migrations**: SQL files in `migrations/` run at startup, per-statement with individual transactions. Use `IF NOT EXISTS`/`IF EXISTS` for idempotency.
 - **Cloud SQL**: Private VPC only, no public IP. Migrations must run via app startup (not local scripts).
 - **Python 3.12**: Codebase uses `str | None` union syntax — requires 3.10+, targets 3.12.
+
+## Published Blog Content
+
+10 introductory blog posts published on lightpaper.org (quality 69-85, format "post", author: Jon Gregory / jongregory):
+
+| Post | URL |
+|------|-----|
+| What Is lightpaper.org? | `/what-is-lightpaper-org` |
+| Three Document Formats: Post, Essay, and Paper | `/three-document-formats-post-essay-and-paper` |
+| How Quality Scoring Works | `/how-quality-scoring-works` |
+| Author Gravity: A Trust System for the Agentic Web | `/author-gravity-a-trust-system-for-the-agentic-web` |
+| Publishing Your First Document via the API | `/publishing-your-first-document-via-the-api` |
+| Using the MCP Server | `/using-the-mcp-server` |
+| Search, Discovery, and SEO | `/search-discovery-and-seo` |
+| Authentication Without Passwords | `/authentication-without-passwords` |
+| Verifying Your Identity | `/verifying-your-identity` |
+| Markdown, Code Highlighting, and Footnotes | `/markdown-code-highlighting-and-footnotes` |
+
+These posts serve as SEO content, user documentation, and platform demonstration. Source script: `publish_blog_posts.py`.
