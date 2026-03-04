@@ -134,7 +134,7 @@ lightpaper/
 │   ├── services/          # Business logic (quality, gravity, rendering)
 │   └── templates/         # Jinja2 HTML templates
 ├── migrations/            # SQL migrations (run at startup)
-├── mcp/                   # MCP server (16 tools)
+├── mcp/                   # MCP server (20 tools)
 ├── tests/                 # pytest test suite
 ├── deploy/                # Cloud Run deployment scripts
 ├── docs/                  # Platform design documents

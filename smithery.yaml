@@ -1,0 +1,20 @@
+startCommand:
+  type: stdio
+  configSchema:
+    type: object
+    properties:
+      LIGHTPAPER_API_KEY:
+        type: string
+        description: "lightpaper.org API key (optional — server can authenticate interactively)"
+      LIGHTPAPER_BASE_URL:
+        type: string
+        default: "https://lightpaper.org"
+        description: "Base URL for lightpaper API"
+  commandFunction: |-
+    (config) => ({
+      command: "lightpaper-mcp",
+      env: {
+        LIGHTPAPER_API_KEY: config.LIGHTPAPER_API_KEY ?? "",
+        LIGHTPAPER_BASE_URL: config.LIGHTPAPER_BASE_URL ?? "https://lightpaper.org"
+      }
+    })

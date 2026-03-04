@@ -74,6 +74,12 @@ Sitemap: {settings.base_url}/sitemap.xml
 # AI agent instructions
 # See https://llmstxt.org for the llms.txt standard
 LLMs-txt: {settings.base_url}/llms.txt
+
+# Agent discovery
+# Google A2A: https://google.github.io/A2A/
+# OpenAI plugin: https://platform.openai.com/docs/plugins
+Agent-Json: {settings.base_url}/.well-known/agent.json
+AI-Plugin: {settings.base_url}/.well-known/ai-plugin.json
 """
 
 
@@ -127,6 +133,54 @@ async def atom_feed(db: AsyncSession = Depends(get_db)):
     return Response(content=xml, media_type="application/atom+xml")
 
 
+@router.get("/feed.json")
+async def json_feed(db: AsyncSession = Depends(get_db)):
+    """JSON Feed 1.1 of recent published documents."""
+    result = await db.execute(
+        select(Document)
+        .where(
+            Document.deleted_at.is_(None),
+            Document.listed.is_(True),
+            Document.quality_score >= 40,
+        )
+        .order_by(Document.created_at.desc())
+        .limit(50)
+    )
+    docs = result.scalars().all()
+
+    items = []
+    for doc in docs:
+        slug_url = f"{settings.base_url}/{doc.slug}" if doc.slug else f"{settings.base_url}/d/{doc.id}"
+        author_name = ""
+        if doc.authors:
+            author_name = doc.authors[0].get("name", "")
+        item = {
+            "id": f"urn:lightpaper:{doc.id}",
+            "url": slug_url,
+            "title": doc.title,
+            "date_published": doc.created_at.strftime("%Y-%m-%dT%H:%M:%SZ") if doc.created_at else None,
+            "date_modified": doc.updated_at.strftime("%Y-%m-%dT%H:%M:%SZ") if doc.updated_at else None,
+        }
+        if doc.subtitle:
+            item["summary"] = doc.subtitle
+        if author_name:
+            item["authors"] = [{"name": author_name}]
+        if doc.tags:
+            item["tags"] = doc.tags
+        items.append(item)
+
+    feed = {
+        "version": "https://jsonfeed.org/version/1.1",
+        "title": "lightpaper.org",
+        "home_page_url": f"{settings.base_url}/",
+        "feed_url": f"{settings.base_url}/feed.json",
+        "description": "API-first publishing. One call, one permanent URL.",
+        "items": items,
+    }
+
+    return feed
+
+
 @router.get("/.well-known/ai-plugin.json")
 async def ai_plugin_json():
     """OpenAI-style agent discovery manifest."""
@@ -148,6 +202,66 @@ async def ai_plugin_json():
         "logo_url": f"{settings.base_url}/static/apple-touch-icon.png",
         "contact_email": "hello@lightpaper.org",
         "legal_info_url": f"{settings.base_url}/privacy",
+    }
+
+
+@router.get("/.well-known/agent.json")
+async def a2a_agent_json():
+    """Google A2A protocol agent card."""
+    return {
+        "name": "lightpaper",
+        "description": "API-first publishing platform. Publish markdown documents as permanent, discoverable web pages with quality scoring and author gravity.",
+        "url": settings.base_url,
+        "provider": {
+            "organization": "lightpaper.org",
+            "url": settings.base_url,
+        },
+        "version": "0.1.0",
+        "capabilities": {
+            "streaming": False,
+            "pushNotifications": False,
+        },
+        "skills": [
+            {
+                "id": "publish",
+                "name": "Publish Document",
+                "description": "Publish a markdown document as a permanent, discoverable web page with quality scoring.",
+                "tags": ["publishing", "markdown", "writing"],
+                "examples": ["Publish an article about AI safety", "Write and publish a technical tutorial"],
+            },
+            {
+                "id": "search",
+                "name": "Search Documents",
+                "description": "Full-text search across published documents with gravity-boosted ranking.",
+                "tags": ["search", "discovery", "reading"],
+                "examples": ["Find articles about machine learning", "Browse recent publications"],
+            },
+            {
+                "id": "manage",
+                "name": "Manage Documents",
+                "description": "Update, delete, and list published documents. Track version history.",
+                "tags": ["management", "editing", "versioning"],
+                "examples": ["Update my article", "List my publications"],
+            },
+            {
+                "id": "verify",
+                "name": "Verify Identity",
+                "description": "Verify author identity via LinkedIn, domain DNS, ORCID, and credentials for gravity boost.",
+                "tags": ["verification", "identity", "trust"],
+                "examples": ["Verify my LinkedIn profile", "Submit my degree for verification"],
+            },
+        ],
+        "defaultInputModes": ["application/json"],
+        "defaultOutputModes": ["application/json"],
+        "authentication": {
+            "schemes": ["bearer"],
+            "description": "API key via Authorization: Bearer header. Get one via POST /v1/auth/email + /v1/auth/verify.",
+        },
+        "endpoints": {
+            "openapi": f"{settings.base_url}/v1/openapi.json",
+            "llms_txt": f"{settings.base_url}/llms.txt",
+            "mcp_sse": f"{settings.base_url}/mcp/sse",
+        },
     }
 
 
@@ -682,6 +796,48 @@ These published guides explain each feature in depth:
 - Authentication: {settings.base_url}/authentication-without-passwords
 - Identity verification: {settings.base_url}/verifying-your-identity
 - Markdown features: {settings.base_url}/markdown-code-highlighting-and-footnotes
+
+## MCP Server
+
+Connect to lightpaper.org via the Model Context Protocol for tool-based access.
+
+### Remote SSE (no install)
+
+Connect directly — no package install needed:
+
+URL: {settings.base_url}/mcp/sse
+
+Claude Desktop config:
+```json
+{{"mcpServers": {{"lightpaper": {{"url": "{settings.base_url}/mcp/sse"}}}}}}
+```
+
+### Install from PyPI
+
+```
+pip install lightpaper-mcp
+```
+
+Claude Desktop config:
+```json
+{{"mcpServers": {{"lightpaper": {{"command": "lightpaper-mcp", "env": {{"LIGHTPAPER_API_KEY": "lp_free_your_key_here"}}}}}}}}
+```
+
+Or without an API key (interactive account creation):
+```json
+{{"mcpServers": {{"lightpaper": {{"command": "lightpaper-mcp"}}}}}}
+```
+
+Run standalone: `lightpaper-mcp` or `python -m lightpaper_mcp`
+
+20 tools: publish, search, get, update, delete, list, account info, update account, gravity info, author profile, versions, credentials, auth (email + LinkedIn), verify (domain, LinkedIn, ORCID, credentials).
+2 prompts: write-article, setup-account.
+
+## Agent Discovery
+
+- Google A2A agent card: {settings.base_url}/.well-known/agent.json
+- OpenAI plugin manifest: {settings.base_url}/.well-known/ai-plugin.json
+- MCP Registry: org.lightpaper/lightpaper-mcp
 
 ## OpenAPI
 

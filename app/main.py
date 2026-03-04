@@ -170,6 +170,7 @@ def mount_routes():
         search,
         verification,
     )
+    from app.routes.mcp_sse import create_mcp_routes
 
     app.include_router(publish.router)
     app.include_router(documents.router)
@@ -182,6 +183,9 @@ def mount_routes():
     app.include_router(credentials.router)
     app.include_router(discovery.router)
     app.include_router(landing.router)
+    # MCP SSE routes — before catch-all
+    for route in create_mcp_routes():
+        app.routes.append(route)
     # Author profiles before catch-all
     app.include_router(author.router)
     # Reading routes LAST — catch-all /{slug}

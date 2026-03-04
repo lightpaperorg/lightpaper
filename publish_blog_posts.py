@@ -633,7 +633,7 @@ The server starts up, connects to the lightpaper.org API, and exposes its tools 
 
 ## Available Tools
 
-The MCP server provides 16 tools covering the full platform:
+The MCP server provides 20 tools covering the full platform:
 
 ### Publishing Tools
 - **publish_document**: Publish a new document with title, content, format, and metadata

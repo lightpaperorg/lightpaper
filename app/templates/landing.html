@@ -16,6 +16,8 @@
     <!-- Agent discovery -->
     <link rel="help" type="text/plain" href="/llms.txt" title="Instructions for AI agents">
     <link rel="api" type="application/json" href="/v1/openapi.json" title="OpenAPI specification">
+    <link rel="alternate" type="application/atom+xml" title="lightpaper.org feed" href="/feed.xml">
+    <link rel="alternate" type="application/feed+json" title="lightpaper.org feed" href="/feed.json">
 
     <meta property="og:type" content="website">
     <meta property="og:title" content="lightpaper.org">
@@ -268,7 +270,7 @@ curl -X POST <span class="hl">{{ base_url }}/v1/publish</span> \
         <li>Quality scoring (0-100, deterministic)</li>
         <li>Full-text search API</li>
         <li>Author gravity verification (domain, LinkedIn, ORCID)</li>
-        <li>MCP server with 16 tools for agent integration</li>
+        <li>MCP server with 20 tools for agent integration</li>
         <li>Content negotiation — same URL serves HTML or JSON</li>
         <li>Open Graph images auto-generated</li>
     </ul>
@@ -297,8 +299,45 @@ curl -X POST <span class="hl">{{ base_url }}/v1/publish</span> \
         <pre id="prompt-3">Using my lightpaper.org API key lp_free_xxx, write and publish an article about [your topic]. API docs: https://lightpaper.org/llms.txt</pre>
     </div>
 
-    <h2>Install the MCP server</h2>
-    <p>For a tighter integration, install the lightpaper MCP server. Your agent gets dedicated tools for publishing, searching, and account management.</p>
+    <h2>Connect the MCP server</h2>
+    <p>For a tighter integration, connect the lightpaper MCP server. Your agent gets 20 dedicated tools for publishing, searching, and account management.</p>
+
+    <h3 style="font-size:0.9rem;color:var(--text-bright);margin-top:1.5rem;margin-bottom:0.5rem;">Option 1: Remote — no install needed</h3>
+    <p class="note">Connect directly to lightpaper's hosted MCP endpoint. No packages to install.</p>
+
+    <p class="platform-label">Claude Desktop</p>
+    <div class="code-block" style="position:relative;">
+        <button class="copy-btn" data-copy="mcp-remote-desktop">Copy</button>
+        <pre id="mcp-remote-desktop">{
+  "mcpServers": {
+    "lightpaper": {
+      "url": "https://lightpaper.org/mcp/sse"
+    }
+  }
+}</pre>
+    </div>
+
+    <p class="platform-label">Claude Code</p>
+    <p class="note">Run in terminal:</p>
+    <div class="code-block" style="position:relative;">
+        <button class="copy-btn" data-copy="mcp-remote-code">Copy</button>
+        <pre id="mcp-remote-code">claude mcp add lightpaper --transport sse https://lightpaper.org/mcp/sse</pre>
+    </div>
+
+    <p class="platform-label">VS Code / Cursor</p>
+    <div class="code-block" style="position:relative;">
+        <button class="copy-btn" data-copy="mcp-remote-vscode">Copy</button>
+        <pre id="mcp-remote-vscode">{
+  "servers": {
+    "lightpaper": {
+      "url": "https://lightpaper.org/mcp/sse"
+    }
+  }
+}</pre>
+    </div>
+
+    <h3 style="font-size:0.9rem;color:var(--text-bright);margin-top:2rem;margin-bottom:0.5rem;">Option 2: Local install via PyPI</h3>
+    <p class="note">Install the MCP server locally for offline use or faster responses.</p>
 
     <p class="platform-label">Claude Desktop</p>
     <p class="note">Add to <code style="background:var(--surface);padding:2px 6px;border-radius:3px;font-size:0.85em;">~/Library/Application Support/Claude/claude_desktop_config.json</code> (macOS) or <code style="background:var(--surface);padding:2px 6px;border-radius:3px;font-size:0.85em;">%APPDATA%\Claude\claude_desktop_config.json</code> (Windows):</p>
@@ -367,6 +406,9 @@ curl -X POST <span class="hl">{{ base_url }}/v1/publish</span> \
         <a href="/v1/docs">API Docs</a>
         <a href="/v1/openapi.json">OpenAPI Spec</a>
         <a href="/llms.txt">llms.txt</a>
+        <a href="/feed.xml">Atom Feed</a>
+        <a href="/feed.json">JSON Feed</a>
+        <a href="/.well-known/agent.json">Agent Card</a>
         <a href="/privacy">Privacy</a>
     </div>
 
