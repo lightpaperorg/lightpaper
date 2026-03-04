@@ -265,6 +265,34 @@ async def a2a_agent_json():
     }
 
 
+@router.get("/.well-known/mcp/server-card.json")
+async def mcp_server_card():
+    """MCP server card for Smithery and other MCP registries."""
+    return {
+        "name": "lightpaper",
+        "description": (
+            "API-first publishing platform. Publish markdown documents as permanent, "
+            "discoverable web pages with quality scoring and author gravity."
+        ),
+        "homepage": settings.base_url,
+        "icon": f"{settings.base_url}/static/apple-touch-icon.png",
+        "serverUrl": f"{settings.base_url}/mcp",
+        "configSchema": {
+            "type": "object",
+            "properties": {
+                "apiKey": {
+                    "type": "string",
+                    "title": "API Key",
+                    "description": (
+                        "Your lightpaper.org API key (starts with lp_free_ or lp_live_). "
+                        "Optional — tools authenticate interactively via email OTP."
+                    ),
+                },
+            },
+        },
+    }
+
+
 @router.get("/llms.txt", response_class=PlainTextResponse)
 async def llms_txt():
     return f"""# lightpaper.org
