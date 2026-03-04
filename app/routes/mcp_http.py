@@ -11,7 +11,7 @@ No auth on the HTTP connection — individual tools use per-call `api_key` param
 
 import logging
 
-from starlette.routing import Mount
+from starlette.routing import BaseRoute, Match
 from starlette.types import Receive, Scope, Send
 
 logger = logging.getLogger(__name__)
@@ -20,7 +20,32 @@ logger = logging.getLogger(__name__)
 _session_manager = None
 
 
-def create_mcp_routes() -> list[Mount]:
+class MCPRoute(BaseRoute):
+    """Route that matches /mcp and /mcp/ for all HTTP methods.
+
+    Starlette's Mount redirects exact path matches (POST /mcp → /mcp/),
+    which breaks non-browser MCP clients. This custom route handles both
+    paths directly without redirect.
+    """
+
+    def __init__(self, path: str, session_manager) -> None:
+        self.path = path
+        self.session_manager = session_manager
+
+    def matches(self, scope: Scope) -> tuple[Match, Scope]:
+        if scope["type"] == "http":
+            path = scope.get("path", "")
+            if path == self.path or path == self.path + "/":
+                return Match.FULL, scope
+        return Match.NONE, {}
+
+    async def handle(self, scope: Scope, receive: Receive, send: Send) -> None:
+        # Session manager expects path "/" (as if mounted at root)
+        scope = dict(scope, path="/")
+        await self.session_manager.handle_request(scope, receive, send)
+
+
+def create_mcp_routes() -> list[BaseRoute]:
     """Create Starlette routes for MCP Streamable HTTP transport.
 
     Imports are done inside the function to avoid circular imports
@@ -46,9 +71,6 @@ def create_mcp_routes() -> list[Mount]:
         json_response=False,
     )
 
-    async def handle_mcp(scope: Scope, receive: Receive, send: Send) -> None:
-        await _session_manager.handle_request(scope, receive, send)
-
     return [
-        Mount("/mcp", app=handle_mcp),
+        MCPRoute("/mcp", _session_manager),
     ]
