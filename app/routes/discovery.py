@@ -265,6 +265,15 @@ async def a2a_agent_json():
     }
 
 
+@router.get("/.well-known/mcp-registry-auth")
+async def mcp_registry_auth():
+    """Public key for MCP Registry HTTP authentication."""
+    return PlainTextResponse(
+        "v=MCPv1; k=ed25519; p=MaCWYnZnrdcpVtHLRhyp+Tna+nuc6tDy5I+ju4LYPCQ=",
+        media_type="text/plain",
+    )
+
+
 @router.get("/.well-known/mcp/server-card.json")
 async def mcp_server_card():
     """MCP server card for Smithery and other MCP registries."""
