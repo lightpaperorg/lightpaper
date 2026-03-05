@@ -1,9 +1,8 @@
 """OG image generation: 1200x630 glowing paper card PNG using Pillow.
 
-Design: dark background with a glowing white card (matching the app icon).
-The subtitle lives inside the card as body text. Platforms render og:title
-alongside, so the reading order is: subtitle (image) → title (card metadata).
-Authors craft subtitle as setup, title as payoff.
+Design: soft gray background with a glowing white card. Subtitle centred
+inside the card as body text. Author name at bottom left. Platforms
+render og:title alongside, giving a subtitle-then-title reading order.
 """
 
 from __future__ import annotations
@@ -16,30 +15,21 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 FONTS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static", "fonts")
 
-# Dark surround — matches app icon background
-BG_COLOR = (15, 20, 31)  # deep navy, slightly warmer than pure black
+# Background — same soft gray as typical platform card chrome
+BG_COLOR = (229, 231, 235)  # #E5E7EB (Tailwind gray-200)
 
-# Card (the glowing "paper")
+# Card
 CARD_COLOR = (255, 255, 255)
 CARD_RADIUS = 18
 
-# Text on card
+# Text
 TEXT_COLOR = (17, 24, 39)  # #111827
-BRAND_COLOR = (156, 163, 175)  # #9CA3AF
-FORMAT_LABEL_COLOR = (107, 114, 128)  # #6B7280
-
-# Format accent — the colored mark on the card
-FORMAT_ACCENTS = {
-    "post": (59, 130, 246),  # blue
-    "paper": (99, 102, 241),  # indigo
-    "essay": (220, 38, 38),  # literary red
-}
-DEFAULT_ACCENT = (59, 130, 246)
+MUTED_COLOR = (107, 114, 128)  # #6B7280
+ACCENT_COLOR = (156, 163, 175)  # #9CA3AF — neutral, no format colours
 
 WIDTH = 1200
 HEIGHT = 630
 
-# Card geometry — centred, with room for glow
 CARD_W = 960
 CARD_H = 410
 CARD_X = (WIDTH - CARD_W) // 2
@@ -66,20 +56,17 @@ def generate_og_image(
     format: str | None = None,
 ) -> bytes:
     """Generate a 1200x630 glowing-paper OG card as PNG bytes."""
-    accent = FORMAT_ACCENTS.get(format, DEFAULT_ACCENT) if format else DEFAULT_ACCENT
-
-    # --- Step 1: dark bg + white shape → blur → glow ---
+    # --- Step 1: gray bg + white shape → blur → soft glow ---
     img = Image.new("RGB", (WIDTH, HEIGHT), BG_COLOR)
     glow_draw = ImageDraw.Draw(img)
 
-    # Draw white rect slightly larger than card, then blur for glow halo
-    pad = 12
+    pad = 10
     glow_draw.rounded_rectangle(
         [CARD_X - pad, CARD_Y - pad, CARD_X + CARD_W + pad, CARD_Y + CARD_H + pad],
         radius=CARD_RADIUS + pad,
         fill=CARD_COLOR,
     )
-    img = img.filter(ImageFilter.GaussianBlur(radius=28))
+    img = img.filter(ImageFilter.GaussianBlur(radius=20))
 
     # --- Step 2: sharp card on top ---
     draw = ImageDraw.Draw(img)
@@ -90,37 +77,43 @@ def generate_og_image(
     )
 
     # --- Step 3: content inside the card ---
-    font_body = _load_font("Inter-Regular.ttf", 26)
-    font_brand = _load_font("Inter-Bold.ttf", 17)
-    font_format = _load_font("Inter-Regular.ttf", 17)
+    font_body = _load_font("Inter-Regular.ttf", 30)
+    font_meta = _load_font("Inter-Regular.ttf", 17)
 
+    card_cx = CARD_X + CARD_W // 2  # horizontal centre of card
     inner_left = CARD_X + 56
     inner_right = CARD_X + CARD_W - 56
-    inner_top = CARD_Y + 48
 
-    # Accent mark
+    # Accent mark — centred, neutral
+    mark_w = 50
+    mark_y = CARD_Y + 48
     draw.rectangle(
-        [inner_left, inner_top, inner_left + 50, inner_top + 4],
-        fill=accent,
+        [card_cx - mark_w // 2, mark_y, card_cx + mark_w // 2, mark_y + 4],
+        fill=ACCENT_COLOR,
     )
 
-    # Subtitle as body text
+    # Subtitle — centred, bigger
     if subtitle:
-        body_y = inner_top + 28
-        wrapped = textwrap.wrap(subtitle, width=52)
+        body_y = mark_y + 32
+        wrapped = textwrap.wrap(subtitle, width=44)
         for line in wrapped[:4]:
-            draw.text((inner_left, body_y), line, fill=TEXT_COLOR, font=font_body)
-            body_y += 38
+            lb = draw.textbbox((0, 0), line, font=font_body)
+            lw = lb[2] - lb[0]
+            draw.text((card_cx - lw // 2, body_y), line, fill=TEXT_COLOR, font=font_body)
+            body_y += 44
 
-    # Bottom of card: brand left, format right
+    # Bottom of card: author left, lightpaper.org right
     bottom_y = CARD_Y + CARD_H - 50
-    draw.text((inner_left, bottom_y), "lightpaper.org", fill=BRAND_COLOR, font=font_brand)
 
-    if format:
-        fmt = format.lower()
-        fb = draw.textbbox((0, 0), fmt, font=font_format)
-        fw = fb[2] - fb[0]
-        draw.text((inner_right - fw, bottom_y), fmt, fill=accent, font=font_format)
+    if author_name:
+        draw.text((inner_left, bottom_y), author_name, fill=MUTED_COLOR, font=font_meta)
+
+    draw.text(
+        (inner_right - draw.textbbox((0, 0), "lightpaper.org", font=font_meta)[2], bottom_y),
+        "lightpaper.org",
+        fill=ACCENT_COLOR,
+        font=font_meta,
+    )
 
     # --- Output ---
     buf = BytesIO()
