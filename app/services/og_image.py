@@ -18,8 +18,8 @@ FONTS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static", "
 # Background — dark surround matches app icon, makes the card glow
 BG_COLOR = (15, 20, 31)  # deep navy
 
-# Card
-CARD_COLOR = (255, 255, 255)
+# Card — very light gray to match platform title bar backgrounds
+CARD_COLOR = (245, 246, 248)  # #F5F6F8
 CARD_RADIUS = 18
 
 # Text
@@ -102,18 +102,16 @@ def generate_og_image(
             draw.text((card_cx - lw // 2, body_y), line, fill=TEXT_COLOR, font=font_body)
             body_y += 44
 
-    # Bottom of card: author left, lightpaper.org right
+    # Bottom of card: format left, author right
     bottom_y = CARD_Y + CARD_H - 50
 
-    if author_name:
-        draw.text((inner_left, bottom_y), author_name, fill=MUTED_COLOR, font=font_meta)
+    if format:
+        draw.text((inner_left, bottom_y), format.lower(), fill=MUTED_COLOR, font=font_meta)
 
-    draw.text(
-        (inner_right - draw.textbbox((0, 0), "lightpaper.org", font=font_meta)[2], bottom_y),
-        "lightpaper.org",
-        fill=ACCENT_COLOR,
-        font=font_meta,
-    )
+    if author_name:
+        ab = draw.textbbox((0, 0), author_name, font=font_meta)
+        aw = ab[2] - ab[0]
+        draw.text((inner_right - aw, bottom_y), author_name, fill=MUTED_COLOR, font=font_meta)
 
     # --- Output ---
     buf = BytesIO()
