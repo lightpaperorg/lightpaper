@@ -8,7 +8,7 @@
     <!-- SEO -->
     <meta name="description" content="{{ subtitle or title }}">
     {% if quality_score is not none and quality_score < 40 %}<meta name="robots" content="noindex">{% endif %}
-    <link rel="canonical" href="{{ permanent_url }}">
+    <link rel="canonical" href="{{ canonical_url }}">
     <link rel="alternate" type="application/atom+xml" title="lightpaper.org feed" href="/feed.xml">
     <link rel="alternate" type="application/feed+json" title="lightpaper.org feed" href="/feed.json">
 
@@ -24,7 +24,7 @@
     <meta property="og:type" content="article">
     <meta property="og:title" content="{{ title }}">
     <meta property="og:description" content="{{ subtitle or title }}">
-    <meta property="og:url" content="{{ permanent_url }}">
+    <meta property="og:url" content="{{ canonical_url }}">
     <meta property="og:site_name" content="lightpaper.org">
     <meta property="og:image" content="{{ og_image_url }}">
     <meta property="og:image:width" content="1200">
@@ -46,7 +46,7 @@
         "@type": {% if format == "paper" %}"ScholarlyArticle"{% elif format == "post" %}"BlogPosting"{% else %}"Article"{% endif %},
         "headline": {{ title|tojson }},
         {% if subtitle %}"description": {{ subtitle|tojson }},{% endif %}
-        "url": {{ permanent_url|tojson }},
+        "url": {{ canonical_url|tojson }},
         "datePublished": {{ created_at|tojson }},
         "dateModified": {{ updated_at|tojson }},
         {% if authors %}"author": [{% for a in authors %}{"@type": "Person", "name": {{ a.name|tojson }}}{% if not loop.last %}, {% endif %}{% endfor %}],{% endif %}
@@ -765,6 +765,17 @@
             <p>Published on <a href="https://lightpaper.org">lightpaper.org</a></p>
             <p>Permanent link: <a href="{{ permanent_url }}">{{ permanent_url }}</a></p>
             {% if content_hash %}<p class="content-hash">{{ content_hash }}</p>{% endif %}
+
+            <div class="more-links" style="margin-top:2rem;padding-top:1.5rem;border-top:1px solid var(--border);">
+                <p style="font-weight:600;color:var(--heading);margin-bottom:0.75rem;">More on lightpaper.org</p>
+                <ul style="list-style:none;padding:0;display:flex;flex-wrap:wrap;gap:0.5rem 1.5rem;">
+                    <li><a href="/what-is-lightpaper-org">What is lightpaper.org?</a></li>
+                    <li><a href="/how-quality-scoring-works">How quality scoring works</a></li>
+                    <li><a href="/author-gravity-a-trust-system-for-the-agentic-web">Author gravity</a></li>
+                    <li><a href="/using-the-mcp-server">Using the MCP server</a></li>
+                    <li><a href="/publishing-your-first-document-via-the-api">Publishing via the API</a></li>
+                </ul>
+            </div>
         </footer>
     </div>
 </body>

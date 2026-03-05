@@ -9,6 +9,7 @@ from fastapi.responses import PlainTextResponse, Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth import require_account
 from app.config import settings
 from app.database import get_db
 from app.models import Account, Credential, Document, DocumentVersion
@@ -903,6 +904,7 @@ async def sitemap_xml(db: AsyncSession = Depends(get_db)):
     <loc>{xml_escape(slug_url)}</loc>
     <lastmod>{xml_escape(lastmod)}</lastmod>
     <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
   </url>""")
 
     # Author profiles — accounts with a handle and at least one listed document
@@ -924,6 +926,7 @@ async def sitemap_xml(db: AsyncSession = Depends(get_db)):
         author_urls.append(f"""  <url>
     <loc>{xml_escape(f"{settings.base_url}/@{handle}")}</loc>
     <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
   </url>""")
 
     xml = f"""<?xml version="1.0" encoding="UTF-8"?>
@@ -938,6 +941,24 @@ async def sitemap_xml(db: AsyncSession = Depends(get_db)):
 </urlset>"""
 
     return Response(content=xml, media_type="application/xml")
+
+
+@router.get("/v1/admin/indexing-report")
+@limiter.limit("2/minute")
+async def indexing_report(
+    request: Request,
+    auth=Depends(require_account),
+    db: AsyncSession = Depends(get_db),
+):
+    """Check Google indexing status for all listed documents.
+
+    Refreshes stale checks (>24h) via the URL Inspection API, then returns
+    a full report of indexed vs. not-indexed documents.
+    """
+    from app.services.gsc import check_indexing_batch
+
+    report = await check_indexing_batch(db)
+    return report
 
 
 @router.get("/og/{doc_id}.png")

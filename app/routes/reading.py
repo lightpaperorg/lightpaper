@@ -85,6 +85,9 @@ async def _render_html(doc: Document, version: DocumentVersion, db: AsyncSession
     # Format date
     created_at_formatted = doc.created_at.strftime("%b %d, %Y") if doc.created_at else ""
 
+    # Canonical URL = slug URL (matches sitemap); permanent URL kept for footer
+    slug_url = f"{settings.base_url}/{doc.slug}" if doc.slug else f"{settings.base_url}/d/{doc.id}"
+
     html = template.render(
         title=doc.title,
         subtitle=doc.subtitle,
@@ -97,6 +100,7 @@ async def _render_html(doc: Document, version: DocumentVersion, db: AsyncSession
         reading_time=version.reading_time,
         quality_score=doc.quality_score,
         content_hash=version.content_hash,
+        canonical_url=slug_url,
         permanent_url=f"{settings.base_url}/d/{doc.id}",
         og_image_url=f"{settings.base_url}/og/{doc.id}.png",
         gravity_badges=gravity_badges,

@@ -71,6 +71,9 @@ class Document(Base):
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=text("NOW()"))
     updated_at = Column(DateTime(timezone=True), nullable=False, server_default=text("NOW()"))
     deleted_at = Column(DateTime(timezone=True))
+    google_indexed = Column(Boolean)
+    google_index_checked_at = Column(DateTime(timezone=True))
+    google_coverage_state = Column(Text)
     search_vector = Column(TSVECTOR, FetchedValue())
 
     account = relationship("Account", back_populates="documents")
