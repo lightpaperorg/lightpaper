@@ -168,6 +168,15 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and [SECURITY.md](S
 
 ---
 
+## Learn More
+
+- [What is lightpaper.org?](https://lightpaper.org/what-is-lightpaper-org)
+- [Publishing your first document via the API](https://lightpaper.org/publishing-your-first-document-via-the-api)
+- [Using the MCP server](https://lightpaper.org/using-the-mcp-server)
+- [How quality scoring works](https://lightpaper.org/how-quality-scoring-works)
+- [Author gravity: a trust system for the agentic web](https://lightpaper.org/author-gravity-a-trust-system-for-the-agentic-web)
+- [The case for permanent URLs in an age of disappearing content](https://lightpaper.org/the-case-for-permanent-urls-in-an-age-of-disappearing-content)
+
 ## Quick Numbers
 
 - **Infrastructure**: Google Cloud (Cloud Run + Cloud SQL + Firebase Auth), ~$50-100/month at launch
