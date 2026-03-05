@@ -15,8 +15,8 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 FONTS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static", "fonts")
 
-# Background — same soft gray as typical platform card chrome
-BG_COLOR = (229, 231, 235)  # #E5E7EB (Tailwind gray-200)
+# Background — dark surround matches app icon, makes the card glow
+BG_COLOR = (15, 20, 31)  # deep navy
 
 # Card
 CARD_COLOR = (255, 255, 255)
@@ -66,7 +66,7 @@ def generate_og_image(
         radius=CARD_RADIUS + pad,
         fill=CARD_COLOR,
     )
-    img = img.filter(ImageFilter.GaussianBlur(radius=20))
+    img = img.filter(ImageFilter.GaussianBlur(radius=28))
 
     # --- Step 2: sharp card on top ---
     draw = ImageDraw.Draw(img)
