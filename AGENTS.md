@@ -41,7 +41,7 @@ curl -X POST https://lightpaper.org/v1/publish \
 | Path | Purpose |
 |------|---------|
 | `app/` | FastAPI application (routes, services, models) |
-| `mcp/server.py` | MCP server (20 tools, 2 prompts) — stdio transport |
+| `mcp/server.py` | MCP server (23 tools, 3 prompts) — stdio transport |
 | `lightpaper_mcp/` | Standalone MCP package for PyPI distribution |
 | `app/routes/mcp_http.py` | Remote MCP endpoint (Streamable HTTP transport) |
 | `tests/` | Pytest test suite |
@@ -63,7 +63,7 @@ uvicorn app.main:app --port 8001 --reload
 python3 -m pytest tests/ -v
 ```
 
-~40 tests pass without a database. ~7 integration tests need PostgreSQL on port 5433.
+~58 tests pass without a database. ~7 integration tests need PostgreSQL on port 5433.
 
 ## Key Conventions
 
@@ -71,6 +71,7 @@ python3 -m pytest tests/ -v
 - FastAPI + async SQLAlchemy + PostgreSQL 16
 - Auth via `Authorization: Bearer <api_key>` header
 - Markdown content, minimum 300 words + 1 heading to publish
+- Books: multi-chapter collections via `POST /v1/books` (100+ words per chapter)
 - Quality scoring (0-100) determines search visibility
 - Author gravity (0-5) boosts search ranking via verified identity
 

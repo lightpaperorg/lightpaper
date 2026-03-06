@@ -10,14 +10,15 @@ FastAPI + async SQLAlchemy + PostgreSQL 16. Single-process async app deployed on
 | `app/main.py` | FastAPI app, middleware (CORS, security headers, body size, rate limiting) |
 | `app/config.py` | Pydantic settings from env vars |
 | `app/auth.py` | API key + email OTP + LinkedIn OAuth authentication |
-| `app/models.py` | SQLAlchemy ORM models (11 tables) |
+| `app/models.py` | SQLAlchemy ORM models (13 tables) |
 | `app/schemas.py` | Pydantic request/response schemas with size limits |
 | `app/rate_limit.py` | slowapi limiter singleton |
 | `app/utils.py` | get_client_ip() for Cloud Run proxy |
 | `app/routes/publish.py` | POST /v1/publish — the core endpoint |
 | `app/routes/search.py` | GET /v1/search — full-text + gravity ranking |
 | `app/routes/documents.py` | CRUD /v1/documents/{id}, notifies search engines on update/delete |
-| `app/routes/reading.py` | GET /{slug} — content negotiation (HTML/JSON) |
+| `app/routes/books.py` | Book publishing: POST /v1/books, chapter management |
+| `app/routes/reading.py` | GET /{slug}, GET /books/{slug} — content negotiation (HTML/JSON) |
 | `app/routes/discovery.py` | robots.txt, sitemap.xml, feed.xml, llms.txt, OG images, IndexNow + Google ping |
 | `app/routes/auth.py` | Email OTP + LinkedIn OAuth login/signup endpoints |
 | `app/routes/linkedin.py` | LinkedIn OAuth verification for existing accounts |
@@ -30,11 +31,11 @@ FastAPI + async SQLAlchemy + PostgreSQL 16. Single-process async app deployed on
 | `app/services/og_image.py` | Pillow-based OG image generation |
 | `app/services/api_keys.py` | API key generation utility |
 | `app/services/email.py` | Resend API email delivery for OTP |
-| `mcp/server.py` | MCP server with 20 tools + 2 prompts (stdio transport) |
+| `mcp/server.py` | MCP server with 23 tools + 3 prompts (stdio transport) |
 | `app/routes/mcp_http.py` | Remote MCP endpoint (Streamable HTTP transport at /mcp) |
 | `lightpaper_mcp/` | Standalone PyPI package for MCP server distribution |
 | `AGENTS.md` | OpenAI AGENTS.md standard — project-level agent instructions |
-| `init.sql` | Database schema (11 tables) |
+| `init.sql` | Database schema (13 tables) |
 | `migrations/*.sql` | Idempotent SQL migrations (run at startup) |
 
 ## Running Locally
@@ -52,7 +53,7 @@ uvicorn app.main:app --port 8001 --reload
 python3 -m pytest tests/ -v
 ```
 
-Note: ~7 tests require PostgreSQL on port 5433 (`docker compose up -d db`). The remaining ~40 tests pass without a database (including test_gravity.py with 42 gravity unit tests).
+Note: ~7 tests require PostgreSQL on port 5433 (`docker compose up -d db`). The remaining ~58 tests pass without a database (including test_gravity.py with 42 gravity unit tests).
 
 ## Indexing & Discovery
 
@@ -99,6 +100,42 @@ Two auth flows, no anonymous publishing. Auth uses `Authorization: Bearer <api_k
 - Email delivery: **Resend** (resend.com), domain `lightpaper.org` verified
 - LinkedIn redirect URIs: `/v1/auth/linkedin/callback` (login) and `/v1/account/verify/linkedin/callback` (verification)
 - API key prefixes: `lp_free_`, `lp_live_`, `lp_test_`
+
+## Books
+
+Books are ordered collections of chapters with a landing page, table of contents, and chapter navigation.
+
+### URL Structure
+| URL | What |
+|-----|------|
+| `/books/{book-slug}` | Book landing page (HTML) or JSON (content negotiation) |
+| `/{chapter-slug}` | Chapter with prev/next nav (existing catch-all) |
+| `/d/{doc_id}` | Permanent chapter link (existing, with nav context) |
+
+Chapter slugs: `{book-slug}-ch{N}-{chapter-title-slug}`
+
+### API Endpoints
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST /v1/books` | Publish complete book (all chapters at once) |
+| `GET /v1/books/{book_id}` | Get book metadata + chapter listing |
+| `PUT /v1/books/{book_id}` | Update book metadata |
+| `DELETE /v1/books/{book_id}` | Soft-delete book + all chapters |
+| `POST /v1/books/{book_id}/chapters` | Add a chapter |
+| `PUT /v1/books/{book_id}/chapters/reorder` | Reorder chapters |
+| `DELETE /v1/books/{book_id}/chapters/{doc_id}` | Detach chapter (doc survives) |
+
+### Database
+- `books` table: metadata, aggregated quality/word count, search_vector
+- `book_chapters` table: ordered links between books and documents
+- `documents.book_id`: denormalized FK for efficient chapter detection in reading route
+
+### Key Details
+- Chapters need 100+ words (relaxed from 300 for standalone docs) and at least one heading
+- Book quality = weighted average of chapter scores + multi-chapter bonus (up to 5 points)
+- Books appear in sitemap (priority 0.8), atom feed, and search (type=book|all)
+- OG images show "Book · N chapters" at `/og/book_{id}.png`
+- MCP: `publish_book`, `get_book`, `update_book` tools + `write-book` prompt
 
 ## Security-Sensitive Areas
 
