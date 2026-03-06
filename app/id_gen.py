@@ -23,3 +23,11 @@ def generate_doc_id() -> str:
     # 4 bytes timestamp + 4 bytes random = 8 bytes = fits in 11 base62 chars
     combined = (ts << 32) | rand
     return "doc_" + _base62_encode(combined, 11)
+
+
+def generate_book_id() -> str:
+    """Generate a time-sortable book ID: book_ + 11 base62 chars."""
+    ts = int(time.time()) - EPOCH
+    rand = struct.unpack(">I", os.urandom(4))[0]
+    combined = (ts << 32) | rand
+    return "book_" + _base62_encode(combined, 11)

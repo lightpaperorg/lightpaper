@@ -680,6 +680,42 @@
         }
 
         /* ================================================================
+           CHAPTER NAVIGATION (books)
+           ================================================================ */
+        .chapter-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 14px;
+            color: var(--secondary);
+            margin-bottom: 0.5rem;
+        }
+        .chapter-bar a {
+            color: var(--secondary);
+            text-decoration: none;
+        }
+        .chapter-bar a:hover { color: var(--heading); }
+
+        .chapter-nav {
+            margin-top: 3rem;
+            padding: 1.5rem 0;
+            border-top: 1px solid var(--border);
+        }
+        .chapter-nav-inner {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+        .chapter-prev, .chapter-next {
+            font-size: 15px;
+            color: var(--secondary);
+            text-decoration: none;
+            max-width: 45%;
+        }
+        .chapter-prev:hover, .chapter-next:hover { color: var(--heading); }
+        .chapter-next { text-align: right; margin-left: auto; }
+
+        /* ================================================================
            MOBILE REFINEMENTS
            ================================================================ */
         @media (max-width: 640px) {
@@ -756,11 +792,35 @@
             </div>
         </header>
 
+        {% if book_title %}
+        <div class="chapter-bar">
+            <a href="/books/{{ book_slug }}">&#8592; {{ book_title }}</a>
+            <span>Chapter {{ chapter_number }} of {{ total_chapters }}</span>
+        </div>
+        {% endif %}
+
         <hr class="divider">
 
         <article>
             {{ rendered_html | safe }}
         </article>
+
+        {% if book_title %}
+        <nav class="chapter-nav">
+            <div class="chapter-nav-inner">
+                {% if prev_chapter %}
+                <a href="{{ prev_chapter.url }}" class="chapter-prev">&#8592; {{ prev_chapter.title }}</a>
+                {% else %}
+                <span></span>
+                {% endif %}
+                {% if next_chapter %}
+                <a href="{{ next_chapter.url }}" class="chapter-next">{{ next_chapter.title }} &#8594;</a>
+                {% else %}
+                <span></span>
+                {% endif %}
+            </div>
+        </nav>
+        {% endif %}
 
         <footer class="article-footer">
             <p>Published on <a href="https://lightpaper.org">lightpaper.org</a></p>

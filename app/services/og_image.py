@@ -112,3 +112,70 @@ def generate_og_image(
     buf = BytesIO()
     img.save(buf, format="PNG", optimize=True)
     return buf.getvalue()
+
+
+def generate_book_og_image(
+    title: str,
+    subtitle: str | None = None,
+    chapter_count: int = 0,
+    author_name: str | None = None,
+    format: str | None = None,
+) -> bytes:
+    """Generate a 1200x630 OG card for a book: shows 'Book · N chapters' in format position."""
+    # Same glowing card layout as document OG
+    img = Image.new("RGB", (WIDTH, HEIGHT), BG_COLOR)
+    glow_draw = ImageDraw.Draw(img)
+
+    pad = 10
+    glow_draw.rounded_rectangle(
+        [CARD_X - pad, CARD_Y - pad, CARD_X + CARD_W + pad, CARD_Y + CARD_H + pad],
+        radius=CARD_RADIUS + pad,
+        fill=CARD_COLOR,
+    )
+    img = img.filter(ImageFilter.GaussianBlur(radius=28))
+
+    draw = ImageDraw.Draw(img)
+    draw.rounded_rectangle(
+        [CARD_X, CARD_Y, CARD_X + CARD_W, CARD_Y + CARD_H],
+        radius=CARD_RADIUS,
+        fill=CARD_COLOR,
+    )
+
+    font_body = _load_font("Inter-Regular.ttf", 30)
+    font_meta = _load_font("Inter-Regular.ttf", 17)
+
+    card_cx = CARD_X + CARD_W // 2
+    inner_left = CARD_X + 56
+    inner_right = CARD_X + CARD_W - 56
+
+    # Accent mark
+    mark_w = 50
+    mark_y = CARD_Y + 48
+    draw.rectangle(
+        [card_cx - mark_w // 2, mark_y, card_cx + mark_w // 2, mark_y + 4],
+        fill=ACCENT_COLOR,
+    )
+
+    # Subtitle
+    if subtitle:
+        body_y = mark_y + 32
+        wrapped = textwrap.wrap(subtitle, width=44)
+        for line in wrapped[:4]:
+            lb = draw.textbbox((0, 0), line, font=font_body)
+            lw = lb[2] - lb[0]
+            draw.text((card_cx - lw // 2, body_y), line, fill=TEXT_COLOR, font=font_body)
+            body_y += 44
+
+    # Bottom: "Book · N chapters" left, author right
+    bottom_y = CARD_Y + CARD_H - 50
+    format_label = f"Book \u00b7 {chapter_count} chapter{'s' if chapter_count != 1 else ''}"
+    draw.text((inner_left, bottom_y), format_label, fill=MUTED_COLOR, font=font_meta)
+
+    if author_name:
+        ab = draw.textbbox((0, 0), author_name, font=font_meta)
+        aw = ab[2] - ab[0]
+        draw.text((inner_right - aw, bottom_y), author_name, fill=MUTED_COLOR, font=font_meta)
+
+    buf = BytesIO()
+    img.save(buf, format="PNG", optimize=True)
+    return buf.getvalue()

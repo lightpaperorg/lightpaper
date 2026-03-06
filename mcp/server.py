@@ -1,4 +1,4 @@
-"""lightpaper.org MCP server — 20 tools + prompts, stdio transport."""
+"""lightpaper.org MCP server — 23 tools + prompts, stdio transport."""
 
 import os
 
@@ -96,6 +96,25 @@ Format-specific tips:
 - To improve quality on an existing article: fetch it with get_lightpaper, review the content against the quality criteria (structure, substance, tone, attribution), rewrite to address gaps, then update_lightpaper with improved content.
 - Format can be changed after publishing via update_lightpaper (e.g., switching from 'post' to 'paper').
 
+## Books
+
+Books are ordered collections of chapters. Each chapter is a document with prev/next navigation.
+
+**"Write a book about X"**:
+1. If no API key → run onboarding first
+2. Plan the chapters (title + outline for each)
+3. Write each chapter as markdown (100+ words per chapter, at least one heading each)
+4. Call publish_book with all chapters at once
+5. Share the book URL — it has a landing page with table of contents
+
+**"Add a chapter to my book"**:
+1. Call get_book to see the current chapters
+2. Write the new chapter content
+3. Call add_chapter with position (or omit to append)
+
+Book quality is the weighted average of chapter quality scores, with a bonus for multi-chapter structure.
+Chapter slugs are auto-generated as `{book-slug}-ch{N}-{title-slug}`.
+
 ## Learn more
 
 These published guides on lightpaper.org explain each feature in depth:
@@ -149,6 +168,15 @@ async def list_prompts():
             ],
         },
         {
+            "name": "write-book",
+            "description": "Write and publish a multi-chapter book on lightpaper.org.",
+            "arguments": [
+                PromptArgument(name="topic", description="What the book is about", required=True),
+                PromptArgument(name="chapters", description="Number of chapters (default: 5)", required=False),
+                PromptArgument(name="format", description="paper, essay, or post", required=False),
+            ],
+        },
+        {
             "name": "setup-account",
             "description": "Create a lightpaper.org account and optionally verify identity for higher gravity.",
             "arguments": [],
@@ -179,6 +207,33 @@ async def get_prompt(name: str, arguments: dict | None = None) -> GetPromptResul
                             "- If I don't have an account yet, ask for my name, email, and preferred @handle, then use auth_email + auth_verify\n"
                             "- After publishing, share the URL with me\n"
                             "- If the quality score is below 60, offer to improve it"
+                        ),
+                    ),
+                )
+            ],
+        )
+    elif name == "write-book":
+        topic = (arguments or {}).get("topic", "a topic of your choice")
+        num_chapters = (arguments or {}).get("chapters", "5")
+        fmt = (arguments or {}).get("format", "")
+        fmt_hint = f" Use the '{fmt}' format." if fmt else ""
+        return GetPromptResult(
+            description=f"Write and publish a book about: {topic}",
+            messages=[
+                PromptMessage(
+                    role="user",
+                    content=TextContent(
+                        type="text",
+                        text=(
+                            f"Write a {num_chapters}-chapter book about: {topic}\n\n"
+                            f"Publish it on lightpaper.org using the publish_book tool.{fmt_hint}\n\n"
+                            "Requirements:\n"
+                            "- Plan the chapter structure first (title + brief outline for each)\n"
+                            "- Each chapter needs at least 100 words and at least one heading\n"
+                            "- Include a book title, subtitle, and description\n"
+                            "- If I don't have an account yet, ask for my name, email, and preferred @handle\n"
+                            "- After publishing, share the book URL and chapter URLs with me\n"
+                            "- If quality is low, offer to improve specific chapters"
                         ),
                     ),
                 )
@@ -745,6 +800,111 @@ async def list_tools() -> list[Tool]:
                 "required": ["credentials"],
             },
         ),
+        Tool(
+            name="publish_book",
+            description=(
+                "Publish a multi-chapter book to lightpaper.org. Each chapter becomes a document with "
+                "prev/next navigation. Returns book URL, chapter URLs, and quality scores. "
+                "Chapters need at least 100 words and one heading each."
+            ),
+            annotations=ToolAnnotations(
+                title="Publish Book",
+                readOnlyHint=False,
+                destructiveHint=False,
+                idempotentHint=False,
+                openWorldHint=True,
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "title": {"type": "string", "description": "Book title (max 500 chars)"},
+                    "chapters": {
+                        "type": "array",
+                        "description": "Ordered list of chapters",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "title": {"type": "string", "description": "Chapter title"},
+                                "content": {"type": "string", "description": "Chapter markdown content (min 100 words, must have at least one heading)"},
+                                "subtitle": {"type": "string", "description": "Optional chapter subtitle"},
+                            },
+                            "required": ["title", "content"],
+                        },
+                    },
+                    "subtitle": {"type": "string", "description": "Optional book subtitle"},
+                    "description": {"type": "string", "description": "Optional book description (markdown, shown on landing page)"},
+                    "format": {
+                        "type": "string",
+                        "enum": ["paper", "essay", "post"],
+                        "description": "Visual format for all chapters: 'paper' (academic), 'essay' (literary), 'post' (blog/tutorial). Default: 'post'",
+                    },
+                    "authors": {
+                        "type": "array",
+                        "description": "Author list: [{name, handle}]",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "name": {"type": "string", "description": "Author display name"},
+                                "handle": {"type": "string", "description": "Author @handle on lightpaper.org"},
+                            },
+                            "required": ["name"],
+                        },
+                    },
+                    "tags": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Tags for search filtering",
+                    },
+                    "listed": {"type": "boolean", "description": "List in search results (default true)"},
+                    **API_KEY_PARAM,
+                },
+                "required": ["title", "chapters"],
+            },
+        ),
+        Tool(
+            name="get_book",
+            description="Get a book's metadata and chapter listing by book ID.",
+            annotations=ToolAnnotations(
+                title="Get Book",
+                readOnlyHint=True,
+                destructiveHint=False,
+                idempotentHint=True,
+                openWorldHint=True,
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "id": {"type": "string", "description": "Book ID (starts with book_)"},
+                    **API_KEY_PARAM,
+                },
+                "required": ["id"],
+            },
+        ),
+        Tool(
+            name="update_book",
+            description="Update a book's metadata (title, subtitle, description, format, tags, listed). Does not modify chapters.",
+            annotations=ToolAnnotations(
+                title="Update Book",
+                readOnlyHint=False,
+                destructiveHint=False,
+                idempotentHint=True,
+                openWorldHint=True,
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "id": {"type": "string", "description": "Book ID (starts with book_)"},
+                    "title": {"type": "string", "description": "New book title"},
+                    "subtitle": {"type": "string", "description": "New subtitle"},
+                    "description": {"type": "string", "description": "New description (markdown)"},
+                    "format": {"type": "string", "enum": ["paper", "essay", "post"], "description": "New format"},
+                    "tags": {"type": "array", "items": {"type": "string"}, "description": "New tags"},
+                    "listed": {"type": "boolean", "description": "List in search results"},
+                    **API_KEY_PARAM,
+                },
+                "required": ["id"],
+            },
+        ),
     ]
 
 
@@ -896,6 +1056,35 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
         elif name == "verify_credentials":
             payload = {"credentials": arguments["credentials"]}
             resp = await client.post("/v1/account/credentials", json=payload)
+            return [TextContent(type="text", text=resp.text)]
+
+        elif name == "publish_book":
+            payload = {
+                "title": arguments["title"],
+                "chapters": arguments["chapters"],
+                "options": {"listed": arguments.get("listed", True)},
+            }
+            if arguments.get("subtitle"):
+                payload["subtitle"] = arguments["subtitle"]
+            if arguments.get("description"):
+                payload["description"] = arguments["description"]
+            if arguments.get("format"):
+                payload["format"] = arguments["format"]
+            if arguments.get("authors"):
+                payload["authors"] = arguments["authors"]
+            if arguments.get("tags"):
+                payload["tags"] = arguments["tags"]
+            resp = await client.post("/v1/books", json=payload)
+            return [TextContent(type="text", text=resp.text)]
+
+        elif name == "get_book":
+            resp = await client.get(f"/v1/books/{arguments['id']}")
+            return [TextContent(type="text", text=resp.text)]
+
+        elif name == "update_book":
+            book_id = arguments.pop("id")
+            payload = {k: v for k, v in arguments.items() if v is not None}
+            resp = await client.put(f"/v1/books/{book_id}", json=payload)
             return [TextContent(type="text", text=resp.text)]
 
         return [TextContent(type="text", text=f"Unknown tool: {name}")]

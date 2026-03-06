@@ -12,10 +12,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth import require_account
 from app.config import settings
 from app.database import get_db
-from app.models import Account, Credential, Document, DocumentVersion
+from app.models import Account, Book, Credential, Document, DocumentVersion
 from app.rate_limit import limiter
 from app.services.gravity import get_gravity_badges
-from app.services.og_image import generate_og_image
+from app.services.og_image import generate_book_og_image, generate_og_image
 
 logger = logging.getLogger(__name__)
 
@@ -117,31 +117,55 @@ AI-Plugin: {settings.base_url}/.well-known/ai-plugin.json
 
 @router.get("/feed.xml")
 async def atom_feed(db: AsyncSession = Depends(get_db)):
-    """Atom feed of recent published documents."""
+    """Atom feed of recent published documents and books."""
     result = await db.execute(
         select(Document)
         .where(
             Document.deleted_at.is_(None),
             Document.listed.is_(True),
             Document.quality_score >= 40,
+            Document.book_id.is_(None),  # Exclude chapters
         )
         .order_by(Document.created_at.desc())
         .limit(50)
     )
     docs = result.scalars().all()
 
-    updated = docs[0].updated_at.strftime("%Y-%m-%dT%H:%M:%SZ") if docs else "2026-01-01T00:00:00Z"
+    # Also include books
+    book_result = await db.execute(
+        select(Book)
+        .where(
+            Book.deleted_at.is_(None),
+            Book.listed.is_(True),
+        )
+        .order_by(Book.created_at.desc())
+        .limit(20)
+    )
+    books = book_result.scalars().all()
+
+    # Merge and sort by created_at
+    all_items = [(d.created_at, d.updated_at, "doc", d) for d in docs] + [
+        (b.created_at, b.updated_at, "book", b) for b in books
+    ]
+    all_items.sort(key=lambda x: x[0] or datetime.min, reverse=True)
+    all_items = all_items[:50]
+
+    from datetime import datetime as datetime_cls
+
+    updated = all_items[0][1].strftime("%Y-%m-%dT%H:%M:%SZ") if all_items else "2026-01-01T00:00:00Z"
 
     entries = []
-    for doc in docs:
-        slug_url = f"{settings.base_url}/{doc.slug}" if doc.slug else f"{settings.base_url}/d/{doc.id}"
-        published = doc.created_at.strftime("%Y-%m-%dT%H:%M:%SZ") if doc.created_at else ""
-        doc_updated = doc.updated_at.strftime("%Y-%m-%dT%H:%M:%SZ") if doc.updated_at else published
-        author_name = ""
-        if doc.authors:
-            author_name = doc.authors[0].get("name", "")
-        subtitle_text = f"\n      <subtitle>{xml_escape(doc.subtitle)}</subtitle>" if doc.subtitle else ""
-        entries.append(f"""  <entry>
+    for created_at, updated_at, item_type, item in all_items:
+        if item_type == "doc":
+            doc = item
+            slug_url = f"{settings.base_url}/{doc.slug}" if doc.slug else f"{settings.base_url}/d/{doc.id}"
+            published = doc.created_at.strftime("%Y-%m-%dT%H:%M:%SZ") if doc.created_at else ""
+            doc_updated = doc.updated_at.strftime("%Y-%m-%dT%H:%M:%SZ") if doc.updated_at else published
+            author_name = ""
+            if doc.authors:
+                author_name = doc.authors[0].get("name", "")
+            subtitle_text = f"\n      <subtitle>{xml_escape(doc.subtitle)}</subtitle>" if doc.subtitle else ""
+            entries.append(f"""  <entry>
     <title>{xml_escape(doc.title)}</title>{subtitle_text}
     <link href="{xml_escape(slug_url)}" rel="alternate"/>
     <id>urn:lightpaper:{doc.id}</id>
@@ -149,6 +173,24 @@ async def atom_feed(db: AsyncSession = Depends(get_db)):
     <updated>{doc_updated}</updated>
     <author><name>{xml_escape(author_name)}</name></author>
     <summary>{xml_escape(doc.subtitle or doc.title)}</summary>
+  </entry>""")
+        else:
+            book = item
+            book_url = f"{settings.base_url}/books/{book.slug}"
+            published = book.created_at.strftime("%Y-%m-%dT%H:%M:%SZ") if book.created_at else ""
+            book_updated = book.updated_at.strftime("%Y-%m-%dT%H:%M:%SZ") if book.updated_at else published
+            author_name = ""
+            if book.authors:
+                author_name = book.authors[0].get("name", "")
+            subtitle_text = f"\n      <subtitle>{xml_escape(book.subtitle)}</subtitle>" if book.subtitle else ""
+            entries.append(f"""  <entry>
+    <title>{xml_escape(book.title)}</title>{subtitle_text}
+    <link href="{xml_escape(book_url)}" rel="alternate"/>
+    <id>urn:lightpaper:{book.id}</id>
+    <published>{published}</published>
+    <updated>{book_updated}</updated>
+    <author><name>{xml_escape(author_name)}</name></author>
+    <summary>{xml_escape(book.subtitle or book.title)}</summary>
   </entry>""")
 
     xml = f"""<?xml version="1.0" encoding="UTF-8"?>
@@ -938,6 +980,28 @@ async def sitemap_xml(db: AsyncSession = Depends(get_db)):
     <priority>0.7</priority>
   </url>""")
 
+    # Books
+    book_result = await db.execute(
+        select(Book)
+        .where(
+            Book.deleted_at.is_(None),
+            Book.listed.is_(True),
+        )
+        .order_by(Book.updated_at.desc())
+    )
+    books = book_result.scalars().all()
+
+    book_urls = []
+    for book in books:
+        book_url = f"{settings.base_url}/books/{book.slug}"
+        lastmod = book.updated_at.strftime("%Y-%m-%d") if book.updated_at else ""
+        book_urls.append(f"""  <url>
+    <loc>{xml_escape(book_url)}</loc>
+    <lastmod>{xml_escape(lastmod)}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>""")
+
     # Author profiles — accounts with a handle and at least one listed document
     author_result = await db.execute(
         select(Account.handle)
@@ -967,6 +1031,7 @@ async def sitemap_xml(db: AsyncSession = Depends(get_db)):
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
+{"".join(book_urls)}
 {"".join(urls)}
 {"".join(author_urls)}
 </urlset>"""
@@ -1038,6 +1103,34 @@ async def og_image(request: Request, doc_id: str, db: AsyncSession = Depends(get
         gravity_badges=badges,
         reading_time=version.reading_time if version else None,
         format=doc.format,
+    )
+
+    return Response(
+        content=img_bytes,
+        media_type="image/png",
+        headers={"Cache-Control": "public, max-age=86400"},
+    )
+
+
+@router.get("/og/book_{book_id}.png")
+@limiter.limit("30/minute")
+async def book_og_image(request: Request, book_id: str, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Book).where(Book.id == book_id))
+    book = result.scalar_one_or_none()
+    if not book:
+        raise HTTPException(status_code=404, detail="Book not found")
+
+    author_name = None
+    if book.authors:
+        names = [a.get("name", a.get("handle", "")) for a in book.authors]
+        author_name = " & ".join(names[:3])
+
+    img_bytes = generate_book_og_image(
+        title=book.title,
+        subtitle=book.subtitle,
+        chapter_count=book.chapter_count,
+        author_name=author_name,
+        format=book.format,
     )
 
     return Response(

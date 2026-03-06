@@ -330,6 +330,106 @@ class CredentialSubmitResponse(BaseModel):
     credential_points: int
 
 
+# --- Books ---
+
+
+class ChapterInput(BaseModel):
+    title: str = Field(..., min_length=1, max_length=500)
+    subtitle: str | None = Field(None, max_length=1000)
+    content: str = Field(..., min_length=1, max_length=500_000)
+    slug: str | None = Field(None, max_length=80)
+
+
+class PublishBookRequest(BaseModel):
+    title: str = Field(..., min_length=1, max_length=500)
+    subtitle: str | None = Field(None, max_length=1000)
+    description: str | None = Field(None, max_length=10_000)
+    format: Literal["paper", "essay", "post"] = "post"
+    authors: list[AuthorInfo] = Field(default_factory=list, max_length=20)
+    chapters: list[ChapterInput] = Field(..., min_length=1, max_length=200)
+    tags: list[str] = Field(default_factory=list, max_length=50)
+    metadata: dict = Field(default_factory=dict)
+    options: PublishOptions = PublishOptions()
+    cover_image_url: str | None = None
+
+    @field_validator("metadata")
+    @classmethod
+    def validate_metadata(cls, v: dict) -> dict:
+        import json
+
+        if len(json.dumps(v)) > 50_000:
+            raise ValueError("metadata must be less than 50KB when serialized")
+        return v
+
+
+class ChapterResponse(BaseModel):
+    chapter_number: int
+    document_id: str
+    title: str
+    url: str
+    permanent_url: str
+    word_count: int
+    reading_time_minutes: int
+    quality_score: int
+
+
+class PublishBookResponse(BaseModel):
+    id: str
+    url: str
+    title: str
+    chapters: list[ChapterResponse]
+    quality_score: int
+    quality_breakdown: QualityBreakdown
+    total_word_count: int
+    chapter_count: int
+    author_gravity: int
+
+
+class BookResponse(BaseModel):
+    id: str
+    title: str
+    subtitle: str | None
+    description: str | None
+    format: str
+    slug: str | None
+    authors: list[AuthorInfo]
+    tags: list[str]
+    cover_image_url: str | None
+    quality_score: int | None
+    author_gravity: int
+    chapter_count: int
+    total_word_count: int
+    listed: bool
+    created_at: datetime
+    updated_at: datetime
+    url: str | None
+    chapters: list[ChapterResponse]
+
+
+class BookUpdateRequest(BaseModel):
+    title: str | None = Field(None, max_length=500)
+    subtitle: str | None = Field(None, max_length=1000)
+    description: str | None = Field(None, max_length=10_000)
+    format: Literal["paper", "essay", "post"] | None = None
+    authors: list[AuthorInfo] | None = Field(None, max_length=20)
+    tags: list[str] | None = Field(None, max_length=50)
+    metadata: dict | None = None
+    listed: bool | None = None
+    cover_image_url: str | None = None
+
+
+class AddChapterRequest(BaseModel):
+    title: str = Field(..., min_length=1, max_length=500)
+    subtitle: str | None = Field(None, max_length=1000)
+    content: str = Field(..., min_length=1, max_length=500_000)
+    slug: str | None = Field(None, max_length=80)
+    position: int | None = Field(None, ge=1, description="Insert at this position (appends if omitted)")
+
+
+class ReorderChaptersRequest(BaseModel):
+    chapter_order: list[str] = Field(..., min_length=1, description="Document IDs in desired order")
+
+
 # --- Errors ---
 
 

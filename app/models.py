@@ -76,8 +76,11 @@ class Document(Base):
     google_coverage_state = Column(Text)
     search_vector = Column(TSVECTOR, FetchedValue())
 
+    book_id = Column(Text, ForeignKey("books.id", ondelete="SET NULL"))
+
     account = relationship("Account", back_populates="documents")
     versions = relationship("DocumentVersion", back_populates="document", cascade="all, delete-orphan")
+    book = relationship("Book", back_populates="chapter_docs", foreign_keys=[book_id])
 
 
 class DocumentVersion(Base):
@@ -173,3 +176,47 @@ class LinkedInAuthSession(Base):
     completed_at = Column(DateTime(timezone=True))
     expires_at = Column(DateTime(timezone=True), nullable=False)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=text("NOW()"))
+
+
+class Book(Base):
+    __tablename__ = "books"
+
+    id = Column(Text, primary_key=True)
+    account_id = Column(UUID(as_uuid=True), ForeignKey("accounts.id"), nullable=False)
+    slug = Column(Text, unique=True)
+    title = Column(Text, nullable=False)
+    subtitle = Column(Text)
+    description = Column(Text)
+    format = Column(Text, nullable=False, default="post")
+    authors = Column(JSONB, default=list)
+    tags = Column(JSONB, default=list)
+    doc_metadata = Column("metadata", JSONB, default=dict)
+    cover_image_url = Column(Text)
+    listed = Column(Boolean, default=True)
+    quality_score = Column(Integer)
+    quality_detail = Column(JSONB)
+    author_gravity = Column(Integer, nullable=False, default=0)
+    chapter_count = Column(Integer, nullable=False, default=0)
+    total_word_count = Column(Integer, nullable=False, default=0)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=text("NOW()"))
+    updated_at = Column(DateTime(timezone=True), nullable=False, server_default=text("NOW()"))
+    deleted_at = Column(DateTime(timezone=True))
+    search_vector = Column(TSVECTOR, FetchedValue())
+
+    account = relationship("Account")
+    chapters = relationship("BookChapter", back_populates="book", cascade="all, delete-orphan",
+                            order_by="BookChapter.chapter_number")
+    chapter_docs = relationship("Document", back_populates="book", foreign_keys="Document.book_id")
+
+
+class BookChapter(Base):
+    __tablename__ = "book_chapters"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    book_id = Column(Text, ForeignKey("books.id", ondelete="CASCADE"), nullable=False)
+    document_id = Column(Text, ForeignKey("documents.id", ondelete="CASCADE"), nullable=False)
+    chapter_number = Column(Integer, nullable=False)
+    chapter_title = Column(Text)
+
+    book = relationship("Book", back_populates="chapters")
+    document = relationship("Document")

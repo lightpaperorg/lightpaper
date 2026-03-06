@@ -6,7 +6,7 @@ import unicodedata
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Document
+from app.models import Book, Document
 
 # Platform-reserved slugs — cannot be claimed by documents
 RESERVED_SLUGS = frozenset(
@@ -70,6 +70,7 @@ RESERVED_SLUGS = frozenset(
         "verify",
         "webhooks",
         "welcome",
+        "books",
         "wiki",
     }
 )
@@ -105,18 +106,50 @@ def generate_slug(title: str) -> str:
 
 
 async def ensure_unique_slug(slug: str, db: AsyncSession, exclude_doc_id: str | None = None) -> str:
-    """Ensure slug is unique, appending -2, -3, etc. if needed."""
+    """Ensure slug is unique across documents and books, appending -2, -3, etc. if needed."""
     candidate = slug
     counter = 2
     while True:
-        query = select(Document.id).where(
+        # Check documents
+        doc_query = select(Document.id).where(
             Document.slug == candidate,
             Document.deleted_at.is_(None),
         )
         if exclude_doc_id:
-            query = query.where(Document.id != exclude_doc_id)
-        result = await db.execute(query)
-        if result.scalar_one_or_none() is None:
+            doc_query = doc_query.where(Document.id != exclude_doc_id)
+        doc_result = await db.execute(doc_query)
+        # Check books
+        book_query = select(Book.id).where(
+            Book.slug == candidate,
+            Book.deleted_at.is_(None),
+        )
+        book_result = await db.execute(book_query)
+        if doc_result.scalar_one_or_none() is None and book_result.scalar_one_or_none() is None:
+            return candidate
+        candidate = f"{slug}-{counter}"
+        counter += 1
+
+
+async def ensure_unique_book_slug(slug: str, db: AsyncSession, exclude_book_id: str | None = None) -> str:
+    """Ensure book slug is unique across both books and documents."""
+    candidate = slug
+    counter = 2
+    while True:
+        # Check books
+        book_query = select(Book.id).where(
+            Book.slug == candidate,
+            Book.deleted_at.is_(None),
+        )
+        if exclude_book_id:
+            book_query = book_query.where(Book.id != exclude_book_id)
+        book_result = await db.execute(book_query)
+        # Check documents
+        doc_query = select(Document.id).where(
+            Document.slug == candidate,
+            Document.deleted_at.is_(None),
+        )
+        doc_result = await db.execute(doc_query)
+        if book_result.scalar_one_or_none() is None and doc_result.scalar_one_or_none() is None:
             return candidate
         candidate = f"{slug}-{counter}"
         counter += 1

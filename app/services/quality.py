@@ -167,3 +167,47 @@ def score_quality(title: str, content: str) -> QualityResult:
         total=total,
         suggestions=suggestions,
     )
+
+
+def score_book_quality(chapters: list[tuple[int, QualityResult]]) -> QualityResult:
+    """Aggregate quality across book chapters.
+
+    chapters: list of (word_count, QualityResult) per chapter.
+    Returns a weighted average by word count with a multi-chapter bonus.
+    """
+    if not chapters:
+        return QualityResult(structure=0, substance=0, tone=0, attribution=0, total=0, suggestions=[])
+
+    total_words = sum(wc for wc, _ in chapters)
+    if total_words == 0:
+        total_words = 1  # avoid division by zero
+
+    w_structure = sum(wc * q.structure for wc, q in chapters) / total_words
+    w_substance = sum(wc * q.substance for wc, q in chapters) / total_words
+    w_tone = sum(wc * q.tone for wc, q in chapters) / total_words
+    w_attribution = sum(wc * q.attribution for wc, q in chapters) / total_words
+
+    # Multi-chapter structure bonus: up to 5 points
+    chapter_bonus = min(5, len(chapters) - 1)
+
+    raw_total = w_structure + w_substance + w_tone + w_attribution + chapter_bonus
+    total = min(100, int(round(raw_total)))
+
+    # Aggregate unique suggestions from low-scoring chapters
+    seen = set()
+    all_suggestions = []
+    for _, q in chapters:
+        if q.total < 60:
+            for s in q.suggestions:
+                if s not in seen:
+                    seen.add(s)
+                    all_suggestions.append(s)
+
+    return QualityResult(
+        structure=int(round(w_structure)),
+        substance=int(round(w_substance)),
+        tone=int(round(w_tone)),
+        attribution=int(round(w_attribution)),
+        total=total,
+        suggestions=all_suggestions,
+    )

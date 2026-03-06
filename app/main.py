@@ -159,6 +159,7 @@ def mount_routes():
         accounts,
         auth,
         author,
+        books,
         credentials,
         discovery,
         documents,
@@ -175,6 +176,7 @@ def mount_routes():
     app.include_router(publish.router)
     app.include_router(documents.router)
     app.include_router(search.router)
+    app.include_router(books.router)
     app.include_router(accounts.router)
     app.include_router(keys.router)
     app.include_router(verification.router)

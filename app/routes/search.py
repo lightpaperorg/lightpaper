@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.database import get_db
-from app.models import Document
+from app.models import Book, Document
 from app.rate_limit import limiter
 from app.schemas import AuthorInfo, SearchResponse, SearchResult
 from app.services.gravity import GRAVITY_MULTIPLIERS
@@ -24,6 +24,7 @@ async def search_documents(
     author: str | None = Query(None, description="Filter by author handle"),
     min_quality: int = Query(40, ge=0, le=100, description="Minimum quality score"),
     sort: str = Query("relevance", description="Sort: relevance, recent, quality"),
+    type: str = Query("all", description="Type: document, book, all"),
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
@@ -34,6 +35,10 @@ async def search_documents(
         Document.listed.is_(True),
         Document.quality_score >= min_quality,
     )
+
+    # Exclude book chapters from standalone document results
+    if type != "book":
+        base = base.where(Document.book_id.is_(None))
 
     # Full-text search
     if q:
@@ -85,19 +90,55 @@ async def search_documents(
     result = await db.execute(base)
     docs = result.scalars().all()
 
-    results = [
-        SearchResult(
-            id=doc.id,
-            title=doc.title,
-            subtitle=doc.subtitle,
-            url=f"{settings.base_url}/{doc.slug}" if doc.slug else f"{settings.base_url}/d/{doc.id}",
-            authors=[AuthorInfo(**a) for a in (doc.authors or [])],
-            tags=doc.tags or [],
-            quality_score=doc.quality_score,
-            word_count=None,  # Would need a join to versions
-            created_at=doc.created_at,
+    results = []
+
+    if type != "book":
+        results.extend([
+            SearchResult(
+                id=doc.id,
+                title=doc.title,
+                subtitle=doc.subtitle,
+                url=f"{settings.base_url}/{doc.slug}" if doc.slug else f"{settings.base_url}/d/{doc.id}",
+                authors=[AuthorInfo(**a) for a in (doc.authors or [])],
+                tags=doc.tags or [],
+                quality_score=doc.quality_score,
+                word_count=None,
+                created_at=doc.created_at,
+            )
+            for doc in docs
+        ])
+
+    # Book results
+    if type in ("book", "all"):
+        book_base = select(Book).where(
+            Book.deleted_at.is_(None),
+            Book.listed.is_(True),
         )
-        for doc in docs
-    ]
+        if q:
+            book_ts = func.plainto_tsquery("english", q)
+            book_base = book_base.where(Book.search_vector.op("@@")(book_ts))
+        if tags:
+            tag_list = [t.strip() for t in tags.split(",") if t.strip()]
+            for tag in tag_list:
+                book_base = book_base.where(Book.tags.op("@>")(cast([tag], JSONB)))
+        if author:
+            book_base = book_base.where(Book.authors.op("@>")(cast([{"handle": author}], JSONB)))
+        book_base = book_base.order_by(Book.created_at.desc()).limit(limit)
+        book_result = await db.execute(book_base)
+        book_docs = book_result.scalars().all()
+        for bk in book_docs:
+            results.append(
+                SearchResult(
+                    id=bk.id,
+                    title=bk.title,
+                    subtitle=bk.subtitle,
+                    url=f"{settings.base_url}/books/{bk.slug}" if bk.slug else f"{settings.base_url}/books/{bk.id}",
+                    authors=[AuthorInfo(**a) for a in (bk.authors or [])],
+                    tags=bk.tags or [],
+                    quality_score=bk.quality_score,
+                    word_count=bk.total_word_count,
+                    created_at=bk.created_at,
+                )
+            )
 
     return SearchResponse(results=results, total=total, limit=limit, offset=offset)
