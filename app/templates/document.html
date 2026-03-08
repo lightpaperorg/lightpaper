@@ -874,19 +874,25 @@
     {% if book_title %}
     <script>
     (function(){
-        var startX=0,startY=0,distX=0,distY=0;
+        var startX=0,startY=0,tracking=false,navigated=false;
         var prev={{ prev_chapter.url|tojson if prev_chapter else "null" }};
         var next={{ next_chapter.url|tojson if next_chapter else "null" }};
         document.addEventListener('touchstart',function(e){
-            var t=e.changedTouches[0];startX=t.pageX;startY=t.pageY;
-        },{passive:true});
-        document.addEventListener('touchend',function(e){
-            var t=e.changedTouches[0];distX=t.pageX-startX;distY=t.pageY-startY;
-            if(Math.abs(distX)>80&&Math.abs(distY)<Math.abs(distX)*0.5){
-                if(distX<0&&next)window.location.href=next;
-                if(distX>0&&prev)window.location.href=prev;
+            if(e.touches.length===1){
+                startX=e.touches[0].clientX;
+                startY=e.touches[0].clientY;
+                tracking=true;navigated=false;
             }
         },{passive:true});
+        document.addEventListener('touchmove',function(e){
+            if(!tracking||navigated||e.touches.length!==1)return;
+            var dx=e.touches[0].clientX-startX;
+            var dy=e.touches[0].clientY-startY;
+            if(Math.abs(dy)>30){tracking=false;return;}
+            if(dx<-100&&next){navigated=true;window.location.href=next;}
+            if(dx>100&&prev){navigated=true;window.location.href=prev;}
+        },{passive:true});
+        document.addEventListener('touchend',function(){tracking=false;},{passive:true});
     })();
     </script>
     {% endif %}
