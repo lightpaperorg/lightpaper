@@ -121,65 +121,58 @@ def generate_book_og_image(
     author_name: str | None = None,
     format: str | None = None,
 ) -> bytes:
-    """Generate a portrait (A4-ratio) OG card for a book: looks like a book cover."""
-    # A4 ratio is 1:1.414 — use 840x1188 for a clean portrait card
-    bk_w, bk_h = 840, 1188
-    card_w, card_h = 640, 940
-    card_x = (bk_w - card_w) // 2
-    card_y = (bk_h - card_h) // 2
-
-    img = Image.new("RGB", (bk_w, bk_h), BG_COLOR)
+    """Generate a 1200x630 OG card for a book: title centred in the glowing card."""
+    # Must be 1200x630 — iMessage and most platforms reject non-standard sizes
+    img = Image.new("RGB", (WIDTH, HEIGHT), BG_COLOR)
     glow_draw = ImageDraw.Draw(img)
 
-    pad = 12
+    pad = 10
     glow_draw.rounded_rectangle(
-        [card_x - pad, card_y - pad, card_x + card_w + pad, card_y + card_h + pad],
+        [CARD_X - pad, CARD_Y - pad, CARD_X + CARD_W + pad, CARD_Y + CARD_H + pad],
         radius=CARD_RADIUS + pad,
         fill=CARD_COLOR,
     )
-    img = img.filter(ImageFilter.GaussianBlur(radius=32))
+    img = img.filter(ImageFilter.GaussianBlur(radius=28))
 
     draw = ImageDraw.Draw(img)
     draw.rounded_rectangle(
-        [card_x, card_y, card_x + card_w, card_y + card_h],
+        [CARD_X, CARD_Y, CARD_X + CARD_W, CARD_Y + CARD_H],
         radius=CARD_RADIUS,
         fill=CARD_COLOR,
     )
 
-    font_title = _load_font("Inter-Regular.ttf", 56)
-    font_subtitle = _load_font("Inter-Regular.ttf", 26)
+    font_title = _load_font("Inter-Regular.ttf", 52)
+    font_subtitle = _load_font("Inter-Regular.ttf", 24)
     font_meta = _load_font("Inter-Regular.ttf", 17)
 
-    cx = bk_w // 2
-    inner_left = card_x + 48
-    inner_right = card_x + card_w - 48
+    card_cx = CARD_X + CARD_W // 2
+    inner_left = CARD_X + 56
+    inner_right = CARD_X + CARD_W - 56
 
-    # Accent mark — upper third
+    # Accent mark — centred
     mark_w = 50
-    mark_y = card_y + 80
+    mark_y = CARD_Y + 48
     draw.rectangle(
-        [cx - mark_w // 2, mark_y, cx + mark_w // 2, mark_y + 4],
+        [card_cx - mark_w // 2, mark_y, card_cx + mark_w // 2, mark_y + 4],
         fill=ACCENT_COLOR,
     )
 
-    # Title — large, centred in upper-middle of card
-    title_y = card_y + card_h // 3
-    wrapped_title = textwrap.wrap(title, width=18)
-    for line in wrapped_title[:3]:
-        tb = draw.textbbox((0, 0), line, font=font_title)
-        tw = tb[2] - tb[0]
-        draw.text((cx - tw // 2, title_y), line, fill=TEXT_COLOR, font=font_title)
-        title_y += 70
+    # Title — large, centred
+    tb = draw.textbbox((0, 0), title, font=font_title)
+    tw = tb[2] - tb[0]
+    th = tb[3] - tb[1]
+    title_y = CARD_Y + CARD_H // 2 - th // 2 - 20
+    draw.text((card_cx - tw // 2, title_y), title, fill=TEXT_COLOR, font=font_title)
 
     # Subtitle — centred below title
     if subtitle:
-        sub_y = title_y + 20
+        sub_y = title_y + th + 16
         sb = draw.textbbox((0, 0), subtitle, font=font_subtitle)
         sw = sb[2] - sb[0]
-        draw.text((cx - sw // 2, sub_y), subtitle, fill=MUTED_COLOR, font=font_subtitle)
+        draw.text((card_cx - sw // 2, sub_y), subtitle, fill=MUTED_COLOR, font=font_subtitle)
 
     # Bottom bar: title left, author right
-    bottom_y = card_y + card_h - 50
+    bottom_y = CARD_Y + CARD_H - 50
     draw.text((inner_left, bottom_y), title.lower(), fill=MUTED_COLOR, font=font_meta)
 
     if author_name:
