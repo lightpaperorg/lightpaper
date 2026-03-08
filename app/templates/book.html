@@ -20,19 +20,21 @@
 
     <!-- Open Graph -->
     <meta property="og:type" content="book">
-    <meta property="og:title" content="{{ title }}">
-    <meta property="og:description" content="{{ subtitle or description or title }}">
+    <meta property="og:title" content="{{ title }}{% if subtitle %} — {{ subtitle }}{% endif %}">
+    <meta property="og:description" content="{{ description or subtitle or title }}">
     <meta property="og:url" content="{{ canonical_url }}">
     <meta property="og:site_name" content="lightpaper.org">
     <meta property="og:image" content="{{ og_image_url }}">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="{{ title }}">
 
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="{{ title }}">
-    <meta name="twitter:description" content="{{ subtitle or description or title }}">
+    <meta name="twitter:title" content="{{ title }}{% if subtitle %} — {{ subtitle }}{% endif %}">
+    <meta name="twitter:description" content="{{ description or subtitle or title }}">
     <meta name="twitter:image" content="{{ og_image_url }}">
+    <meta name="twitter:image:alt" content="{{ title }}">
 
     <!-- JSON-LD -->
     <script type="application/ld+json">

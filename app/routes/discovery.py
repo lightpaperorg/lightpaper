@@ -1060,6 +1060,28 @@ async def indexing_report(
 @router.get("/og/{doc_id}.png")
 @limiter.limit("30/minute")
 async def og_image(request: Request, doc_id: str, db: AsyncSession = Depends(get_db)):
+    # Check if this is a book OG request (id starts with book_)
+    if doc_id.startswith("book_"):
+        result = await db.execute(select(Book).where(Book.id == doc_id))
+        book = result.scalar_one_or_none()
+        if book:
+            author_name = None
+            if book.authors:
+                names = [a.get("name", a.get("handle", "")) for a in book.authors]
+                author_name = " & ".join(names[:3])
+            img_bytes = generate_book_og_image(
+                title=book.title,
+                subtitle=book.subtitle,
+                chapter_count=book.chapter_count,
+                author_name=author_name,
+                format=book.format,
+            )
+            return Response(
+                content=img_bytes,
+                media_type="image/png",
+                headers={"Cache-Control": "public, max-age=86400"},
+            )
+
     result = await db.execute(select(Document).where(Document.id == doc_id))
     doc = result.scalar_one_or_none()
     if not doc:

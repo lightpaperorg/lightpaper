@@ -364,7 +364,7 @@ async def _render_book(book: "Book", request: Request, db: AsyncSession):
         chapters=chapter_list,
         canonical_url=f"{settings.base_url}/{book.slug}",
         permanent_url=f"{settings.base_url}/{book.slug}",
-        og_image_url=f"{settings.base_url}/og/book_{book.id}.png",
+        og_image_url=f"{settings.base_url}/og/{book.id}.png",
         gravity_badges=gravity_badges,
         linkedin_url=linkedin_url,
         orcid_id=orcid_id,
