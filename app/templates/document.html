@@ -873,15 +873,32 @@
 
     {% if book_title %}
     <style>
-    .chapter-arrows{position:fixed;top:50%;z-index:90;transform:translateY(-50%)}
-    .chapter-arrows a{display:flex;align-items:center;justify-content:center;width:40px;height:56px;background:var(--bg);border:1px solid var(--border);color:var(--secondary);text-decoration:none;font-size:20px;opacity:0.5;transition:opacity 0.2s}
-    .chapter-arrows a:hover{opacity:1;color:var(--heading)}
-    .chapter-arrow-prev{left:0;border-radius:0 6px 6px 0;border-left:none}
-    .chapter-arrow-next{right:0;border-radius:6px 0 0 6px;border-right:none}
-    @media(max-width:900px){.chapter-arrows a{width:32px;height:44px;font-size:16px;opacity:0.3}}
+    .ch-nav-bar{position:fixed;bottom:0;left:0;right:0;z-index:100;display:flex;background:var(--bg);border-top:1px solid var(--border);height:48px;-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);background:rgba(255,255,255,0.92)}
+    @media(prefers-color-scheme:dark){.ch-nav-bar{background:rgba(17,24,39,0.92)}}
+    .ch-nav-bar a{flex:1;display:flex;align-items:center;color:var(--secondary);text-decoration:none;font-size:14px;padding:0 16px;transition:color 0.15s}
+    .ch-nav-bar a:hover,.ch-nav-bar a:active{color:var(--heading)}
+    .ch-nav-bar .ch-prev{justify-content:flex-start}
+    .ch-nav-bar .ch-next{justify-content:flex-end;text-align:right}
+    .ch-nav-bar .ch-mid{flex:0;white-space:nowrap;font-size:12px;color:var(--secondary);opacity:0.6;display:flex;align-items:center;padding:0 8px}
+    .ch-nav-bar .arrow{font-size:18px;font-weight:300}
+    .ch-nav-bar .ch-label{max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block}
+    @media(min-width:900px){.ch-nav-bar{display:none}}
+    .ch-arrows-desktop{position:fixed;top:50%;z-index:90;transform:translateY(-50%)}
+    .ch-arrows-desktop a{display:flex;align-items:center;justify-content:center;width:36px;height:80px;background:var(--bg);border:1px solid var(--border);color:var(--secondary);text-decoration:none;font-size:22px;opacity:0.35;transition:opacity 0.2s}
+    .ch-arrows-desktop a:hover{opacity:1;color:var(--heading)}
+    .ch-arrow-l{left:0;border-radius:0 6px 6px 0;border-left:none}
+    .ch-arrow-r{right:0;border-radius:6px 0 0 6px;border-right:none}
+    @media(max-width:900px){.ch-arrows-desktop{display:none}}
+    body{padding-bottom:56px}
+    @media(min-width:900px){body{padding-bottom:0}}
     </style>
-    {% if prev_chapter %}<div class="chapter-arrows chapter-arrow-prev"><a href="{{ prev_chapter.url }}" title="{{ prev_chapter.title }}">&#8249;</a></div>{% endif %}
-    {% if next_chapter %}<div class="chapter-arrows chapter-arrow-next"><a href="{{ next_chapter.url }}" title="{{ next_chapter.title }}">&#8250;</a></div>{% endif %}
+    <div class="ch-nav-bar">
+        {% if prev_chapter %}<a href="{{ prev_chapter.url }}" class="ch-prev"><span class="arrow">&#8249;&ensp;</span><span class="ch-label">{{ prev_chapter.title }}</span></a>{% else %}<span class="ch-prev"></span>{% endif %}
+        <span class="ch-mid">{{ chapter_number }}/{{ total_chapters }}</span>
+        {% if next_chapter %}<a href="{{ next_chapter.url }}" class="ch-next"><span class="ch-label">{{ next_chapter.title }}</span><span class="arrow">&ensp;&#8250;</span></a>{% else %}<span class="ch-next"></span>{% endif %}
+    </div>
+    {% if prev_chapter %}<div class="ch-arrows-desktop ch-arrow-l"><a href="{{ prev_chapter.url }}" title="{{ prev_chapter.title }}">&#8249;</a></div>{% endif %}
+    {% if next_chapter %}<div class="ch-arrows-desktop ch-arrow-r"><a href="{{ next_chapter.url }}" title="{{ next_chapter.title }}">&#8250;</a></div>{% endif %}
     <script>
     (function(){
         var prev={{ prev_chapter.url|tojson if prev_chapter else "null" }};
@@ -891,19 +908,6 @@
             if(e.key==='ArrowLeft'&&prev)window.location.href=prev;
             if(e.key==='ArrowRight'&&next)window.location.href=next;
         });
-        var sx=0,sy=0;
-        document.addEventListener('touchstart',function(e){
-            if(e.touches.length===1){sx=e.touches[0].screenX;sy=e.touches[0].screenY;}
-        },{passive:true});
-        document.addEventListener('touchend',function(e){
-            if(e.changedTouches.length!==1)return;
-            var dx=e.changedTouches[0].screenX-sx;
-            var dy=e.changedTouches[0].screenY-sy;
-            if(Math.abs(dx)>60&&Math.abs(dy)<Math.abs(dx)*0.6){
-                if(dx<0&&next)window.location.href=next;
-                if(dx>0&&prev)window.location.href=prev;
-            }
-        },{passive:true});
     })();
     </script>
     {% endif %}
