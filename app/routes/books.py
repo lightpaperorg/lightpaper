@@ -70,7 +70,7 @@ def _chapter_response(chapter: BookChapter, doc: Document, version: DocumentVers
     return ChapterResponse(
         chapter_number=chapter.chapter_number,
         document_id=doc.id,
-        title=chapter.chapter_title or doc.title,
+        title=doc.title or chapter.chapter_title,
         url=f"{settings.base_url}/{doc.slug}" if doc.slug else f"{settings.base_url}/d/{doc.id}",
         permanent_url=f"{settings.base_url}/d/{doc.id}",
         word_count=version.word_count if version else 0,

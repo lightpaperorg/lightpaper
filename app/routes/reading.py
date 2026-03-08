@@ -118,7 +118,7 @@ async def _render_html(doc: Document, version: DocumentVersion, db: AsyncSession
                         prev_doc = prev_doc_result.scalar_one_or_none()
                         if prev_doc and not prev_doc.deleted_at:
                             prev_chapter = {
-                                "title": prev_ch.chapter_title or prev_doc.title,
+                                "title": prev_doc.title or prev_ch.chapter_title,
                                 "url": f"/{prev_doc.slug}" if prev_doc.slug else f"/d/{prev_doc.id}",
                             }
                     if idx < len(all_chapters) - 1:
@@ -127,7 +127,7 @@ async def _render_html(doc: Document, version: DocumentVersion, db: AsyncSession
                         next_doc = next_doc_result.scalar_one_or_none()
                         if next_doc and not next_doc.deleted_at:
                             next_chapter = {
-                                "title": next_ch.chapter_title or next_doc.title,
+                                "title": next_doc.title or next_ch.chapter_title,
                                 "url": f"/{next_doc.slug}" if next_doc.slug else f"/d/{next_doc.id}",
                             }
                     break
@@ -270,7 +270,7 @@ async def _render_book(book: "Book", request: Request, db: AsyncSession):
         total_reading_time += rt or 0
         chapter_list.append({
             "chapter_number": ch.chapter_number,
-            "title": ch.chapter_title or doc.title,
+            "title": doc.title or ch.chapter_title,
             "url": f"/{doc.slug}" if doc.slug else f"/d/{doc.id}",
             "reading_time_minutes": rt,
             "word_count": ver.word_count if ver else 0,
