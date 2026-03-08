@@ -176,7 +176,7 @@ async def atom_feed(db: AsyncSession = Depends(get_db)):
   </entry>""")
         else:
             book = item
-            book_url = f"{settings.base_url}/books/{book.slug}"
+            book_url = f"{settings.base_url}/{book.slug}"
             published = book.created_at.strftime("%Y-%m-%dT%H:%M:%SZ") if book.created_at else ""
             book_updated = book.updated_at.strftime("%Y-%m-%dT%H:%M:%SZ") if book.updated_at else published
             author_name = ""
@@ -993,7 +993,7 @@ async def sitemap_xml(db: AsyncSession = Depends(get_db)):
 
     book_urls = []
     for book in books:
-        book_url = f"{settings.base_url}/books/{book.slug}"
+        book_url = f"{settings.base_url}/{book.slug}"
         lastmod = book.updated_at.strftime("%Y-%m-%d") if book.updated_at else ""
         book_urls.append(f"""  <url>
     <loc>{xml_escape(book_url)}</loc>

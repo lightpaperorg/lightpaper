@@ -412,6 +412,7 @@ class BookUpdateRequest(BaseModel):
     description: str | None = Field(None, max_length=10_000)
     format: Literal["paper", "essay", "post"] | None = None
     authors: list[AuthorInfo] | None = Field(None, max_length=20)
+    slug: str | None = Field(None, max_length=80)
     tags: list[str] | None = Field(None, max_length=50)
     metadata: dict | None = None
     listed: bool | None = None

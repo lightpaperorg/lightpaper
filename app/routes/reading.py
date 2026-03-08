@@ -15,7 +15,7 @@ from app.services.gravity import get_gravity_badges
 router = APIRouter(tags=["reading"])
 
 # Reserved paths that should NOT match the /{slug} catch-all
-RESERVED_PREFIXES = {"v1", "health", "robots.txt", "sitemap.xml", "llms.txt", "og", "d", "static", "@", "books"}
+RESERVED_PREFIXES = {"v1", "health", "robots.txt", "sitemap.xml", "llms.txt", "og", "d", "static", "@"}
 
 # Normalize legacy format values to new taxonomy
 FORMAT_NORMALIZE = {
@@ -207,14 +207,46 @@ async def read_by_id(doc_id: str, request: Request, db: AsyncSession = Depends(g
 
 @router.get("/books/{slug}")
 @limiter.limit("120/minute")
-async def read_book(slug: str, request: Request, db: AsyncSession = Depends(get_db)):
-    """Book landing page with content negotiation."""
+async def read_book_redirect(slug: str, request: Request, db: AsyncSession = Depends(get_db)):
+    """Redirect /books/{slug} to /{slug} for backward compatibility."""
+    from fastapi.responses import RedirectResponse
     result = await db.execute(select(Book).where(Book.slug == slug, Book.deleted_at.is_(None)))
     book = result.scalar_one_or_none()
     if not book:
         raise HTTPException(status_code=404, detail="Book not found")
+    return RedirectResponse(url=f"/{book.slug}", status_code=301)
 
-    # Load chapters
+
+
+@router.get("/{slug:path}")
+@limiter.limit("120/minute")
+async def read_by_slug(slug: str, request: Request, db: AsyncSession = Depends(get_db)):
+    # Skip reserved paths
+    first_segment = slug.split("/")[0] if "/" in slug else slug
+    if first_segment in RESERVED_PREFIXES or first_segment.startswith("@"):
+        raise HTTPException(status_code=404, detail="Not found")
+
+    # Try document first
+    doc = await _load_doc_by_slug(slug, db)
+    if doc:
+        version = await _load_version(doc.id, doc.current_version, db)
+        if not version:
+            raise HTTPException(status_code=500, detail="Version not found")
+        if _wants_json(request):
+            return _render_json(doc, version)
+        return await _render_html(doc, version, db)
+
+    # Try book
+    book_result = await db.execute(select(Book).where(Book.slug == slug, Book.deleted_at.is_(None)))
+    book = book_result.scalar_one_or_none()
+    if book:
+        return await _render_book(book, request, db)
+
+    raise HTTPException(status_code=404, detail="Not found")
+
+
+async def _render_book(book: "Book", request: Request, db: AsyncSession):
+    """Render a book landing page (HTML or JSON)."""
     chapters_result = await db.execute(
         select(BookChapter).where(BookChapter.book_id == book.id).order_by(BookChapter.chapter_number)
     )
@@ -279,12 +311,11 @@ async def read_book(slug: str, request: Request, db: AsyncSession = Depends(get_
             listed=book.listed,
             created_at=book.created_at,
             updated_at=book.updated_at,
-            url=f"{settings.base_url}/books/{book.slug}",
+            url=f"{settings.base_url}/{book.slug}",
             chapters=ch_responses,
         )
         return JSONResponse(content=resp.model_dump(mode="json"))
 
-    # HTML rendering
     import os
 
     from jinja2 import Environment, FileSystemLoader
@@ -293,7 +324,6 @@ async def read_book(slug: str, request: Request, db: AsyncSession = Depends(get_
     env = Environment(loader=FileSystemLoader(template_dir), autoescape=True)
     template = env.get_template("book.html")
 
-    # Gravity badges
     gravity_badges = []
     linkedin_url = None
     orcid_id = None
@@ -312,7 +342,6 @@ async def read_book(slug: str, request: Request, db: AsyncSession = Depends(get_
             linkedin_url = account.linkedin_url
             orcid_id = account.orcid_id
 
-    # Render description markdown
     rendered_description = None
     if book.description:
         from app.services.renderer import render_markdown
@@ -333,8 +362,8 @@ async def read_book(slug: str, request: Request, db: AsyncSession = Depends(get_
         total_reading_time=total_reading_time,
         quality_score=book.quality_score,
         chapters=chapter_list,
-        canonical_url=f"{settings.base_url}/books/{book.slug}",
-        permanent_url=f"{settings.base_url}/books/{book.slug}",
+        canonical_url=f"{settings.base_url}/{book.slug}",
+        permanent_url=f"{settings.base_url}/{book.slug}",
         og_image_url=f"{settings.base_url}/og/book_{book.id}.png",
         gravity_badges=gravity_badges,
         linkedin_url=linkedin_url,
@@ -346,24 +375,3 @@ async def read_book(slug: str, request: Request, db: AsyncSession = Depends(get_
         content=html,
         headers={"Cache-Control": "public, max-age=3600"},
     )
-
-
-@router.get("/{slug:path}")
-@limiter.limit("120/minute")
-async def read_by_slug(slug: str, request: Request, db: AsyncSession = Depends(get_db)):
-    # Skip reserved paths
-    first_segment = slug.split("/")[0] if "/" in slug else slug
-    if first_segment in RESERVED_PREFIXES or first_segment.startswith("@"):
-        raise HTTPException(status_code=404, detail="Not found")
-
-    doc = await _load_doc_by_slug(slug, db)
-    if not doc:
-        raise HTTPException(status_code=404, detail="Document not found")
-
-    version = await _load_version(doc.id, doc.current_version, db)
-    if not version:
-        raise HTTPException(status_code=500, detail="Version not found")
-
-    if _wants_json(request):
-        return _render_json(doc, version)
-    return await _render_html(doc, version, db)

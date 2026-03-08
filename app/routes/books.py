@@ -256,14 +256,14 @@ async def publish_book(
     # Notify search engines
     if body.options.listed:
         try:
-            all_urls.insert(0, f"{settings.base_url}/books/{book_slug}")
+            all_urls.insert(0, f"{settings.base_url}/{book_slug}")
             await _notify_search_engines(all_urls)
         except Exception:
             pass
 
     return PublishBookResponse(
         id=book_id,
-        url=f"{settings.base_url}/books/{book_slug}",
+        url=f"{settings.base_url}/{book_slug}",
         title=body.title,
         chapters=chapter_responses,
         quality_score=book_quality.total,
@@ -322,7 +322,7 @@ async def get_book(book_id: str, db: AsyncSession = Depends(get_db)):
         listed=book.listed,
         created_at=book.created_at,
         updated_at=book.updated_at,
-        url=f"{settings.base_url}/books/{book.slug}" if book.slug else None,
+        url=f"{settings.base_url}/{book.slug}" if book.slug else None,
         chapters=chapter_responses,
     )
 
@@ -357,6 +357,13 @@ async def update_book(
         book.listed = body.listed
     if body.cover_image_url is not None:
         book.cover_image_url = body.cover_image_url
+    if body.slug is not None:
+        new_slug = body.slug.strip().lower()
+        if new_slug != book.slug:
+            existing = await db.execute(select(Book).where(Book.slug == new_slug, Book.deleted_at.is_(None), Book.id != book.id))
+            if existing.scalar_one_or_none():
+                raise HTTPException(status_code=409, detail="Book slug already taken")
+            book.slug = new_slug
 
     book.updated_at = datetime.now(UTC)
     await db.commit()
@@ -394,7 +401,7 @@ async def delete_book(
     await db.commit()
 
     try:
-        urls = [f"{settings.base_url}/books/{book.slug}"]
+        urls = [f"{settings.base_url}/{book.slug}"]
         await _notify_search_engines(urls)
     except Exception:
         pass
@@ -509,7 +516,7 @@ async def add_chapter(
         try:
             await _notify_search_engines([
                 f"{settings.base_url}/{chapter_slug}",
-                f"{settings.base_url}/books/{book.slug}",
+                f"{settings.base_url}/{book.slug}",
             ])
         except Exception:
             pass

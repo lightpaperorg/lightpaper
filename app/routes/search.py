@@ -132,7 +132,7 @@ async def search_documents(
                     id=bk.id,
                     title=bk.title,
                     subtitle=bk.subtitle,
-                    url=f"{settings.base_url}/books/{bk.slug}" if bk.slug else f"{settings.base_url}/books/{bk.id}",
+                    url=f"{settings.base_url}/{bk.slug}" if bk.slug else f"{settings.base_url}/books/{bk.id}",
                     authors=[AuthorInfo(**a) for a in (bk.authors or [])],
                     tags=bk.tags or [],
                     quality_score=bk.quality_score,
