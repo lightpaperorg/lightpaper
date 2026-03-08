@@ -870,5 +870,25 @@
             </div>
         </footer>
     </div>
+
+    {% if book_title %}
+    <script>
+    (function(){
+        var startX=0,startY=0,distX=0,distY=0;
+        var prev={{ prev_chapter.url|tojson if prev_chapter else "null" }};
+        var next={{ next_chapter.url|tojson if next_chapter else "null" }};
+        document.addEventListener('touchstart',function(e){
+            var t=e.changedTouches[0];startX=t.pageX;startY=t.pageY;
+        },{passive:true});
+        document.addEventListener('touchend',function(e){
+            var t=e.changedTouches[0];distX=t.pageX-startX;distY=t.pageY-startY;
+            if(Math.abs(distX)>80&&Math.abs(distY)<Math.abs(distX)*0.5){
+                if(distX<0&&next)window.location.href=next;
+                if(distX>0&&prev)window.location.href=prev;
+            }
+        },{passive:true});
+    })();
+    </script>
+    {% endif %}
 </body>
 </html>
