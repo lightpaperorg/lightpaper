@@ -121,8 +121,7 @@ def generate_book_og_image(
     author_name: str | None = None,
     format: str | None = None,
 ) -> bytes:
-    """Generate a 1200x630 OG card for a book: shows 'Book · N chapters' in format position."""
-    # Same glowing card layout as document OG
+    """Generate a 1200x630 OG card for a book: title centred, title in bottom bar."""
     img = Image.new("RGB", (WIDTH, HEIGHT), BG_COLOR)
     glow_draw = ImageDraw.Draw(img)
 
@@ -141,35 +140,32 @@ def generate_book_og_image(
         fill=CARD_COLOR,
     )
 
-    font_body = _load_font("Inter-Regular.ttf", 30)
+    font_title = _load_font("Inter-Regular.ttf", 52)
+    font_subtitle = _load_font("Inter-Regular.ttf", 24)
     font_meta = _load_font("Inter-Regular.ttf", 17)
 
     card_cx = CARD_X + CARD_W // 2
+    card_cy = CARD_Y + CARD_H // 2
     inner_left = CARD_X + 56
     inner_right = CARD_X + CARD_W - 56
 
-    # Accent mark
-    mark_w = 50
-    mark_y = CARD_Y + 48
-    draw.rectangle(
-        [card_cx - mark_w // 2, mark_y, card_cx + mark_w // 2, mark_y + 4],
-        fill=ACCENT_COLOR,
-    )
+    # Title — large, centred vertically and horizontally
+    tb = draw.textbbox((0, 0), title, font=font_title)
+    tw = tb[2] - tb[0]
+    th = tb[3] - tb[1]
+    title_y = card_cy - th // 2 - 20  # slightly above centre to leave room for subtitle
+    draw.text((card_cx - tw // 2, title_y), title, fill=TEXT_COLOR, font=font_title)
 
-    # Subtitle
+    # Subtitle — centred below title
     if subtitle:
-        body_y = mark_y + 32
-        wrapped = textwrap.wrap(subtitle, width=44)
-        for line in wrapped[:4]:
-            lb = draw.textbbox((0, 0), line, font=font_body)
-            lw = lb[2] - lb[0]
-            draw.text((card_cx - lw // 2, body_y), line, fill=TEXT_COLOR, font=font_body)
-            body_y += 44
+        sub_y = title_y + th + 16
+        sb = draw.textbbox((0, 0), subtitle, font=font_subtitle)
+        sw = sb[2] - sb[0]
+        draw.text((card_cx - sw // 2, sub_y), subtitle, fill=MUTED_COLOR, font=font_subtitle)
 
-    # Bottom: "Book · N chapters" left, author right
+    # Bottom bar: title left, author right
     bottom_y = CARD_Y + CARD_H - 50
-    format_label = f"Book \u00b7 {chapter_count} chapter{'s' if chapter_count != 1 else ''}"
-    draw.text((inner_left, bottom_y), format_label, fill=MUTED_COLOR, font=font_meta)
+    draw.text((inner_left, bottom_y), title.lower(), fill=MUTED_COLOR, font=font_meta)
 
     if author_name:
         ab = draw.textbbox((0, 0), author_name, font=font_meta)
