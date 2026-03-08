@@ -822,8 +822,10 @@
                         {% endif %}
                     {% endif %}
                 {% endfor %}
-                {% if format and format != "post" %}
-                    <span class="format-badge">{{ format }}</span>
+                {% if not book_title %}
+                    {% if format and format != "post" %}
+                        <span class="format-badge">{{ format }}</span>
+                    {% endif %}
                 {% endif %}
             </div>
         </header>
