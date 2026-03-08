@@ -261,17 +261,9 @@
                 <span class="sep">&middot;</span>
                 <span>{{ chapter_count }} chapter{{ "s" if chapter_count != 1 else "" }}</span>
                 {% if total_reading_time %}<span class="sep">&middot;</span><span>{{ total_reading_time }} min total</span>{% endif %}
-                {% if quality_score is not none %}
-                    <span class="sep">&middot;</span>
-                    <span class="quality-badge">{{ quality_score }}/100</span>
-                {% endif %}
                 {% for badge in gravity_badges %}
                     {% if linkedin_url and 'LinkedIn' in badge %}
                         <a href="{{ linkedin_url }}" class="gravity-badge" target="_blank" rel="noopener">{{ badge }}</a>
-                    {% elif orcid_id and 'ORCID' in badge %}
-                        <a href="https://orcid.org/{{ orcid_id }}" class="gravity-badge" target="_blank" rel="noopener">{{ badge }}</a>
-                    {% else %}
-                        <span class="gravity-badge">{{ badge }}</span>
                     {% endif %}
                 {% endfor %}
                 {% if format and format != "post" %}

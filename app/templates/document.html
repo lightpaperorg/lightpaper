@@ -680,6 +680,32 @@
         }
 
         /* ================================================================
+           BOOK CONTEXT (chapter header)
+           ================================================================ */
+        .book-context {
+            margin-bottom: 0.75rem;
+            font-size: 14px;
+            color: var(--secondary);
+        }
+        .book-context-title {
+            color: var(--secondary);
+            text-decoration: none;
+        }
+        .book-context-title:hover {
+            color: var(--heading);
+            text-decoration: underline;
+        }
+        .book-context-chapter {
+            display: block;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-top: 0.25rem;
+            color: var(--secondary);
+            opacity: 0.8;
+        }
+
+        /* ================================================================
            CHAPTER NAVIGATION (books)
            ================================================================ */
         .chapter-bar {
@@ -761,6 +787,12 @@
         </nav>
 
         <header class="article-header">
+            {% if book_title %}
+            <div class="book-context">
+                <a href="/books/{{ book_slug }}" class="book-context-title">{{ book_title }}</a>
+                <span class="book-context-chapter">Chapter {{ chapter_number }}</span>
+            </div>
+            {% endif %}
             <h1>{{ title }}</h1>
             {% if subtitle %}<p class="subtitle">{{ subtitle }}</p>{% endif %}
             <div class="article-meta">
@@ -773,17 +805,21 @@
                 {% endif %}
                 <span>{{ created_at_formatted }}</span>
                 {% if reading_time %}<span class="sep">&middot;</span><span>{{ reading_time }} min read</span>{% endif %}
-                {% if quality_score is not none %}
-                    <span class="sep">&middot;</span>
-                    <span class="quality-badge">{{ quality_score }}/100</span>
+                {% if not book_title %}
+                    {% if quality_score is not none %}
+                        <span class="sep">&middot;</span>
+                        <span class="quality-badge">{{ quality_score }}/100</span>
+                    {% endif %}
                 {% endif %}
                 {% for badge in gravity_badges %}
                     {% if linkedin_url and 'LinkedIn' in badge %}
                         <a href="{{ linkedin_url }}" class="gravity-badge" target="_blank" rel="noopener">{{ badge }}</a>
-                    {% elif orcid_id and 'ORCID' in badge %}
-                        <a href="https://orcid.org/{{ orcid_id }}" class="gravity-badge" target="_blank" rel="noopener">{{ badge }}</a>
-                    {% else %}
-                        <span class="gravity-badge">{{ badge }}</span>
+                    {% elif not book_title %}
+                        {% if orcid_id and 'ORCID' in badge %}
+                            <a href="https://orcid.org/{{ orcid_id }}" class="gravity-badge" target="_blank" rel="noopener">{{ badge }}</a>
+                        {% else %}
+                            <span class="gravity-badge">{{ badge }}</span>
+                        {% endif %}
                     {% endif %}
                 {% endfor %}
                 {% if format and format != "post" %}
@@ -791,13 +827,6 @@
                 {% endif %}
             </div>
         </header>
-
-        {% if book_title %}
-        <div class="chapter-bar">
-            <a href="/books/{{ book_slug }}">&#8592; {{ book_title }}</a>
-            <span>Chapter {{ chapter_number }} of {{ total_chapters }}</span>
-        </div>
-        {% endif %}
 
         <hr class="divider">
 
