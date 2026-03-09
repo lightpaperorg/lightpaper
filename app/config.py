@@ -25,6 +25,7 @@ class Settings(BaseModel):
     stripe_api_key: str = os.getenv("STRIPE_API_KEY", "")
     stripe_webhook_secret: str = os.getenv("STRIPE_WEBHOOK_SECRET", "")
     ide_session_secret: str = os.getenv("IDE_SESSION_SECRET", "lightpaper-ide-dev-secret-change-me")
+    brave_search_api_key: str = os.getenv("BRAVE_SEARCH_API_KEY", "")
 
 
 settings = Settings()

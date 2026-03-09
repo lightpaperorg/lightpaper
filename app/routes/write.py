@@ -582,6 +582,40 @@ RESEARCH_TOOL = {
     },
 }
 
+WEB_SEARCH_TOOL = {
+    "name": "web_search",
+    "description": "Search the web for information. Use this to find facts, historical details, technical specifics, cultural context, real-world references, or anything that would make the writing more authentic and grounded. Returns search results with titles, URLs, and descriptions.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "query": {
+                "type": "string",
+                "description": "The search query",
+            },
+            "count": {
+                "type": "integer",
+                "description": "Number of results to return (default 5, max 10)",
+            },
+        },
+        "required": ["query"],
+    },
+}
+
+WEB_FETCH_TOOL = {
+    "name": "web_fetch",
+    "description": "Fetch and read a web page. Use this after web_search to read the full content of a promising result, or to read any URL the author shares. Returns the page text content (HTML stripped).",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "url": {
+                "type": "string",
+                "description": "The URL to fetch",
+            },
+        },
+        "required": ["url"],
+    },
+}
+
 
 @router.post("/sessions/{session_id}/chat")
 @limiter.limit("30/minute")
@@ -643,7 +677,7 @@ async def chat(
             # Use non-streaming for tool_use support, but stream text chunks
             # We'll loop to handle tool_use responses
             conv_messages = list(messages)
-            max_turns = 5  # Prevent infinite tool_use loops
+            max_turns = 10  # Allow search → fetch → research → write chains
 
             for _ in range(max_turns):
                 response = await client.messages.create(
@@ -655,7 +689,7 @@ async def chat(
                     },
                     system=system_prompt,
                     messages=conv_messages,
-                    tools=[SAVE_FILE_TOOL, RESEARCH_TOOL],
+                    tools=[SAVE_FILE_TOOL, RESEARCH_TOOL, WEB_SEARCH_TOOL, WEB_FETCH_TOOL],
                 )
 
                 total_tokens += response.usage.input_tokens + response.usage.output_tokens
@@ -689,6 +723,43 @@ async def chat(
                                 "type": "tool_result",
                                 "tool_use_id": block.id,
                                 "content": f"Research failed: {e}",
+                                "is_error": True,
+                            })
+                    elif block.type == "tool_use" and block.name == "web_search":
+                        try:
+                            yield f"data: {json.dumps({'type': 'text', 'content': '\\n\\n*Searching the web...*\\n\\n'})}\n\n"
+                            search_results = await _web_search(
+                                block.input.get("query", ""),
+                                block.input.get("count", 5),
+                            )
+                            tool_results.append({
+                                "type": "tool_result",
+                                "tool_use_id": block.id,
+                                "content": search_results,
+                            })
+                        except Exception as e:
+                            logger.error("Web search error: %s", e)
+                            tool_results.append({
+                                "type": "tool_result",
+                                "tool_use_id": block.id,
+                                "content": f"Search failed: {e}",
+                                "is_error": True,
+                            })
+                    elif block.type == "tool_use" and block.name == "web_fetch":
+                        try:
+                            yield f"data: {json.dumps({'type': 'text', 'content': '\\n\\n*Reading web page...*\\n\\n'})}\n\n"
+                            page_content = await _web_fetch(block.input.get("url", ""))
+                            tool_results.append({
+                                "type": "tool_result",
+                                "tool_use_id": block.id,
+                                "content": page_content,
+                            })
+                        except Exception as e:
+                            logger.error("Web fetch error: %s", e)
+                            tool_results.append({
+                                "type": "tool_result",
+                                "tool_use_id": block.id,
+                                "content": f"Fetch failed: {e}",
                                 "is_error": True,
                             })
                     elif block.type == "tool_use" and block.name == "save_file":
@@ -1039,6 +1110,101 @@ async def publish_session(
         "total_word_count": total_word_count,
         "chapters": chapter_responses,
     }
+
+
+# --- Web search & fetch ---
+
+
+async def _web_search(query: str, count: int = 5) -> str:
+    """Search the web using Brave Search API."""
+    import httpx
+
+    if not settings.brave_search_api_key:
+        return "Web search not configured. BRAVE_SEARCH_API_KEY is not set."
+
+    count = min(max(count, 1), 10)
+    async with httpx.AsyncClient(timeout=15) as client:
+        resp = await client.get(
+            "https://api.search.brave.com/res/v1/web/search",
+            params={"q": query, "count": count},
+            headers={
+                "Accept": "application/json",
+                "Accept-Encoding": "gzip",
+                "X-Subscription-Token": settings.brave_search_api_key,
+            },
+        )
+        resp.raise_for_status()
+        data = resp.json()
+
+    results = []
+    for item in data.get("web", {}).get("results", [])[:count]:
+        title = item.get("title", "")
+        url = item.get("url", "")
+        description = item.get("description", "")
+        results.append(f"**{title}**\n{url}\n{description}")
+
+    if not results:
+        return f"No results found for: {query}"
+
+    return f"Search results for: {query}\n\n" + "\n\n---\n\n".join(results)
+
+
+async def _web_fetch(url: str) -> str:
+    """Fetch a web page and extract text content."""
+    import re
+
+    import httpx
+
+    # Basic URL validation
+    if not url.startswith(("http://", "https://")):
+        return "Invalid URL. Must start with http:// or https://"
+
+    async with httpx.AsyncClient(
+        timeout=20,
+        follow_redirects=True,
+        headers={"User-Agent": "lightpaper-research/1.0 (https://lightpaper.org)"},
+    ) as client:
+        resp = await client.get(url)
+        resp.raise_for_status()
+
+    content_type = resp.headers.get("content-type", "")
+    if "text/html" not in content_type and "text/plain" not in content_type:
+        return f"Cannot read this content type: {content_type}"
+
+    html = resp.text
+
+    # Extract title
+    title_match = re.search(r"<title[^>]*>(.*?)</title>", html, re.IGNORECASE | re.DOTALL)
+    title = title_match.group(1).strip() if title_match else ""
+
+    # Remove script, style, nav, header, footer elements
+    for tag in ["script", "style", "nav", "header", "footer", "aside", "noscript"]:
+        html = re.sub(rf"<{tag}[^>]*>.*?</{tag}>", "", html, flags=re.IGNORECASE | re.DOTALL)
+
+    # Try to extract main/article content first
+    main_match = re.search(
+        r"<(?:main|article)[^>]*>(.*?)</(?:main|article)>",
+        html, re.IGNORECASE | re.DOTALL,
+    )
+    text_html = main_match.group(1) if main_match else html
+
+    # Convert common block elements to newlines
+    text_html = re.sub(r"<(?:p|div|br|h[1-6]|li|tr)[^>]*>", "\n", text_html, flags=re.IGNORECASE)
+
+    # Strip all remaining HTML tags
+    text = re.sub(r"<[^>]+>", "", text_html)
+
+    # Clean up whitespace
+    text = re.sub(r"[ \t]+", " ", text)
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    text = text.strip()
+
+    # Truncate to ~15k chars to fit in context
+    if len(text) > 15000:
+        text = text[:15000] + "\n\n[...truncated]"
+
+    header = f"# {title}\nSource: {url}\n\n" if title else f"Source: {url}\n\n"
+    return header + text
 
 
 # --- Research sub-agent ---
