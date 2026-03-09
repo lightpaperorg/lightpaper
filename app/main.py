@@ -27,7 +27,19 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next):
         response: Response = await call_next(request)
-        if request.url.path in self.DOCS_PATHS:
+        path = request.url.path
+        if path.startswith("/write"):
+            # Writing IDE: React SPA needs inline scripts and module loading
+            response.headers["Content-Security-Policy"] = (
+                "default-src 'self'; "
+                "script-src 'self' 'unsafe-inline'; "
+                "style-src 'self' 'unsafe-inline'; "
+                "img-src 'self' https: data:; "
+                "connect-src 'self'; "
+                "font-src 'self' data:; "
+                "frame-ancestors 'none'"
+            )
+        elif request.url.path in self.DOCS_PATHS:
             response.headers["Content-Security-Policy"] = (
                 "default-src 'self'; "
                 "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
@@ -163,6 +175,7 @@ def mount_routes():
         credentials,
         discovery,
         documents,
+        ide,
         keys,
         landing,
         linkedin,
@@ -170,6 +183,7 @@ def mount_routes():
         reading,
         search,
         verification,
+        write,
     )
     from app.routes.mcp_http import create_mcp_routes
 
@@ -185,6 +199,9 @@ def mount_routes():
     app.include_router(credentials.router)
     app.include_router(discovery.router)
     app.include_router(landing.router)
+    # Writing IDE API + SPA — before catch-all
+    app.include_router(write.router)
+    app.include_router(ide.router)
     # MCP Streamable HTTP route — before catch-all
     for route in create_mcp_routes():
         app.routes.append(route)

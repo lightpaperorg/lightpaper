@@ -72,6 +72,8 @@ RESERVED_SLUGS = frozenset(
         "welcome",
         "books",
         "wiki",
+        "write",
+        "ide",
     }
 )
 

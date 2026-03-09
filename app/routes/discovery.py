@@ -588,6 +588,15 @@ All endpoints return JSON. Authorization via `Authorization: Bearer <api_key>` h
 - DELETE /v1/documents/{{id}} — Soft-delete a document (owner only, returns 204)
 - GET /v1/documents/{{id}}/versions — List version history
 
+### Books
+- POST /v1/books — Publish a complete book (all chapters at once). 10/hour.
+- GET /v1/books/{{book_id}} — Get book metadata + chapter listing (public, no auth needed)
+- PUT /v1/books/{{book_id}} — Update book metadata (owner only)
+- DELETE /v1/books/{{book_id}} — Soft-delete book + all chapters (owner only)
+- POST /v1/books/{{book_id}}/chapters — Add a chapter to an existing book
+- PUT /v1/books/{{book_id}}/chapters/reorder — Reorder chapters
+- DELETE /v1/books/{{book_id}}/chapters/{{doc_id}} — Detach a chapter (document survives)
+
 ### Search
 - GET /v1/search?q=query — Full-text search with ranking. 60/minute.
   - `q` (optional) — Full-text query. Omit to browse all listed articles.
@@ -606,6 +615,7 @@ All reading routes support content negotiation via Accept header:
 Routes:
 - GET /{{slug}} — Read document by URL slug
 - GET /d/{{id}} — Read document by permanent ID
+- GET /books/{{slug}} — Read book landing page (table of contents + chapter navigation)
 - GET /@{{handle}} — View author profile with published documents
 
 ### Author Profiles
@@ -708,6 +718,45 @@ DELETE /v1/documents/{{id}} — Soft-deletes the document (returns 204).
 - The document will no longer appear in search, sitemap, or author profiles.
 - The URL will return 410 Gone.
 - Only the document owner can delete.
+
+## Books — The Wave Method
+
+Books are ordered collections of chapters with a landing page, table of contents, and chapter navigation. lightpaper uses the **Wave Method** — a structured creative process that turns raw ideas into a finished manuscript through progressive waves of increasing fidelity.
+
+### The Wave Method
+
+When an author wants to write a book, guide them through these waves. Do NOT skip waves or rush to writing prose. Each wave builds on the last, and the author reviews before proceeding.
+
+**Wave 0: Raw Capture** — The author provides unstructured input: stream of consciousness, scattered ideas, character sketches, research. Listen, understand the vision, ask clarifying questions. Output: a structured summary with working title, chapter count, and chapter summaries.
+
+**Wave 1: Architecture** — Expand every chapter into a full page of scene beats: locations, characters, beat-by-beat action, key dialogue moments, what the reader learns, plants and payoffs, active threads. Run structural checks for pacing, timeline, and subplot escalation.
+
+**Wave 2: Voice and Texture** — Write the opening 500-800 words of every chapter to lock in narrative voice, POV, prose register, tonal variation, and setting specificity. The author reviews and adjusts before committing to full drafts.
+
+**Wave 3: Pivotal Scenes** — Identify and write 8-10 scenes that carry the most emotional/narrative weight in full polished form: climaxes, turning points, character-defining moments, opening, closing. These are the load-bearing walls — written before the surrounding narrative.
+
+**Wave 4: Full Draft** — Write every chapter in order, incorporating Wave 2 openings and Wave 3 pivotal scenes, filling in everything between. Track continuity every ~5 chapters.
+
+**Wave 5+: Edit Waves** — The author gives high-level editorial direction: tonal adjustments, word count targets, structural changes, consistency passes. Repeat as many edit waves as needed until the author is satisfied.
+
+### Book API Endpoints
+
+- POST /v1/books — Publish a complete book (all chapters at once). 10/hour.
+- GET /v1/books/{{book_id}} — Get book metadata + chapter listing (public)
+- PUT /v1/books/{{book_id}} — Update book metadata (owner only)
+- DELETE /v1/books/{{book_id}} — Soft-delete book + all chapters (owner only)
+- POST /v1/books/{{book_id}}/chapters — Add a chapter
+- PUT /v1/books/{{book_id}}/chapters/reorder — Reorder chapters
+- DELETE /v1/books/{{book_id}}/chapters/{{doc_id}} — Detach a chapter (document survives)
+
+### Book Details
+
+- Each chapter needs at least 100 words and one heading
+- Book quality = weighted average of chapter scores + multi-chapter bonus (up to 5 pts)
+- Books appear in search (`?type=book`), sitemap, and Atom feed
+- Book URLs: /books/{{book-slug}} (landing page), chapters at /{{chapter-slug}}
+- Chapter slugs: {{book-slug}}-ch{{N}}-{{chapter-title-slug}}
+- OG images generated at /og/book_{{id}}.png
 
 ## Quality Score (0-100)
 
@@ -942,7 +991,7 @@ Or without an API key (interactive account creation):
 Run standalone: `lightpaper-mcp` or `python -m lightpaper_mcp`
 
 20 tools: publish, search, get, update, delete, list, account info, update account, gravity info, author profile, versions, credentials, auth (email + LinkedIn), verify (domain, LinkedIn, ORCID, credentials).
-2 prompts: write-article, setup-account.
+3 prompts: write-article, write-book (Wave Method), setup-account.
 
 ## Agent Discovery
 

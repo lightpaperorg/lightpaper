@@ -21,6 +21,10 @@ class Settings(BaseModel):
     linkedin_client_secret: str = os.getenv("LINKEDIN_CLIENT_SECRET", "")
     resend_api_key: str = os.getenv("RESEND_API_KEY", "")
     gsc_service_account_key: str = os.getenv("GSC_SERVICE_ACCOUNT_KEY", "")
+    anthropic_api_key: str = os.getenv("ANTHROPIC_API_KEY", "")
+    stripe_api_key: str = os.getenv("STRIPE_API_KEY", "")
+    stripe_webhook_secret: str = os.getenv("STRIPE_WEBHOOK_SECRET", "")
+    ide_session_secret: str = os.getenv("IDE_SESSION_SECRET", "lightpaper-ide-dev-secret-change-me")
 
 
 settings = Settings()

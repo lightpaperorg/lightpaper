@@ -220,3 +220,58 @@ class BookChapter(Base):
 
     book = relationship("Book", back_populates="chapters")
     document = relationship("Document")
+
+
+class WritingSession(Base):
+    __tablename__ = "writing_sessions"
+
+    id = Column(Text, primary_key=True)
+    account_id = Column(UUID(as_uuid=True), ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False)
+    title = Column(Text, nullable=False)
+    status = Column(Text, nullable=False, default="active")
+    current_wave = Column(Integer, nullable=False, default=0)
+    wave_state = Column(JSONB, nullable=False, default=dict)
+    book_config = Column(JSONB, nullable=False, default=dict)
+    published_book_id = Column(Text, ForeignKey("books.id", ondelete="SET NULL"))
+    total_tokens_used = Column(Integer, nullable=False, default=0)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=text("NOW()"))
+    updated_at = Column(DateTime(timezone=True), nullable=False, server_default=text("NOW()"))
+    deleted_at = Column(DateTime(timezone=True))
+
+    account = relationship("Account")
+    files = relationship("WritingFile", back_populates="session", cascade="all, delete-orphan")
+    messages = relationship("WritingMessage", back_populates="session", cascade="all, delete-orphan")
+
+
+class WritingFile(Base):
+    __tablename__ = "writing_files"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    session_id = Column(Text, ForeignKey("writing_sessions.id", ondelete="CASCADE"), nullable=False)
+    wave = Column(Integer, nullable=False)
+    file_type = Column(Text, nullable=False)
+    chapter_number = Column(Integer)
+    title = Column(Text, nullable=False)
+    content = Column(Text, nullable=False, default="")
+    word_count = Column(Integer, nullable=False, default=0)
+    sort_order = Column(Integer, nullable=False, default=0)
+    parent_file_id = Column(UUID(as_uuid=True), ForeignKey("writing_files.id", ondelete="SET NULL"))
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=text("NOW()"))
+    updated_at = Column(DateTime(timezone=True), nullable=False, server_default=text("NOW()"))
+
+    session = relationship("WritingSession", back_populates="files")
+
+
+class WritingMessage(Base):
+    __tablename__ = "writing_messages"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    session_id = Column(Text, ForeignKey("writing_sessions.id", ondelete="CASCADE"), nullable=False)
+    wave = Column(Integer, nullable=False)
+    role = Column(Text, nullable=False)
+    content = Column(Text, nullable=False)
+    files_generated = Column(JSONB, default=list)
+    tokens_used = Column(Integer, nullable=False, default=0)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=text("NOW()"))
+
+    session = relationship("WritingSession", back_populates="messages")

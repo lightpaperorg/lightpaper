@@ -149,6 +149,15 @@ async def list_prompts():
             ],
         },
         {
+            "name": "write-book",
+            "description": "Write a book using the Wave Method — a structured creative process that turns raw ideas into a finished manuscript through progressive waves.",
+            "arguments": [
+                PromptArgument(name="idea", description="Your book idea — anything from a sentence to a stream of consciousness dump. The messier the better.", required=True),
+                PromptArgument(name="chapters", description="Approximate number of chapters (default: let the structure emerge)", required=False),
+                PromptArgument(name="format", description="paper, essay, or post", required=False),
+            ],
+        },
+        {
             "name": "setup-account",
             "description": "Create a lightpaper.org account and optionally verify identity for higher gravity.",
             "arguments": [],
@@ -179,6 +188,81 @@ async def get_prompt(name: str, arguments: dict | None = None) -> GetPromptResul
                             "- If I don't have an account yet, ask for my name, email, and preferred @handle, then use auth_email + auth_verify\n"
                             "- After publishing, share the URL with me\n"
                             "- If the quality score is below 60, offer to improve it"
+                        ),
+                    ),
+                )
+            ],
+        )
+    elif name == "write-book":
+        idea = (arguments or {}).get("idea", "a topic of your choice")
+        num_chapters = (arguments or {}).get("chapters", "")
+        fmt = (arguments or {}).get("format", "")
+        fmt_hint = f" Use the '{fmt}' format for all chapters." if fmt else ""
+        chapters_hint = f" Aim for approximately {num_chapters} chapters." if num_chapters else ""
+        return GetPromptResult(
+            description=f"Write a book using the Wave Method: {idea[:80]}",
+            messages=[
+                PromptMessage(
+                    role="user",
+                    content=TextContent(
+                        type="text",
+                        text=(
+                            f"I want to write a book. Here's my idea:\n\n{idea}\n\n"
+                            "Guide me through lightpaper's Wave Method — a structured creative process "
+                            "that turns raw ideas into a finished manuscript through progressive waves. "
+                            "Do NOT skip waves or rush to writing prose. Each wave builds on the last "
+                            f"and I review your output before we proceed.{fmt_hint}{chapters_hint}\n\n"
+                            "## The Wave Method\n\n"
+                            "### Wave 0: Raw Capture\n"
+                            "We're here now. Read my input above — it might be messy, scattered, or "
+                            "incomplete. That's fine. Your job is to listen and understand what I want "
+                            "this book to be. Ask me clarifying questions about:\n"
+                            "- Genre, tone, and audience\n"
+                            "- Characters, setting, themes (fiction) or thesis, structure, argument (non-fiction)\n"
+                            "- Approximate scope (short book? epic? how many chapters?)\n"
+                            "- Anything that's unclear or where you see multiple possible directions\n\n"
+                            "Then present back to me: a structured summary of the book's vision — "
+                            "working title, subtitle, chapter count, and a 2-3 sentence summary of each chapter. "
+                            "Wait for my approval before proceeding.\n\n"
+                            "### Wave 1: Architecture (Scene-Level Outline)\n"
+                            "Expand every chapter into a full page of scene beats:\n"
+                            "- Every scene (location, characters, time)\n"
+                            "- Beat-by-beat action\n"
+                            "- Key dialogue moments (what needs to be said, not full dialogue)\n"
+                            "- What the reader learns or feels\n"
+                            "- Plants and payoffs (what's being set up for later)\n"
+                            "- Active threads per chapter\n\n"
+                            "Run structural checks: pacing, subplot escalation, timeline plausibility, "
+                            "every chapter earning its place. Present the full outline for my review.\n\n"
+                            "### Wave 2: Voice and Texture\n"
+                            "Write the opening 500-800 words of every chapter to lock in:\n"
+                            "- Narrative voice and POV\n"
+                            "- Prose register and tonal variation between chapters\n"
+                            "- Internal monologue style\n"
+                            "- Setting specificity\n\n"
+                            "Present all openings for my review. I may adjust voice, tone, or style "
+                            "before we commit to full drafts.\n\n"
+                            "### Wave 3: Pivotal Scenes (Load-Bearing Walls)\n"
+                            "Identify 8-10 scenes that carry the most narrative/emotional weight "
+                            "(climaxes, turning points, character-defining moments, opening, closing). "
+                            "Write them in full, polished form — these are the structural pillars.\n\n"
+                            "Present the pivotal scenes for my review.\n\n"
+                            "### Wave 4: Full Draft\n"
+                            "Write every chapter in order, incorporating Wave 2 openings and Wave 3 "
+                            "pivotal scenes, filling in everything between them. Track continuity "
+                            "every ~5 chapters. Each chapter needs at least 100 words and one heading.\n\n"
+                            "### Wave 5+: Edit Waves\n"
+                            "I'll give you high-level editorial direction — tonal adjustments, word count "
+                            "targets, structural changes, fact-checking, consistency passes. We can do "
+                            "as many edit waves as needed until I'm satisfied.\n\n"
+                            "### Publishing\n"
+                            "When the manuscript is ready, publish using the publish_book tool. Include "
+                            "a book title, subtitle, and description.\n"
+                            "- If I don't have an account yet, help me create one first (auth_email + auth_verify)\n"
+                            "- After publishing, share the book URL and chapter URLs\n"
+                            "- If quality scores are low on any chapter, offer to improve them\n\n"
+                            "## Start now\n\n"
+                            "Begin with Wave 0. Read my idea above and ask your clarifying questions."
                         ),
                     ),
                 )

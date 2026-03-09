@@ -15,7 +15,7 @@ from app.services.gravity import get_gravity_badges
 router = APIRouter(tags=["reading"])
 
 # Reserved paths that should NOT match the /{slug} catch-all
-RESERVED_PREFIXES = {"v1", "health", "robots.txt", "sitemap.xml", "llms.txt", "og", "d", "static", "@"}
+RESERVED_PREFIXES = {"v1", "health", "robots.txt", "sitemap.xml", "llms.txt", "og", "d", "static", "@", "write"}
 
 # Normalize legacy format values to new taxonomy
 FORMAT_NORMALIZE = {
