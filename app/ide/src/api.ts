@@ -23,6 +23,18 @@ export const login = (api_key: string) =>
     { method: "POST", body: JSON.stringify({ api_key }) }
   );
 
+export const sendOtp = (email: string) =>
+  request<{ session_id: string; message: string }>(
+    "/auth/email",
+    { method: "POST", body: JSON.stringify({ email }) }
+  );
+
+export const verifyOtp = (session_id: string, code: string) =>
+  request<{ handle: string; display_name: string; email: string; gravity_level: number }>(
+    "/auth/verify",
+    { method: "POST", body: JSON.stringify({ session_id, code }) }
+  );
+
 export const logout = () =>
   request<{ ok: boolean }>("/auth/logout", { method: "POST" });
 

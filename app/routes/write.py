@@ -93,7 +93,30 @@ class LoginRequest(BaseModel):
     api_key: str
 
 
+class EmailLoginRequest(BaseModel):
+    email: str
+
+
+class EmailVerifyRequest(BaseModel):
+    session_id: str
+    code: str
+
+
 # --- Auth endpoints ---
+
+
+def _set_session_cookie(response: Response, account_id: str):
+    """Set the IDE session cookie."""
+    session_token = _sign_token(account_id)
+    response.set_cookie(
+        key="lp_session",
+        value=session_token,
+        httponly=True,
+        secure=True,
+        samesite="lax",
+        max_age=30 * 86400,
+        path="/",
+    )
 
 
 @router.post("/auth/login")
@@ -115,16 +138,7 @@ async def ide_login(body: LoginRequest, response: Response, db: AsyncSession = D
             )
             account = acct_result.scalar_one_or_none()
             if account:
-                session_token = _sign_token(str(account.id))
-                response.set_cookie(
-                    key="lp_session",
-                    value=session_token,
-                    httponly=True,
-                    secure=True,
-                    samesite="lax",
-                    max_age=30 * 86400,
-                    path="/",
-                )
+                _set_session_cookie(response, str(account.id))
                 return {
                     "handle": account.handle,
                     "display_name": account.display_name,
@@ -132,6 +146,150 @@ async def ide_login(body: LoginRequest, response: Response, db: AsyncSession = D
                 }
 
     raise HTTPException(status_code=401, detail="Invalid API key")
+
+
+@router.post("/auth/email")
+@limiter.limit("5/hour")
+async def ide_email_login(
+    request: Request,
+    body: EmailLoginRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """Send a 6-digit OTP code to the given email for IDE login."""
+    import hashlib as hl
+    from datetime import UTC, datetime, timedelta
+
+    from sqlalchemy import func
+
+    from app.models import EmailAuthSession
+    from app.services.email import send_otp_email
+
+    email = body.email.strip().lower()
+
+    # Per-email rate limit: max 3 codes/hour
+    one_hour_ago = datetime.now(UTC) - timedelta(hours=1)
+    count_result = await db.execute(
+        select(func.count())
+        .select_from(EmailAuthSession)
+        .where(
+            func.lower(EmailAuthSession.email) == email,
+            EmailAuthSession.created_at >= one_hour_ago,
+        )
+    )
+    recent_count = count_result.scalar() or 0
+    if recent_count >= 3:
+        raise HTTPException(status_code=429, detail="Too many codes sent. Try again in an hour.")
+
+    # Generate code + session
+    code = str(secrets.randbelow(900000) + 100000)
+    code_hash = hl.sha256(code.encode()).hexdigest()
+    session_id = secrets.token_urlsafe(24)
+
+    email_session = EmailAuthSession(
+        session_id=session_id,
+        email=email,
+        code_hash=code_hash,
+        expires_at=datetime.now(UTC) + timedelta(minutes=10),
+    )
+    db.add(email_session)
+    await db.commit()
+
+    sent = await send_otp_email(email, code)
+    if not sent:
+        logger.warning("OTP email delivery failed for IDE session %s", session_id)
+
+    # Mask email for display
+    local, domain = email.split("@", 1)
+    masked = f"{local[0]}***@{domain}"
+    return {"session_id": session_id, "message": f"Code sent to {masked}"}
+
+
+@router.post("/auth/verify")
+@limiter.limit("10/hour")
+async def ide_email_verify(
+    request: Request,
+    body: EmailVerifyRequest,
+    response: Response,
+    db: AsyncSession = Depends(get_db),
+):
+    """Verify OTP code and set IDE session cookie. Creates account if new."""
+    import hashlib as hl
+    from datetime import UTC, datetime
+
+    from sqlalchemy import func
+    from sqlalchemy.exc import IntegrityError
+
+    from app.models import EmailAuthSession
+
+    result = await db.execute(
+        select(EmailAuthSession).where(EmailAuthSession.session_id == body.session_id)
+    )
+    email_session = result.scalar_one_or_none()
+    if not email_session:
+        raise HTTPException(status_code=404, detail="Session not found.")
+    if email_session.verified_at:
+        raise HTTPException(status_code=410, detail="Session already used.")
+    if datetime.now(UTC) > email_session.expires_at:
+        raise HTTPException(status_code=410, detail="Code expired. Request a new one.")
+    if email_session.attempts >= email_session.max_attempts:
+        raise HTTPException(status_code=429, detail="Too many attempts. Request a new code.")
+
+    # Check code
+    email_session.attempts += 1
+    code_hash = hl.sha256(body.code.encode()).hexdigest()
+    if not hmac.compare_digest(code_hash, email_session.code_hash):
+        await db.commit()
+        remaining = email_session.max_attempts - email_session.attempts
+        raise HTTPException(status_code=401, detail=f"Wrong code. {remaining} attempt(s) remaining.")
+
+    # Code correct
+    email_session.verified_at = datetime.now(UTC)
+
+    # Find or create account
+    email = email_session.email.lower()
+    acct_result = await db.execute(
+        select(Account).where(
+            func.lower(Account.email) == email,
+            Account.deleted_at.is_(None),
+        )
+    )
+    account = acct_result.scalar_one_or_none()
+
+    if not account:
+        account = Account(
+            firebase_uid=None,
+            display_name=email.split("@")[0],
+            email=email_session.email,
+        )
+        db.add(account)
+        try:
+            await db.flush()
+        except IntegrityError:
+            await db.rollback()
+            email_session.verified_at = datetime.now(UTC)
+            db.add(email_session)
+            acct_result = await db.execute(
+                select(Account).where(
+                    func.lower(Account.email) == email,
+                    Account.deleted_at.is_(None),
+                )
+            )
+            account = acct_result.scalar_one_or_none()
+            if not account:
+                raise HTTPException(status_code=500, detail="Account creation failed.")
+
+    await db.commit()
+    await db.refresh(account)
+
+    # Set session cookie
+    _set_session_cookie(response, str(account.id))
+
+    return {
+        "handle": account.handle,
+        "display_name": account.display_name or email.split("@")[0],
+        "email": account.email,
+        "gravity_level": account.gravity_level,
+    }
 
 
 @router.post("/auth/logout")
