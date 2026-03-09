@@ -705,8 +705,8 @@ async def chat(
                 conv_messages.append({"role": "user", "content": tool_results})
 
         except Exception as e:
-            logger.error("Claude API error: %s", e)
-            yield f"data: {json.dumps({'type': 'error', 'content': str(e)})}\n\n"
+            logger.error("Claude API error: %s: %s", type(e).__name__, e, exc_info=True)
+            yield f"data: {json.dumps({'type': 'error', 'content': f'{type(e).__name__}: {e}'})}\n\n"
             return
         finally:
             yield f"data: {json.dumps({'type': 'done'})}\n\n"
