@@ -10,7 +10,7 @@ FastAPI + async SQLAlchemy + PostgreSQL 16. Single-process async app deployed on
 | `app/main.py` | FastAPI app, middleware (CORS, security headers, body size, rate limiting) |
 | `app/config.py` | Pydantic settings from env vars |
 | `app/auth.py` | API key + email OTP + LinkedIn OAuth authentication |
-| `app/models.py` | SQLAlchemy ORM models (13 tables) |
+| `app/models.py` | SQLAlchemy ORM models (16 tables) |
 | `app/schemas.py` | Pydantic request/response schemas with size limits |
 | `app/rate_limit.py` | slowapi limiter singleton |
 | `app/utils.py` | get_client_ip() for Cloud Run proxy |
@@ -18,6 +18,10 @@ FastAPI + async SQLAlchemy + PostgreSQL 16. Single-process async app deployed on
 | `app/routes/search.py` | GET /v1/search — full-text + gravity ranking |
 | `app/routes/documents.py` | CRUD /v1/documents/{id}, notifies search engines on update/delete |
 | `app/routes/books.py` | Book publishing: POST /v1/books, chapter management |
+| `app/routes/write.py` | Writing IDE API: sessions, chat, files, publish |
+| `app/routes/ide.py` | Serves the React SPA at /write |
+| `app/services/wave_engine.py` | Wave Method system prompts per wave |
+| `app/ide/` | React + Vite frontend for the Writing IDE |
 | `app/routes/reading.py` | GET /{slug}, GET /books/{slug} — content negotiation (HTML/JSON) |
 | `app/routes/discovery.py` | robots.txt, sitemap.xml, feed.xml, llms.txt, OG images, IndexNow + Google ping |
 | `app/routes/auth.py` | Email OTP + LinkedIn OAuth login/signup endpoints |
@@ -137,6 +141,36 @@ Chapter slugs: `{book-slug}-ch{N}-{chapter-title-slug}`
 - OG images show "Book · N chapters" at `/og/book_{id}.png`
 - MCP: `publish_book`, `get_book`, `update_book` tools + `write-book` prompt
 
+## Writing IDE (Wave Method)
+
+A React frontend at `/write` that guides authors through the Wave Method — a structured book-writing process.
+
+### The Wave Method
+| Wave | Name | Output |
+|------|------|--------|
+| 0 | Raw Capture | Author dumps ideas, agent asks clarifying questions, produces chapter structure |
+| 1 | Architecture | Scene-level outline for every chapter |
+| 2 | Voice & Texture | Opening 500-800 words of every chapter |
+| 3 | Pivotal Scenes | 8-10 load-bearing scenes in full polished form |
+| 4 | Full Draft | Complete linear draft incorporating previous waves |
+| 5+ | Edit Waves | Open-ended editorial passes directed by the author |
+
+### Tech Stack
+- **Frontend**: React + TypeScript + Vite, built to `app/ide/dist/`, served by FastAPI at `/write`
+- **Backend**: `/v1/write/*` API endpoints with cookie-based session auth
+- **AI**: Claude API (Sonnet) with tool_use for file generation, wave-specific system prompts
+- **Database**: `writing_sessions`, `writing_files`, `writing_messages` tables (migration 015)
+- **Build**: `cd app/ide && npm run build` — output served as static files by `app/routes/ide.py`
+
+### Key Details
+- Cookie auth (`lp_session`) is separate from API Bearer auth — set on login via `/v1/write/auth/login`
+- Claude uses a `save_file` tool to create manuscript files during chat
+- System prompts in `app/services/wave_engine.py` change per wave
+- Publish endpoint assembles chapter files and calls the existing book publishing pipeline
+- `write` is a reserved slug in `app/services/slug.py` and `app/routes/reading.py`
+- CSP middleware in `app/main.py` allows inline scripts for `/write` paths
+- Config: `ANTHROPIC_API_KEY`, `STRIPE_API_KEY`, `STRIPE_WEBHOOK_SECRET`, `IDE_SESSION_SECRET`
+
 ## Security-Sensitive Areas
 
 - **`app/services/renderer.py`**: HTML sanitized via nh3 after markdown rendering. Never bypass or use `|safe` without sanitization.
@@ -146,6 +180,7 @@ Chapter slugs: `{book-slug}-ch{N}-{chapter-title-slug}`
 - **`app/routes/auth.py`**: OTP verification uses `hmac.compare_digest()`. OAuth callback HTML-escapes all output.
 - **`app/routes/linkedin.py`**: `_result_page()` uses `html.escape()` on all parameters.
 - **`app/services/slug.py`**: Reserved slugs prevent squatting of platform paths.
+- **`app/routes/write.py`**: IDE session cookie uses HMAC-SHA256 signing. `HttpOnly; Secure; SameSite=Lax`. Directory traversal protection in `ide.py`.
 
 ## Deployment
 

@@ -4,6 +4,7 @@ import { useAuth } from "../components/AuthProvider";
 import { FileTree } from "../components/FileTree";
 import { ReaderPanel } from "../components/ReaderPanel";
 import { ChatPanel } from "../components/ChatPanel";
+import { VerticalResizable } from "../components/ResizablePanels";
 import {
   advanceWave,
   getFile,
@@ -213,20 +214,28 @@ export function Editor() {
           />
         </div>
 
-        {/* Main area: reader (top) + chat (bottom) */}
+        {/* Main area: reader (top) + chat (bottom), resizable */}
         <div className="main-area">
-          <ReaderPanel
-            title={selectedFile?.title || ""}
-            content={selectedFile?.content || ""}
-          />
-          <div className="resize-handle" />
-          <ChatPanel
-            sessionId={session.id}
-            currentWave={session.current_wave}
-            messages={messages}
-            onNewMessage={handleNewMessage}
-            onFileCreated={handleFileCreated}
-            onStreamComplete={handleStreamComplete}
+          <VerticalResizable
+            defaultTopPercent={55}
+            minTopPercent={15}
+            minBottomPercent={20}
+            top={
+              <ReaderPanel
+                title={selectedFile?.title || ""}
+                content={selectedFile?.content || ""}
+              />
+            }
+            bottom={
+              <ChatPanel
+                sessionId={session.id}
+                currentWave={session.current_wave}
+                messages={messages}
+                onNewMessage={handleNewMessage}
+                onFileCreated={handleFileCreated}
+                onStreamComplete={handleStreamComplete}
+              />
+            }
           />
         </div>
       </div>

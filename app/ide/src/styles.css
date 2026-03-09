@@ -245,7 +245,6 @@ input::placeholder, textarea::placeholder {
   overflow-y: auto;
   padding: 32px 48px;
   background: var(--bg-primary);
-  min-height: 200px;
 }
 
 .reader-content {
@@ -315,12 +314,11 @@ input::placeholder, textarea::placeholder {
 
 /* Chat panel */
 .chat-panel {
-  height: 320px;
-  min-height: 150px;
+  flex: 1;
   display: flex;
   flex-direction: column;
   background: var(--bg-secondary);
-  border-top: 1px solid var(--border);
+  overflow: hidden;
 }
 
 .chat-messages {
