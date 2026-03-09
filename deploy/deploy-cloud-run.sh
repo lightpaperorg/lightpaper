@@ -34,7 +34,7 @@ gcloud run deploy "$SERVICE_NAME" \
   --concurrency=100 \
   --add-cloudsql-instances="$CLOUD_SQL_CONNECTION" \
   --set-env-vars="^||^FIREBASE_PROJECT_ID=$PROJECT_ID||BASE_URL=https://lightpaper.org||CORS_ORIGINS=https://lightpaper.org,http://localhost:3000" \
-  --update-secrets="DATABASE_URL=lightpaper-db-url:latest,RESEND_API_KEY=resend-api-key:latest,LINKEDIN_CLIENT_ID=linkedin-client-id:latest,LINKEDIN_CLIENT_SECRET=linkedin-client-secret:latest,GSC_SERVICE_ACCOUNT_KEY=gsc-service-account-key:latest,ANTHROPIC_API_KEY=anthropic-api-key:latest,STRIPE_API_KEY=stripe-api-key:latest,STRIPE_WEBHOOK_SECRET=stripe-webhook-secret:latest,IDE_SESSION_SECRET=ide-session-secret:latest"
+  --update-secrets="DATABASE_URL=lightpaper-db-url:latest,RESEND_API_KEY=resend-api-key:latest,LINKEDIN_CLIENT_ID=linkedin-client-id:latest,LINKEDIN_CLIENT_SECRET=linkedin-client-secret:latest,GSC_SERVICE_ACCOUNT_KEY=gsc-service-account-key:latest,ANTHROPIC_API_KEY=ANTHROPIC_API_KEY:latest,STRIPE_API_KEY=stripe-api-key:latest,STRIPE_WEBHOOK_SECRET=stripe-webhook-secret:latest,IDE_SESSION_SECRET=ide-session-secret:latest"
 
 echo ""
 echo "=== Deployment complete ==="
