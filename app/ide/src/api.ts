@@ -101,11 +101,33 @@ export const listMessages = (sessionId: string, wave?: number) => {
   return request<Message[]>(`/sessions/${sessionId}/messages${params}`);
 };
 
-// Chat (streaming)
+// Chat event types
+export interface ChatTextEvent {
+  type: "text";
+  content: string;
+}
+
+export interface ChatFileCreatedEvent {
+  type: "file_created";
+  file: FileEntry;
+}
+
+export interface ChatErrorEvent {
+  type: "error";
+  content: string;
+}
+
+export interface ChatDoneEvent {
+  type: "done";
+}
+
+export type ChatEvent = ChatTextEvent | ChatFileCreatedEvent | ChatErrorEvent | ChatDoneEvent;
+
+// Chat (streaming with structured events)
 export async function* streamChat(
   sessionId: string,
   message: string
-): AsyncGenerator<string, void, unknown> {
+): AsyncGenerator<ChatEvent, void, unknown> {
   const res = await fetch(`${BASE}/sessions/${sessionId}/chat`, {
     method: "POST",
     credentials: "include",
@@ -134,10 +156,16 @@ export async function* streamChat(
 
     for (const line of lines) {
       if (line.startsWith("data: ")) {
-        const data = line.slice(6);
-        if (data === "[DONE]") return;
-        if (data.startsWith("[ERROR]")) throw new Error(data);
-        yield data;
+        const raw = line.slice(6);
+        try {
+          const event: ChatEvent = JSON.parse(raw);
+          if (event.type === "done") return;
+          yield event;
+        } catch {
+          // Legacy plain text fallback
+          if (raw === "[DONE]") return;
+          yield { type: "text", content: raw };
+        }
       }
     }
   }
@@ -149,3 +177,22 @@ export const advanceWave = (sessionId: string) =>
     `/sessions/${sessionId}/advance`,
     { method: "POST" }
   );
+
+// Publish
+export interface PublishResult {
+  book_id: string;
+  url: string;
+  quality_score: number;
+  chapter_count: number;
+  total_word_count: number;
+  chapters: { chapter_number: number; title: string; url: string; quality_score: number }[];
+}
+
+export const publishSession = (
+  sessionId: string,
+  options: { format?: string; authors?: { name: string; handle?: string }[]; tags?: string[]; description?: string } = {}
+) =>
+  request<PublishResult>(`/sessions/${sessionId}/publish`, {
+    method: "POST",
+    body: JSON.stringify(options),
+  });

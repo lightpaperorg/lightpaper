@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { Message } from "../api";
+import type { FileEntry, Message } from "../api";
 import { streamChat } from "../api";
 
 const WAVE_LABELS: Record<number, string> = {
@@ -15,10 +15,11 @@ interface Props {
   currentWave: number;
   messages: Message[];
   onNewMessage: (msg: Message) => void;
+  onFileCreated: (file: FileEntry) => void;
   onStreamComplete: () => void;
 }
 
-export function ChatPanel({ sessionId, currentWave, messages, onNewMessage, onStreamComplete }: Props) {
+export function ChatPanel({ sessionId, currentWave, messages, onNewMessage, onFileCreated, onStreamComplete }: Props) {
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
   const [streamText, setStreamText] = useState("");
@@ -50,9 +51,26 @@ export function ChatPanel({ sessionId, currentWave, messages, onNewMessage, onSt
 
     try {
       let fullResponse = "";
-      for await (const chunk of streamChat(sessionId, text)) {
-        fullResponse += chunk;
-        setStreamText(fullResponse);
+      const filesCreated: string[] = [];
+
+      for await (const event of streamChat(sessionId, text)) {
+        switch (event.type) {
+          case "text":
+            fullResponse += event.content;
+            setStreamText(fullResponse);
+            break;
+          case "file_created":
+            filesCreated.push(event.file.id);
+            onFileCreated(event.file);
+            // Add inline notification in stream
+            fullResponse += `\n\n> Saved: **${event.file.title}** (${event.file.word_count} words)\n\n`;
+            setStreamText(fullResponse);
+            break;
+          case "error":
+            fullResponse += `\n\n**Error:** ${event.content}`;
+            setStreamText(fullResponse);
+            break;
+        }
       }
 
       // Add assistant message
@@ -61,7 +79,7 @@ export function ChatPanel({ sessionId, currentWave, messages, onNewMessage, onSt
         wave: currentWave,
         role: "assistant",
         content: fullResponse,
-        files_generated: [],
+        files_generated: filesCreated,
         created_at: new Date().toISOString(),
       };
       onNewMessage(assistantMsg);
@@ -102,7 +120,14 @@ export function ChatPanel({ sessionId, currentWave, messages, onNewMessage, onSt
       <div className="chat-messages">
         {messages.map((msg) => (
           <div key={msg.id} className={`chat-message ${msg.role}`}>
-            <div className="chat-message-role">{msg.role}</div>
+            <div className="chat-message-role">
+              {msg.role}
+              {msg.files_generated.length > 0 && (
+                <span style={{ marginLeft: "8px", color: "var(--success)", fontWeight: "normal", textTransform: "none" }}>
+                  {msg.files_generated.length} file{msg.files_generated.length > 1 ? "s" : ""} saved
+                </span>
+              )}
+            </div>
             <div className="chat-message-content">{msg.content}</div>
           </div>
         ))}
@@ -123,7 +148,7 @@ export function ChatPanel({ sessionId, currentWave, messages, onNewMessage, onSt
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={`Message your writing assistant... (${navigator.platform.includes("Mac") ? "⌘" : "Ctrl"}+Enter to send)`}
+          placeholder={`Message your writing assistant... (${navigator.platform.includes("Mac") ? "\u2318" : "Ctrl"}+Enter to send)`}
           rows={2}
           disabled={streaming}
         />

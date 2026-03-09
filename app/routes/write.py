@@ -357,7 +357,36 @@ async def list_messages(
     ]
 
 
-# --- Chat (streaming) ---
+# --- Chat (streaming with tool_use for file creation) ---
+
+# Tool definition for Claude to create files
+SAVE_FILE_TOOL = {
+    "name": "save_file",
+    "description": "Save content as a file in the author's manuscript. Use this whenever you produce substantial content that the author should be able to review, edit, and navigate — outlines, chapter openings, pivotal scenes, full chapter drafts, research notes, etc.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "title": {
+                "type": "string",
+                "description": "Short title for the file (e.g., 'Chapter 3: Scene Outline', 'Wave 2 Opening: The Arrival')",
+            },
+            "content": {
+                "type": "string",
+                "description": "The full markdown content of the file",
+            },
+            "file_type": {
+                "type": "string",
+                "enum": ["research", "outline", "opening", "pivotal_scene", "draft", "edited", "notes"],
+                "description": "Type of content",
+            },
+            "chapter_number": {
+                "type": "integer",
+                "description": "Chapter number if this is chapter-specific content (omit for non-chapter files)",
+            },
+        },
+        "required": ["title", "content", "file_type"],
+    },
+}
 
 
 @router.post("/sessions/{session_id}/chat")
@@ -369,7 +398,7 @@ async def chat(
     account: Account = Depends(require_ide_session),
     db: AsyncSession = Depends(get_db),
 ):
-    """Send a message and get a streaming response from Claude."""
+    """Send a message and get a streaming response from Claude with file creation via tool_use."""
     session = await _load_session(session_id, account, db)
 
     if not settings.anthropic_api_key:
@@ -391,51 +420,128 @@ async def chat(
     system_prompt = get_system_prompt(session)
     messages = await build_messages(session, db)
 
+    # We need the session ID and wave in the stream closure
+    session_id_val = session.id
+    current_wave = session.current_wave
+
     async def stream():
+        import json
+
         import anthropic
 
         client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
-        full_response = ""
+        full_text_response = ""
         total_tokens = 0
+        created_file_ids = []
 
         try:
-            async with client.messages.stream(
-                model="claude-sonnet-4-20250514",
-                max_tokens=8192,
-                system=system_prompt,
-                messages=messages,
-            ) as stream_resp:
-                async for text in stream_resp.text_stream:
-                    full_response += text
-                    yield f"data: {text}\n\n"
+            # Use non-streaming for tool_use support, but stream text chunks
+            # We'll loop to handle tool_use responses
+            conv_messages = list(messages)
+            max_turns = 5  # Prevent infinite tool_use loops
 
-                # Get final usage
-                final = await stream_resp.get_final_message()
-                total_tokens = final.usage.input_tokens + final.usage.output_tokens
+            for _ in range(max_turns):
+                response = await client.messages.create(
+                    model="claude-sonnet-4-20250514",
+                    max_tokens=8192,
+                    system=system_prompt,
+                    messages=conv_messages,
+                    tools=[SAVE_FILE_TOOL],
+                )
+
+                total_tokens += response.usage.input_tokens + response.usage.output_tokens
+
+                # Process content blocks
+                tool_results = []
+                for block in response.content:
+                    if block.type == "text":
+                        full_text_response += block.text
+                        yield f"data: {json.dumps({'type': 'text', 'content': block.text})}\n\n"
+                    elif block.type == "tool_use" and block.name == "save_file":
+                        # Create the file
+                        try:
+                            from app.database import async_session
+
+                            inp = block.input
+                            word_count = len(inp.get("content", "").split())
+
+                            # Get next sort order
+                            async with async_session() as file_db:
+                                count_result = await file_db.execute(
+                                    select(WritingFile)
+                                    .where(
+                                        WritingFile.session_id == session_id_val,
+                                        WritingFile.wave == current_wave,
+                                    )
+                                )
+                                existing = count_result.scalars().all()
+                                next_sort = len(existing)
+
+                                new_file = WritingFile(
+                                    session_id=session_id_val,
+                                    wave=current_wave,
+                                    file_type=inp.get("file_type", "notes"),
+                                    chapter_number=inp.get("chapter_number"),
+                                    title=inp["title"],
+                                    content=inp["content"],
+                                    word_count=word_count,
+                                    sort_order=next_sort,
+                                )
+                                file_db.add(new_file)
+                                await file_db.commit()
+                                await file_db.refresh(new_file)
+                                file_id = str(new_file.id)
+                                created_file_ids.append(file_id)
+
+                            # Notify frontend of file creation
+                            yield f"data: {json.dumps({'type': 'file_created', 'file': {'id': file_id, 'title': inp['title'], 'file_type': inp.get('file_type', 'notes'), 'chapter_number': inp.get('chapter_number'), 'wave': current_wave, 'word_count': word_count, 'sort_order': next_sort}})}\n\n"
+
+                            tool_results.append({
+                                "type": "tool_result",
+                                "tool_use_id": block.id,
+                                "content": f"File saved: '{inp['title']}' ({word_count} words)",
+                            })
+                        except Exception as e:
+                            logger.error("Failed to save file: %s", e)
+                            tool_results.append({
+                                "type": "tool_result",
+                                "tool_use_id": block.id,
+                                "content": f"Error saving file: {e}",
+                                "is_error": True,
+                            })
+
+                # If no tool_use, we're done
+                if response.stop_reason != "tool_use":
+                    break
+
+                # Continue conversation with tool results
+                conv_messages.append({"role": "assistant", "content": response.content})
+                conv_messages.append({"role": "user", "content": tool_results})
 
         except Exception as e:
             logger.error("Claude API error: %s", e)
-            yield f"data: [ERROR] {str(e)}\n\n"
+            yield f"data: {json.dumps({'type': 'error', 'content': str(e)})}\n\n"
             return
         finally:
-            yield "data: [DONE]\n\n"
+            yield f"data: {json.dumps({'type': 'done'})}\n\n"
 
-        # Save assistant message (after stream completes)
+        # Save assistant message
         try:
             from app.database import async_session
 
             async with async_session() as save_db:
                 assistant_msg = WritingMessage(
-                    session_id=session.id,
-                    wave=session.current_wave,
+                    session_id=session_id_val,
+                    wave=current_wave,
                     role="assistant",
-                    content=full_response,
+                    content=full_text_response,
+                    files_generated=created_file_ids,
                     tokens_used=total_tokens,
                 )
                 save_db.add(assistant_msg)
                 await save_db.execute(
                     update(WritingSession)
-                    .where(WritingSession.id == session.id)
+                    .where(WritingSession.id == session_id_val)
                     .values(total_tokens_used=WritingSession.total_tokens_used + total_tokens)
                 )
                 await save_db.commit()
@@ -468,6 +574,237 @@ async def advance_wave(
     )
     await db.commit()
     return {"current_wave": new_wave, "wave_state": wave_state}
+
+
+# --- Publish ---
+
+
+class PublishRequest(BaseModel):
+    format: str = "post"
+    authors: list[dict] = []
+    tags: list[str] = []
+    description: str | None = None
+
+
+@router.post("/sessions/{session_id}/publish")
+async def publish_session(
+    session_id: str,
+    body: PublishRequest,
+    account: Account = Depends(require_ide_session),
+    db: AsyncSession = Depends(get_db),
+):
+    """Publish a writing session as a book on lightpaper.org."""
+    session = await _load_session(session_id, account, db)
+
+    if session.published_book_id:
+        raise HTTPException(status_code=400, detail="Session already published")
+
+    # Get the latest draft/edited files as chapters
+    result = await db.execute(
+        select(WritingFile)
+        .where(
+            WritingFile.session_id == session_id,
+            WritingFile.file_type.in_(["draft", "edited"]),
+            WritingFile.chapter_number.is_not(None),
+        )
+        .order_by(WritingFile.chapter_number, WritingFile.wave.desc())
+    )
+    all_files = result.scalars().all()
+
+    if not all_files:
+        raise HTTPException(
+            status_code=400,
+            detail="No chapter drafts found. Complete at least Wave 4 before publishing.",
+        )
+
+    # Deduplicate: take the highest-wave version of each chapter
+    chapters_by_num: dict[int, WritingFile] = {}
+    for f in all_files:
+        if f.chapter_number not in chapters_by_num:
+            chapters_by_num[f.chapter_number] = f
+
+    chapters = [chapters_by_num[n] for n in sorted(chapters_by_num.keys())]
+
+    if not chapters:
+        raise HTTPException(status_code=400, detail="No chapters found to publish")
+
+    # Build the PublishBookRequest and call the books route internally
+    from app.auth import AuthResult
+    from app.schemas import AuthorInfo, ChapterInput, PublishBookRequest, PublishOptions
+
+    authors = body.authors or [{"name": account.display_name or account.handle, "handle": account.handle}]
+    author_infos = [AuthorInfo(name=a.get("name", ""), handle=a.get("handle")) for a in authors]
+
+    chapter_inputs = [
+        ChapterInput(
+            title=ch.title,
+            content=ch.content,
+        )
+        for ch in chapters
+    ]
+
+    book_request = PublishBookRequest(
+        title=session.title,
+        subtitle=body.description,
+        description=body.description,
+        format=body.format,
+        authors=author_infos,
+        chapters=chapter_inputs,
+        tags=body.tags,
+        options=PublishOptions(listed=True),
+    )
+
+    # Import and call the publish_book logic directly
+    from app.routes.books import publish_book
+
+    # Create a mock auth result
+    auth_result = AuthResult(account=account, gravity_level=account.gravity_level)
+
+    # We need a real Request object for rate limiting - create the book via the internal function
+    # Instead, let's use the book creation logic directly
+    from app.id_gen import generate_book_id, generate_doc_id
+    from app.models import Book, BookChapter, Document, DocumentVersion
+    from app.services.quality import score_book_quality, score_quality
+    from app.services.renderer import (
+        compute_content_hash,
+        compute_reading_time,
+        compute_word_count,
+        extract_toc,
+        render_markdown,
+    )
+    from app.services.slug import ensure_unique_book_slug, ensure_unique_slug, generate_slug
+
+    book_id = generate_book_id()
+    book_slug = generate_slug(session.title)
+    book_slug = await ensure_unique_book_slug(book_slug, db)
+
+    chapter_qualities = []
+    chapter_data = []
+    total_word_count = 0
+
+    for i, ch in enumerate(chapters, 1):
+        word_count = compute_word_count(ch.content)
+        quality = score_quality(ch.title, ch.content)
+        rendered_html = render_markdown(ch.content)
+        content_hash = compute_content_hash(ch.content)
+        reading_time = compute_reading_time(word_count)
+        toc = extract_toc(ch.content)
+
+        chapter_slug = generate_slug(f"{session.title} ch{i} {ch.title}")
+        chapter_slug = await ensure_unique_slug(chapter_slug, db)
+
+        chapter_qualities.append((word_count, quality))
+        total_word_count += word_count
+
+        chapter_data.append({
+            "doc_id": generate_doc_id(),
+            "slug": chapter_slug,
+            "title": ch.title,
+            "content": ch.content,
+            "rendered_html": rendered_html,
+            "content_hash": content_hash,
+            "word_count": word_count,
+            "reading_time": reading_time,
+            "toc": toc,
+            "quality": quality,
+            "chapter_number": i,
+        })
+
+    book_quality = score_book_quality(chapter_qualities)
+
+    book = Book(
+        id=book_id,
+        account_id=account.id,
+        slug=book_slug,
+        title=session.title,
+        subtitle=body.description,
+        description=body.description,
+        format=body.format,
+        authors=[a.model_dump() for a in author_infos],
+        tags=body.tags,
+        listed=True,
+        quality_score=book_quality.total,
+        quality_detail={
+            "structure": book_quality.structure,
+            "substance": book_quality.substance,
+            "tone": book_quality.tone,
+            "attribution": book_quality.attribution,
+        },
+        author_gravity=account.gravity_level,
+        chapter_count=len(chapters),
+        total_word_count=total_word_count,
+    )
+    db.add(book)
+
+    chapter_responses = []
+    for cd in chapter_data:
+        doc = Document(
+            id=cd["doc_id"],
+            account_id=account.id,
+            slug=cd["slug"],
+            title=cd["title"],
+            format=body.format,
+            authors=[a.model_dump() for a in author_infos],
+            tags=body.tags,
+            listed=True,
+            quality_score=cd["quality"].total,
+            quality_detail={
+                "structure": cd["quality"].structure,
+                "substance": cd["quality"].substance,
+                "tone": cd["quality"].tone,
+                "attribution": cd["quality"].attribution,
+            },
+            author_gravity=account.gravity_level,
+            book_id=book_id,
+        )
+        db.add(doc)
+
+        version = DocumentVersion(
+            document_id=cd["doc_id"],
+            version=1,
+            content=cd["content"],
+            content_hash=cd["content_hash"],
+            rendered_html=cd["rendered_html"],
+            word_count=cd["word_count"],
+            reading_time=cd["reading_time"],
+            toc=cd["toc"],
+        )
+        db.add(version)
+
+        book_chapter = BookChapter(
+            book_id=book_id,
+            document_id=cd["doc_id"],
+            chapter_number=cd["chapter_number"],
+            chapter_title=cd["title"],
+        )
+        db.add(book_chapter)
+
+        chapter_responses.append({
+            "chapter_number": cd["chapter_number"],
+            "title": cd["title"],
+            "url": f"{settings.base_url}/{cd['slug']}",
+            "quality_score": cd["quality"].total,
+        })
+
+    # Update session
+    await db.execute(
+        update(WritingSession)
+        .where(WritingSession.id == session.id)
+        .values(published_book_id=book_id, status="completed")
+    )
+
+    await db.commit()
+
+    book_url = f"{settings.base_url}/{book_slug}"
+
+    return {
+        "book_id": book_id,
+        "url": book_url,
+        "quality_score": book_quality.total,
+        "chapter_count": len(chapters),
+        "total_word_count": total_word_count,
+        "chapters": chapter_responses,
+    }
 
 
 # --- Helpers ---

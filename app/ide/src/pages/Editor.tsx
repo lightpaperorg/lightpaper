@@ -9,9 +9,11 @@ import {
   getFile,
   getSession,
   listMessages,
+  publishSession,
   type FileContent,
   type FileEntry,
   type Message,
+  type PublishResult,
   type Session,
 } from "../api";
 
@@ -35,6 +37,8 @@ export function Editor() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [selectedFile, setSelectedFile] = useState<FileContent | null>(null);
   const [loading, setLoading] = useState(true);
+  const [publishing, setPublishing] = useState(false);
+  const [publishResult, setPublishResult] = useState<PublishResult | null>(null);
 
   const loadSession = useCallback(async () => {
     if (!sessionId) return;
@@ -71,9 +75,18 @@ export function Editor() {
     setMessages((prev) => [...prev, msg]);
   };
 
+  const handleFileCreated = (file: FileEntry) => {
+    setFiles((prev) => [...prev, file]);
+  };
+
   const handleStreamComplete = () => {
-    // Refresh session to pick up any new files
-    loadSession();
+    // Refresh session to pick up any state changes
+    if (sessionId) {
+      getSession(sessionId).then((sess) => {
+        setSession(sess);
+        setFiles(sess.files || []);
+      });
+    }
   };
 
   const handleAdvanceWave = async () => {
@@ -82,7 +95,25 @@ export function Editor() {
       const result = await advanceWave(sessionId);
       setSession({ ...session, current_wave: result.current_wave, wave_state: result.wave_state });
     } catch (err) {
-      console.error(err);
+      alert(err instanceof Error ? err.message : "Failed to advance wave");
+    }
+  };
+
+  const handlePublish = async () => {
+    if (!sessionId || !session || publishing) return;
+    if (!confirm("Publish this book to lightpaper.org? This will create a permanent public URL.")) return;
+    setPublishing(true);
+    try {
+      const result = await publishSession(sessionId, {
+        format: "post",
+        description: session.book_config.description as string | undefined,
+      });
+      setPublishResult(result);
+      setSession({ ...session, published_book_id: result.book_id, status: "completed" });
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Publishing failed");
+    } finally {
+      setPublishing(false);
     }
   };
 
@@ -98,10 +129,38 @@ export function Editor() {
         <span className="wave-badge">
           Wave {session.current_wave}: {waveLabel(session.current_wave)}
         </span>
-        <button className="btn btn-secondary" onClick={handleAdvanceWave} style={{ fontSize: "12px", padding: "4px 12px" }}>
-          Next Wave →
+        <button
+          className="btn btn-secondary"
+          onClick={handleAdvanceWave}
+          style={{ fontSize: "12px", padding: "4px 12px" }}
+        >
+          Next Wave
         </button>
+        {session.current_wave >= 4 && !session.published_book_id && (
+          <button
+            className="btn btn-primary"
+            onClick={handlePublish}
+            disabled={publishing}
+            style={{ fontSize: "12px", padding: "4px 12px" }}
+          >
+            {publishing ? "Publishing..." : "Publish"}
+          </button>
+        )}
+        {session.published_book_id && (
+          <a
+            href={publishResult?.url || `/books/${session.published_book_id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn btn-secondary"
+            style={{ fontSize: "12px", padding: "4px 12px", textDecoration: "none", color: "var(--success)" }}
+          >
+            Published
+          </a>
+        )}
         <div style={{ flex: 1 }} />
+        <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
+          {session.total_tokens_used.toLocaleString()} tokens
+        </span>
         {user && (
           <>
             <span style={{ fontSize: "13px", color: "var(--text-secondary)" }}>
@@ -114,11 +173,39 @@ export function Editor() {
         )}
       </div>
 
+      {/* Publish success banner */}
+      {publishResult && (
+        <div style={{
+          padding: "12px 16px",
+          background: "var(--accent-dim)",
+          color: "white",
+          fontSize: "13px",
+          display: "flex",
+          alignItems: "center",
+          gap: "12px",
+        }}>
+          Book published! {publishResult.chapter_count} chapters, {publishResult.total_word_count.toLocaleString()} words, quality {publishResult.quality_score}/100.
+          <a href={publishResult.url} target="_blank" rel="noopener noreferrer" style={{ color: "white", fontWeight: 600 }}>
+            View at {publishResult.url}
+          </a>
+          <button
+            className="btn btn-ghost"
+            onClick={() => setPublishResult(null)}
+            style={{ marginLeft: "auto", color: "white", fontSize: "12px" }}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
       {/* IDE layout */}
       <div className="ide-layout">
         {/* Sidebar */}
         <div className="sidebar">
-          <div className="sidebar-header">Files</div>
+          <div className="sidebar-header">
+            Files
+            <span style={{ float: "right", fontWeight: "normal" }}>{files.length}</span>
+          </div>
           <FileTree
             files={files}
             selectedId={selectedFile?.id || null}
@@ -138,6 +225,7 @@ export function Editor() {
             currentWave={session.current_wave}
             messages={messages}
             onNewMessage={handleNewMessage}
+            onFileCreated={handleFileCreated}
             onStreamComplete={handleStreamComplete}
           />
         </div>
