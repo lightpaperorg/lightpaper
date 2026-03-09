@@ -22,6 +22,7 @@ class Account(Base):
     bio = Column(Text)
     avatar_url = Column(Text)
     tier = Column(Text, nullable=False, default="free")
+    stripe_customer_id = Column(Text)
     verified_domain = Column(Text)
     verified_linkedin = Column(Boolean, default=False)
     orcid_id = Column(Text)

@@ -159,7 +159,10 @@ export function Editor() {
           </a>
         )}
         <div style={{ flex: 1 }} />
-        <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
+        <span
+          style={{ fontSize: "11px", color: "var(--text-muted)" }}
+          title="Tokens used in this session"
+        >
           {session.total_tokens_used.toLocaleString()} tokens
         </span>
         {user && (

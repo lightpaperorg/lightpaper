@@ -171,6 +171,7 @@ def mount_routes():
         accounts,
         auth,
         author,
+        billing,
         books,
         credentials,
         discovery,
@@ -197,6 +198,7 @@ def mount_routes():
     app.include_router(auth.router)
     app.include_router(linkedin.router)
     app.include_router(credentials.router)
+    app.include_router(billing.router)
     app.include_router(discovery.router)
     app.include_router(landing.router)
     # Writing IDE API + SPA — before catch-all

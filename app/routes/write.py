@@ -167,6 +167,23 @@ async def create_session(
     db: AsyncSession = Depends(get_db),
 ):
     """Create a new writing session."""
+    # Check session limit
+    from app.routes.billing import SESSION_LIMITS
+
+    tier = account.tier or "free"
+    limit = SESSION_LIMITS.get(tier, SESSION_LIMITS["free"])
+    result_count = await db.execute(
+        select(WritingSession).where(
+            WritingSession.account_id == account.id,
+            WritingSession.deleted_at.is_(None),
+        )
+    )
+    if len(result_count.scalars().all()) >= limit:
+        raise HTTPException(
+            status_code=403,
+            detail=f"{tier} tier limited to {limit} session(s). Delete a session or upgrade to Pro.",
+        )
+
     session = WritingSession(
         id=_generate_session_id(),
         account_id=account.id,
@@ -403,6 +420,17 @@ async def chat(
 
     if not settings.anthropic_api_key:
         raise HTTPException(status_code=503, detail="AI service not configured")
+
+    # Check token limit
+    from app.routes.billing import TOKEN_LIMITS
+
+    tier = account.tier or "free"
+    token_limit = TOKEN_LIMITS.get(tier, TOKEN_LIMITS["free"])
+    if session.total_tokens_used >= token_limit:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Token limit reached ({token_limit:,} tokens). Upgrade to Pro for more.",
+        )
 
     # Save user message
     user_msg = WritingMessage(

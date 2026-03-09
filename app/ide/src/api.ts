@@ -171,6 +171,47 @@ export async function* streamChat(
   }
 }
 
+// Billing
+const BILLING_BASE = "/v1/billing";
+
+export interface BillingStatus {
+  tier: string;
+  token_limit: number;
+  tokens_used: number;
+  tokens_remaining: number;
+  session_limit: number;
+  active_sessions: number;
+  has_stripe: boolean;
+}
+
+export const getBillingStatus = () =>
+  fetch(`${BILLING_BASE}/status`, { credentials: "include" })
+    .then((r) => {
+      if (!r.ok) throw new Error("Failed to fetch billing status");
+      return r.json() as Promise<BillingStatus>;
+    });
+
+export const createCheckout = () =>
+  fetch(`${BILLING_BASE}/checkout`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  }).then((r) => {
+    if (!r.ok) throw new Error("Failed to create checkout");
+    return r.json() as Promise<{ checkout_url: string }>;
+  });
+
+export const createPortal = () =>
+  fetch(`${BILLING_BASE}/portal`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+  }).then((r) => {
+    if (!r.ok) throw new Error("Failed to create portal");
+    return r.json() as Promise<{ portal_url: string }>;
+  });
+
 // Wave
 export const advanceWave = (sessionId: string) =>
   request<{ current_wave: number; wave_state: Record<string, { status: string }> }>(

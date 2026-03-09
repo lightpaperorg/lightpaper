@@ -1,7 +1,15 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../components/AuthProvider";
-import { createSession, listSessions, type Session } from "../api";
+import {
+  createSession,
+  createCheckout,
+  createPortal,
+  getBillingStatus,
+  listSessions,
+  type BillingStatus,
+  type Session,
+} from "../api";
 
 const WAVE_LABELS: Record<number, string> = {
   0: "Raw Capture",
@@ -18,6 +26,7 @@ function waveLabel(wave: number): string {
 export function Dashboard() {
   const { user, logout, loading: authLoading } = useAuth();
   const [sessions, setSessions] = useState<Session[]>([]);
+  const [billing, setBilling] = useState<BillingStatus | null>(null);
   const [title, setTitle] = useState("");
   const [creating, setCreating] = useState(false);
   const navigate = useNavigate();
@@ -25,6 +34,7 @@ export function Dashboard() {
   useEffect(() => {
     if (user) {
       listSessions().then(setSessions).catch(console.error);
+      getBillingStatus().then(setBilling).catch(console.error);
     }
   }, [user]);
 
@@ -100,6 +110,90 @@ export function Dashboard() {
             </p>
           )}
         </div>
+
+        {/* Billing status */}
+        {billing && (
+          <div style={{ marginTop: "32px" }}>
+            <h2 style={{ fontSize: "1.1rem", marginBottom: "12px" }}>Plan</h2>
+            <div style={{
+              padding: "16px",
+              background: "var(--bg-secondary)",
+              border: "1px solid var(--border)",
+              borderRadius: "var(--radius-lg)",
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "12px" }}>
+                <span style={{
+                  padding: "2px 10px",
+                  borderRadius: "12px",
+                  fontSize: "12px",
+                  fontWeight: 600,
+                  background: billing.tier === "pro" ? "var(--accent)" : "var(--bg-tertiary)",
+                  color: billing.tier === "pro" ? "white" : "var(--text-secondary)",
+                  textTransform: "uppercase",
+                }}>
+                  {billing.tier}
+                </span>
+                <span style={{ fontSize: "13px", color: "var(--text-secondary)" }}>
+                  {billing.tokens_used.toLocaleString()} / {billing.token_limit.toLocaleString()} tokens
+                </span>
+                <span style={{ fontSize: "13px", color: "var(--text-secondary)" }}>
+                  {billing.active_sessions} / {billing.session_limit} sessions
+                </span>
+              </div>
+
+              {/* Token usage bar */}
+              <div style={{
+                height: "4px",
+                background: "var(--bg-tertiary)",
+                borderRadius: "2px",
+                marginBottom: "12px",
+              }}>
+                <div style={{
+                  height: "100%",
+                  width: `${Math.min(100, (billing.tokens_used / billing.token_limit) * 100)}%`,
+                  background: billing.tokens_used / billing.token_limit > 0.9 ? "var(--danger)" : "var(--accent)",
+                  borderRadius: "2px",
+                  transition: "width 0.3s",
+                }} />
+              </div>
+
+              <div style={{ display: "flex", gap: "8px" }}>
+                {billing.tier === "free" && (
+                  <button
+                    className="btn btn-primary"
+                    style={{ fontSize: "13px" }}
+                    onClick={async () => {
+                      try {
+                        const { checkout_url } = await createCheckout();
+                        window.location.href = checkout_url;
+                      } catch (err) {
+                        alert(err instanceof Error ? err.message : "Failed to start checkout");
+                      }
+                    }}
+                  >
+                    Upgrade to Pro
+                  </button>
+                )}
+                {billing.has_stripe && (
+                  <button
+                    className="btn btn-secondary"
+                    style={{ fontSize: "13px" }}
+                    onClick={async () => {
+                      try {
+                        const { portal_url } = await createPortal();
+                        window.location.href = portal_url;
+                      } catch (err) {
+                        alert(err instanceof Error ? err.message : "Failed to open billing portal");
+                      }
+                    }}
+                  >
+                    Manage Billing
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
