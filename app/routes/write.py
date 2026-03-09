@@ -534,7 +534,7 @@ async def list_messages(
 
 # --- Chat (streaming with tool_use for file creation) ---
 
-# Tool definition for Claude to create files
+# Tool definitions for Claude
 SAVE_FILE_TOOL = {
     "name": "save_file",
     "description": "Save content as a file in the author's manuscript. Use this whenever you produce substantial content that the author should be able to review, edit, and navigate — outlines, chapter openings, pivotal scenes, full chapter drafts, research notes, etc.",
@@ -560,6 +560,25 @@ SAVE_FILE_TOOL = {
             },
         },
         "required": ["title", "content", "file_type"],
+    },
+}
+
+RESEARCH_TOOL = {
+    "name": "research",
+    "description": "Spawn a focused research sub-agent to investigate a topic in depth. Use this when you need to think deeply about historical context, technical details, character psychology, plot mechanics, narrative structure, or any subject that would benefit from dedicated analysis before incorporating into the manuscript. The sub-agent will return a detailed research brief.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "query": {
+                "type": "string",
+                "description": "The research question or topic to investigate in depth",
+            },
+            "context": {
+                "type": "string",
+                "description": "Relevant context from the manuscript — what you already know and what specifically you need to learn",
+            },
+        },
+        "required": ["query"],
     },
 }
 
@@ -628,11 +647,15 @@ async def chat(
 
             for _ in range(max_turns):
                 response = await client.messages.create(
-                    model="claude-sonnet-4-20250514",
-                    max_tokens=8192,
+                    model="claude-opus-4-6",
+                    max_tokens=16000,
+                    thinking={
+                        "type": "enabled",
+                        "budget_tokens": 10000,
+                    },
                     system=system_prompt,
                     messages=conv_messages,
-                    tools=[SAVE_FILE_TOOL],
+                    tools=[SAVE_FILE_TOOL, RESEARCH_TOOL],
                 )
 
                 total_tokens += response.usage.input_tokens + response.usage.output_tokens
@@ -640,9 +663,34 @@ async def chat(
                 # Process content blocks
                 tool_results = []
                 for block in response.content:
-                    if block.type == "text":
+                    if block.type == "thinking":
+                        # Extended thinking — don't send to frontend
+                        continue
+                    elif block.type == "text":
                         full_text_response += block.text
                         yield f"data: {json.dumps({'type': 'text', 'content': block.text})}\n\n"
+                    elif block.type == "tool_use" and block.name == "research":
+                        # Spawn a research sub-agent
+                        try:
+                            yield f"data: {json.dumps({'type': 'text', 'content': '\\n\\n*Researching...*\\n\\n'})}\n\n"
+                            research_result = await _run_research(
+                                client, block.input.get("query", ""),
+                                block.input.get("context", ""),
+                                session_id_val,
+                            )
+                            tool_results.append({
+                                "type": "tool_result",
+                                "tool_use_id": block.id,
+                                "content": research_result,
+                            })
+                        except Exception as e:
+                            logger.error("Research sub-agent error: %s", e)
+                            tool_results.append({
+                                "type": "tool_result",
+                                "tool_use_id": block.id,
+                                "content": f"Research failed: {e}",
+                                "is_error": True,
+                            })
                     elif block.type == "tool_use" and block.name == "save_file":
                         # Create the file
                         try:
@@ -991,6 +1039,46 @@ async def publish_session(
         "total_word_count": total_word_count,
         "chapters": chapter_responses,
     }
+
+
+# --- Research sub-agent ---
+
+
+async def _run_research(client, query: str, context: str, session_id: str) -> str:
+    """Spawn a focused research sub-agent to investigate a topic."""
+    research_prompt = f"""You are a research assistant for a book being written on lightpaper.org.
+
+Investigate the following topic thoroughly and return a detailed research brief.
+
+RESEARCH QUERY: {query}
+
+CONTEXT FROM MANUSCRIPT: {context or 'No additional context provided.'}
+
+Your research brief should include:
+- Key facts, dates, and details
+- Multiple perspectives or interpretations where relevant
+- Specific details that would make fiction feel authentic or non-fiction feel authoritative
+- Sources of potential inaccuracy to watch out for
+- Vivid sensory or experiential details a writer could use
+
+Be thorough but concise. Focus on what's most useful for the manuscript."""
+
+    response = await client.messages.create(
+        model="claude-opus-4-6",
+        max_tokens=8000,
+        thinking={
+            "type": "enabled",
+            "budget_tokens": 8000,
+        },
+        messages=[{"role": "user", "content": research_prompt}],
+    )
+
+    # Extract text from response (skip thinking blocks)
+    text_parts = []
+    for block in response.content:
+        if block.type == "text":
+            text_parts.append(block.text)
+    return "\n".join(text_parts) or "No research results."
 
 
 # --- Helpers ---

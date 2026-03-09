@@ -58,13 +58,13 @@ export function Dashboard() {
     <div>
       <div className="topbar">
         <Link to="/" className="topbar-brand">lightpaper</Link>
-        <span className="topbar-title">Writing IDE</span>
+        <span className="topbar-title"></span>
         {user && (
           <>
-            <span style={{ fontSize: "13px", color: "var(--text-secondary)" }}>
+            <span style={{ fontSize: "12px", color: "var(--text-secondary)" }}>
               {user.display_name || user.handle}
             </span>
-            <button className="btn btn-ghost" onClick={logout} style={{ fontSize: "13px" }}>
+            <button className="btn btn-ghost" onClick={logout} style={{ fontSize: "12px" }}>
               Sign out
             </button>
           </>

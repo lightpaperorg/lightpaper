@@ -81,7 +81,15 @@ export function Login() {
   return (
     <div className="login-page">
       <div className="login-card">
-        <h1>Writing IDE</h1>
+        <div style={{
+          width: "32px",
+          height: "44px",
+          background: "var(--text-bright)",
+          borderRadius: "2px",
+          marginBottom: "16px",
+          boxShadow: "0 0 20px 4px rgba(255,210,112,0.15), 0 0 40px 10px rgba(255,210,112,0.06)",
+        }} />
+        <h1>lightpaper</h1>
 
         {step === "email" && (
           <>
