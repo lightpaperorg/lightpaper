@@ -42,7 +42,7 @@ export function FileTree({ files, selectedId, onSelect }: Props) {
 
   if (files.length === 0) {
     return (
-      <div className="file-tree" style={{ padding: "16px", color: "var(--text-muted)", fontSize: "13px" }}>
+      <div className="file-tree" style={{ padding: "16px", color: "var(--text-mute)", fontSize: "0.8rem" }}>
         No files yet. Start chatting to generate content.
       </div>
     );

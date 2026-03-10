@@ -112,7 +112,7 @@ export function ChatPanel({ sessionId, currentWave, messages, onNewMessage, onFi
 
   return (
     <div className="chat-panel">
-      <div style={{ padding: "6px 16px", fontSize: "11px", color: "var(--text-muted)", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: "8px" }}>
+      <div style={{ padding: "6px 16px", fontSize: "0.7rem", color: "var(--text-mute)", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: "8px" }}>
         <span className="wave-badge">Wave {currentWave}</span>
         <span>{waveName}</span>
         {streaming && <span className="streaming-indicator" />}

@@ -7,6 +7,13 @@ import { Dashboard } from "./pages/Dashboard";
 import { Editor } from "./pages/Editor";
 import "./styles.css";
 
+// Register service worker for PWA
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/write/sw.js").catch(() => {});
+  });
+}
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <BrowserRouter basename="/write">

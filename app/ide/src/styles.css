@@ -48,12 +48,14 @@
 
 html, body, #root {
   height: 100%;
+  height: 100dvh;
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-sans);
   font-size: 16px;
   line-height: 1.7;
   -webkit-font-smoothing: antialiased;
+  -webkit-text-size-adjust: 100%;
 }
 
 /* Scrollbar */
@@ -569,4 +571,231 @@ input::placeholder, textarea::placeholder {
   animation: pulse 1.2s infinite;
   margin-left: 4px;
   vertical-align: middle;
+}
+
+/* Editor root — full viewport */
+.editor-root {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+}
+
+/* Publish success banner */
+.publish-banner {
+  padding: 10px 16px;
+  background: var(--accent-dim);
+  color: var(--text-bright);
+  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+/* Mobile hamburger / more buttons */
+.topbar-hamburger,
+.topbar-more {
+  font-size: 1.2rem;
+  padding: 4px 6px;
+  min-width: 32px;
+  justify-content: center;
+}
+
+/* Mobile dropdown menu */
+.mobile-menu {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 12px 16px;
+  flex-shrink: 0;
+}
+
+.mobile-menu-title {
+  font-weight: 500;
+  color: var(--text-bright);
+  margin-bottom: 4px;
+}
+
+.mobile-menu-meta {
+  font-size: 0.8rem;
+  color: var(--text-mute);
+  margin-bottom: 12px;
+}
+
+.mobile-menu-actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.mobile-menu-actions .btn {
+  font-size: 0.8rem;
+  padding: 6px 12px;
+}
+
+.mobile-menu-user {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  color: var(--text-mute);
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+/* Mobile sidebar overlay + drawer */
+.sidebar-overlay {
+  position: fixed;
+  inset: 0;
+  top: 44px;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 99;
+}
+
+.sidebar-mobile {
+  position: fixed;
+  top: 44px;
+  left: 0;
+  bottom: 0;
+  width: 280px;
+  z-index: 100;
+  transform: translateX(-100%);
+  transition: transform 0.2s ease;
+  border-right: 1px solid var(--border);
+}
+
+.sidebar-mobile.open {
+  transform: translateX(0);
+}
+
+/* Mobile tab bar */
+.mobile-tabs {
+  display: flex;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.mobile-tab {
+  flex: 1;
+  padding: 10px;
+  text-align: center;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-mute);
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s;
+}
+
+.mobile-tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+/* Mobile content area */
+.mobile-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* ---- Mobile responsive ---- */
+@media (max-width: 767px) {
+  .topbar {
+    padding: 0 10px;
+    gap: 8px;
+  }
+
+  .dashboard {
+    padding: 2.5rem 1rem 2rem;
+  }
+
+  .dashboard h1 {
+    font-size: 1.25rem;
+  }
+
+  .new-session-form {
+    flex-direction: column;
+  }
+
+  .new-session-form .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .session-card {
+    padding: 12px 14px;
+    gap: 10px;
+  }
+
+  .session-card-title {
+    font-size: 0.9rem;
+  }
+
+  .login-page {
+    height: 100dvh;
+    padding: 0 0.5rem;
+    align-items: flex-start;
+    padding-top: 20vh;
+  }
+
+  .reader-panel {
+    padding: 20px 16px;
+  }
+
+  .reader-content {
+    max-width: 100%;
+    font-size: 1rem;
+  }
+
+  .chat-messages {
+    padding: 10px 12px;
+  }
+
+  .chat-message {
+    max-width: 95%;
+  }
+
+  .chat-message-content {
+    font-size: 0.85rem;
+  }
+
+  .chat-input-area {
+    padding: 8px 12px;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom));
+  }
+
+  .chat-input-area textarea {
+    font-size: 16px; /* Prevent iOS zoom on focus */
+  }
+
+  .tree-file {
+    padding: 8px 12px 8px 24px;
+  }
+
+  .tree-folder-label {
+    padding: 8px 12px;
+  }
+}
+
+/* Standalone PWA: account for safe areas */
+@media (display-mode: standalone) {
+  .topbar {
+    padding-top: env(safe-area-inset-top);
+    height: calc(44px + env(safe-area-inset-top));
+  }
+
+  .chat-input-area {
+    padding-bottom: calc(10px + env(safe-area-inset-bottom));
+  }
+
+  .sidebar-mobile {
+    top: calc(44px + env(safe-area-inset-top));
+  }
+
+  .sidebar-overlay {
+    top: calc(44px + env(safe-area-inset-top));
+  }
 }

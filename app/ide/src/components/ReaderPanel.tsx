@@ -14,15 +14,15 @@ export function ReaderPanel({ title, content }: Props) {
             <div style={{
               width: "32px",
               height: "44px",
-              background: "var(--text-muted)",
+              background: "var(--text-mute)",
               borderRadius: "2px",
               margin: "0 auto 16px",
               opacity: 0.25,
             }} />
-            <div style={{ fontSize: "14px", color: "var(--text-secondary)", marginBottom: "6px" }}>
+            <div style={{ fontSize: "0.85rem", color: "var(--text)", marginBottom: "6px" }}>
               Your manuscript will appear here
             </div>
-            <div style={{ fontSize: "12px", color: "var(--text-muted)", maxWidth: "320px" }}>
+            <div style={{ fontSize: "0.75rem", color: "var(--text-mute)", maxWidth: "320px" }}>
               Start by chatting with your writing assistant below.
               Files will appear in the sidebar as content is generated.
             </div>

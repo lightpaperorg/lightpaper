@@ -1,0 +1,29 @@
+{
+  "name": "lightpaper — Writing IDE",
+  "short_name": "lightpaper",
+  "description": "Write books using the Wave Method",
+  "start_url": "/write/",
+  "scope": "/write/",
+  "display": "standalone",
+  "background_color": "#0A0B10",
+  "theme_color": "#0A0B10",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
