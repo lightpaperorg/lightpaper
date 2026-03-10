@@ -1,5 +1,6 @@
 """Writing IDE API: sessions, files, messages, and chat streaming."""
 
+import asyncio
 import hashlib
 import hmac
 import logging
@@ -616,6 +617,24 @@ WEB_FETCH_TOOL = {
     },
 }
 
+READ_FILE_TOOL = {
+    "name": "read_file",
+    "description": "Read back a previously saved manuscript file. Use this to review your own work before revising, to check continuity across chapters, or to reference earlier outlines and research notes. Always read a file before rewriting it.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "title": {
+                "type": "string",
+                "description": "The title (or partial title) of the file to read. Matches the closest file by title.",
+            },
+            "file_id": {
+                "type": "string",
+                "description": "The exact file ID if known (from a previous save_file result).",
+            },
+        },
+    },
+}
+
 
 @router.post("/sessions/{session_id}/chat")
 @limiter.limit("30/minute")
@@ -654,9 +673,10 @@ async def chat(
     await db.commit()
 
     # Build conversation context
-    from app.services.wave_engine import build_messages, get_system_prompt
+    from app.services.wave_engine import build_messages, get_file_inventory, get_system_prompt
 
-    system_prompt = get_system_prompt(session)
+    file_inventory = await get_file_inventory(session.id, db)
+    system_prompt = get_system_prompt(session, file_inventory)
     messages = await build_messages(session, db)
 
     # We need the session ID and wave in the stream closure
@@ -674,146 +694,89 @@ async def chat(
         created_file_ids = []
 
         try:
-            # Use non-streaming for tool_use support, but stream text chunks
-            # We'll loop to handle tool_use responses
+            # Loop to handle multi-turn tool_use chains
             conv_messages = list(messages)
-            max_turns = 10  # Allow search → fetch → research → write chains
+            max_turns = 10
 
             for _ in range(max_turns):
                 response = await client.messages.create(
                     model="claude-opus-4-6",
-                    max_tokens=16000,
+                    max_tokens=128000,
                     thinking={
                         "type": "enabled",
-                        "budget_tokens": 10000,
+                        "budget_tokens": 32000,
                     },
                     system=system_prompt,
                     messages=conv_messages,
-                    tools=[SAVE_FILE_TOOL, RESEARCH_TOOL, WEB_SEARCH_TOOL, WEB_FETCH_TOOL],
+                    tools=[SAVE_FILE_TOOL, READ_FILE_TOOL, RESEARCH_TOOL, WEB_SEARCH_TOOL, WEB_FETCH_TOOL],
+                    extra_headers={"anthropic-beta": "output-128k-2025-02-19,context-1m-2025-08-07"},
                 )
 
                 total_tokens += response.usage.input_tokens + response.usage.output_tokens
 
-                # Process content blocks
-                tool_results = []
+                # Extract text and collect tool calls
+                tool_calls = []
                 for block in response.content:
                     if block.type == "thinking":
-                        # Extended thinking — don't send to frontend
                         continue
                     elif block.type == "text":
                         full_text_response += block.text
                         yield f"data: {json.dumps({'type': 'text', 'content': block.text})}\n\n"
-                    elif block.type == "tool_use" and block.name == "research":
-                        # Spawn a research sub-agent
-                        try:
-                            yield f"data: {json.dumps({'type': 'text', 'content': '\\n\\n*Researching...*\\n\\n'})}\n\n"
-                            research_result = await _run_research(
-                                client, block.input.get("query", ""),
-                                block.input.get("context", ""),
-                                session_id_val,
-                            )
-                            tool_results.append({
-                                "type": "tool_result",
-                                "tool_use_id": block.id,
-                                "content": research_result,
-                            })
-                        except Exception as e:
-                            logger.error("Research sub-agent error: %s", e)
-                            tool_results.append({
-                                "type": "tool_result",
-                                "tool_use_id": block.id,
-                                "content": f"Research failed: {e}",
-                                "is_error": True,
-                            })
-                    elif block.type == "tool_use" and block.name == "web_search":
-                        try:
-                            yield f"data: {json.dumps({'type': 'text', 'content': '\\n\\n*Searching the web...*\\n\\n'})}\n\n"
-                            search_results = await _web_search(
-                                block.input.get("query", ""),
-                                block.input.get("count", 5),
-                            )
-                            tool_results.append({
-                                "type": "tool_result",
-                                "tool_use_id": block.id,
-                                "content": search_results,
-                            })
-                        except Exception as e:
-                            logger.error("Web search error: %s", e)
-                            tool_results.append({
-                                "type": "tool_result",
-                                "tool_use_id": block.id,
-                                "content": f"Search failed: {e}",
-                                "is_error": True,
-                            })
-                    elif block.type == "tool_use" and block.name == "web_fetch":
-                        try:
-                            yield f"data: {json.dumps({'type': 'text', 'content': '\\n\\n*Reading web page...*\\n\\n'})}\n\n"
-                            page_content = await _web_fetch(block.input.get("url", ""))
-                            tool_results.append({
-                                "type": "tool_result",
-                                "tool_use_id": block.id,
-                                "content": page_content,
-                            })
-                        except Exception as e:
-                            logger.error("Web fetch error: %s", e)
-                            tool_results.append({
-                                "type": "tool_result",
-                                "tool_use_id": block.id,
-                                "content": f"Fetch failed: {e}",
-                                "is_error": True,
-                            })
-                    elif block.type == "tool_use" and block.name == "save_file":
-                        # Create the file
-                        try:
-                            from app.database import async_session
+                    elif block.type == "tool_use":
+                        tool_calls.append(block)
 
-                            inp = block.input
-                            word_count = len(inp.get("content", "").split())
+                # Execute all tool calls in parallel
+                if tool_calls:
+                    active = {tc.name for tc in tool_calls}
+                    labels = {
+                        "research": "researching",
+                        "web_search": "searching the web",
+                        "web_fetch": "reading web pages",
+                        "read_file": "reviewing manuscript",
+                    }
+                    status = [labels[n] for n in active if n in labels]
+                    if status:
+                        status_text = "\n\n*" + ", ".join(status).capitalize() + "...*\n\n"
+                        yield f"data: {json.dumps({'type': 'text', 'content': status_text})}\n\n"
 
-                            # Get next sort order
-                            async with async_session() as file_db:
-                                count_result = await file_db.execute(
-                                    select(WritingFile)
-                                    .where(
-                                        WritingFile.session_id == session_id_val,
-                                        WritingFile.wave == current_wave,
-                                    )
+                    async def _exec_tool(block):
+                        try:
+                            if block.name == "save_file":
+                                content, file_event = await _save_manuscript_file(
+                                    block.input, session_id_val, current_wave,
                                 )
-                                existing = count_result.scalars().all()
-                                next_sort = len(existing)
-
-                                new_file = WritingFile(
-                                    session_id=session_id_val,
-                                    wave=current_wave,
-                                    file_type=inp.get("file_type", "notes"),
-                                    chapter_number=inp.get("chapter_number"),
-                                    title=inp["title"],
-                                    content=inp["content"],
-                                    word_count=word_count,
-                                    sort_order=next_sort,
+                                return {"type": "tool_result", "tool_use_id": block.id, "content": content}, file_event
+                            elif block.name == "read_file":
+                                content = await _read_manuscript_file(block.input, session_id_val)
+                                return {"type": "tool_result", "tool_use_id": block.id, "content": content}, None
+                            elif block.name == "research":
+                                content = await _run_research(
+                                    client, block.input.get("query", ""),
+                                    block.input.get("context", ""), session_id_val,
                                 )
-                                file_db.add(new_file)
-                                await file_db.commit()
-                                await file_db.refresh(new_file)
-                                file_id = str(new_file.id)
-                                created_file_ids.append(file_id)
-
-                            # Notify frontend of file creation
-                            yield f"data: {json.dumps({'type': 'file_created', 'file': {'id': file_id, 'title': inp['title'], 'file_type': inp.get('file_type', 'notes'), 'chapter_number': inp.get('chapter_number'), 'wave': current_wave, 'word_count': word_count, 'sort_order': next_sort}})}\n\n"
-
-                            tool_results.append({
-                                "type": "tool_result",
-                                "tool_use_id": block.id,
-                                "content": f"File saved: '{inp['title']}' ({word_count} words)",
-                            })
+                                return {"type": "tool_result", "tool_use_id": block.id, "content": content}, None
+                            elif block.name == "web_search":
+                                content = await _web_search(
+                                    block.input.get("query", ""), block.input.get("count", 5),
+                                )
+                                return {"type": "tool_result", "tool_use_id": block.id, "content": content}, None
+                            elif block.name == "web_fetch":
+                                content = await _web_fetch(block.input.get("url", ""))
+                                return {"type": "tool_result", "tool_use_id": block.id, "content": content}, None
+                            else:
+                                return {"type": "tool_result", "tool_use_id": block.id, "content": "Unknown tool", "is_error": True}, None
                         except Exception as e:
-                            logger.error("Failed to save file: %s", e)
-                            tool_results.append({
-                                "type": "tool_result",
-                                "tool_use_id": block.id,
-                                "content": f"Error saving file: {e}",
-                                "is_error": True,
-                            })
+                            logger.error("Tool %s error: %s", block.name, e)
+                            return {"type": "tool_result", "tool_use_id": block.id, "content": str(e), "is_error": True}, None
+
+                    results = await asyncio.gather(*[_exec_tool(tc) for tc in tool_calls])
+
+                    tool_results = []
+                    for tool_result, file_event in results:
+                        tool_results.append(tool_result)
+                        if file_event:
+                            created_file_ids.append(file_event["file"]["id"])
+                            yield f"data: {json.dumps(file_event)}\n\n"
 
                 # If no tool_use, we're done
                 if response.stop_reason != "tool_use":
@@ -1110,6 +1073,94 @@ async def publish_session(
         "total_word_count": total_word_count,
         "chapters": chapter_responses,
     }
+
+
+# --- Manuscript file tools ---
+
+
+async def _save_manuscript_file(inp: dict, session_id: str, wave: int) -> tuple[str, dict]:
+    """Save a file to the manuscript. Returns (result_text, file_event)."""
+    from app.database import async_session
+
+    word_count = len(inp.get("content", "").split())
+
+    async with async_session() as file_db:
+        count_result = await file_db.execute(
+            select(WritingFile).where(
+                WritingFile.session_id == session_id,
+                WritingFile.wave == wave,
+            )
+        )
+        existing = count_result.scalars().all()
+        next_sort = len(existing)
+
+        new_file = WritingFile(
+            session_id=session_id,
+            wave=wave,
+            file_type=inp.get("file_type", "notes"),
+            chapter_number=inp.get("chapter_number"),
+            title=inp["title"],
+            content=inp["content"],
+            word_count=word_count,
+            sort_order=next_sort,
+        )
+        file_db.add(new_file)
+        await file_db.commit()
+        await file_db.refresh(new_file)
+        file_id = str(new_file.id)
+
+    return f"File saved: '{inp['title']}' ({word_count} words)", {
+        "type": "file_created",
+        "file": {
+            "id": file_id,
+            "title": inp["title"],
+            "file_type": inp.get("file_type", "notes"),
+            "chapter_number": inp.get("chapter_number"),
+            "wave": wave,
+            "word_count": word_count,
+            "sort_order": next_sort,
+        },
+    }
+
+
+async def _read_manuscript_file(inp: dict, session_id: str) -> str:
+    """Read back a manuscript file by ID or title search."""
+    from app.database import async_session
+
+    async with async_session() as file_db:
+        if inp.get("file_id"):
+            result = await file_db.execute(
+                select(WritingFile).where(
+                    WritingFile.id == inp["file_id"],
+                    WritingFile.session_id == session_id,
+                )
+            )
+            f = result.scalar_one_or_none()
+        else:
+            # Search by title
+            title = inp.get("title", "")
+            result = await file_db.execute(
+                select(WritingFile)
+                .where(WritingFile.session_id == session_id)
+                .order_by(WritingFile.wave.desc(), WritingFile.sort_order)
+            )
+            files = result.scalars().all()
+            f = None
+            title_lower = title.lower()
+            for file in files:
+                if title_lower in file.title.lower() or file.title.lower() in title_lower:
+                    f = file
+                    break
+            if not f and files:
+                file_list = "\n".join(
+                    f"- {fi.title} (Wave {fi.wave}, {fi.word_count} words)" for fi in files
+                )
+                return f"No file matching '{title}'. Available files:\n{file_list}"
+
+        if not f:
+            return "File not found."
+
+        return f"# {f.title}\nType: {f.file_type} | Wave: {f.wave} | Words: {f.word_count}\n\n{f.content}"
 
 
 # --- Web search & fetch ---

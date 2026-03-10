@@ -81,19 +81,12 @@ export function Login() {
   return (
     <div className="login-page">
       <div className="login-card">
-        <div style={{
-          width: "32px",
-          height: "44px",
-          background: "var(--text-bright)",
-          borderRadius: "2px",
-          marginBottom: "16px",
-          boxShadow: "0 0 20px 4px rgba(255,210,112,0.15), 0 0 40px 10px rgba(255,210,112,0.06)",
-        }} />
+        <div className="login-mark" />
         <h1>lightpaper</h1>
 
         {step === "email" && (
           <>
-            <p>Enter your email to sign in or create an account.</p>
+            <p>Sign in or create an account.</p>
             <form onSubmit={handleEmailSubmit}>
               <input
                 type="email"
@@ -107,11 +100,11 @@ export function Login() {
                 {loading ? "Sending code..." : "Continue with email"}
               </button>
             </form>
-            <p style={{ marginTop: "16px", fontSize: "12px", color: "var(--text-muted)" }}>
+            <p style={{ marginTop: "1.25rem" }}>
               Already have an API key?{" "}
               <button
+                className="link-btn"
                 onClick={() => { setStep("apikey"); setError(""); }}
-                style={{ color: "var(--accent)", background: "none", border: "none", cursor: "pointer", fontSize: "12px", padding: 0 }}
               >
                 Sign in with API key
               </button>
@@ -131,17 +124,17 @@ export function Login() {
                 onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
                 placeholder="6-digit code"
                 autoFocus
-                style={{ letterSpacing: "4px", textAlign: "center", fontSize: "18px" }}
+                style={{ letterSpacing: "4px", textAlign: "center", fontSize: "1.1rem" }}
               />
               {error && <div className="login-error">{error}</div>}
               <button className="btn btn-primary" type="submit" disabled={loading || code.length !== 6}>
                 {loading ? "Verifying..." : "Verify code"}
               </button>
             </form>
-            <p style={{ marginTop: "16px", fontSize: "12px", color: "var(--text-muted)" }}>
+            <p style={{ marginTop: "1.25rem" }}>
               <button
+                className="link-btn"
                 onClick={() => { setStep("email"); setError(""); setCode(""); }}
-                style={{ color: "var(--accent)", background: "none", border: "none", cursor: "pointer", fontSize: "12px", padding: 0 }}
               >
                 Use a different email
               </button>
@@ -165,10 +158,10 @@ export function Login() {
                 {loading ? "Signing in..." : "Sign in"}
               </button>
             </form>
-            <p style={{ marginTop: "16px", fontSize: "12px", color: "var(--text-muted)" }}>
+            <p style={{ marginTop: "1.25rem" }}>
               <button
+                className="link-btn"
                 onClick={() => { setStep("email"); setError(""); }}
-                style={{ color: "var(--accent)", background: "none", border: "none", cursor: "pointer", fontSize: "12px", padding: 0 }}
               >
                 Sign in with email instead
               </button>

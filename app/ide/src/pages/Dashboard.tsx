@@ -61,10 +61,10 @@ export function Dashboard() {
         <span className="topbar-title"></span>
         {user && (
           <>
-            <span style={{ fontSize: "12px", color: "var(--text-secondary)" }}>
+            <span style={{ fontSize: "0.8rem", color: "var(--text-mute)" }}>
               {user.display_name || user.handle}
             </span>
-            <button className="btn btn-ghost" onClick={logout} style={{ fontSize: "12px" }}>
+            <button className="btn btn-ghost" onClick={logout} style={{ fontSize: "0.8rem" }}>
               Sign out
             </button>
           </>
@@ -105,7 +105,7 @@ export function Dashboard() {
             </Link>
           ))}
           {sessions.length === 0 && (
-            <p style={{ color: "var(--text-muted)", padding: "16px 0" }}>
+            <p style={{ color: "var(--text-mute)", padding: "1rem 0" }}>
               No books yet. Enter a title above to start your first book.
             </p>
           )}
@@ -113,11 +113,11 @@ export function Dashboard() {
 
         {/* Billing status */}
         {billing && (
-          <div style={{ marginTop: "32px" }}>
-            <h2 style={{ fontSize: "1.1rem", marginBottom: "12px" }}>Plan</h2>
+          <div style={{ marginTop: "2.5rem" }}>
+            <h2>Plan</h2>
             <div style={{
-              padding: "16px",
-              background: "var(--bg-secondary)",
+              padding: "1.25rem",
+              background: "var(--surface)",
               border: "1px solid var(--border)",
               borderRadius: "var(--radius-lg)",
             }}>
@@ -125,18 +125,19 @@ export function Dashboard() {
                 <span style={{
                   padding: "2px 10px",
                   borderRadius: "12px",
-                  fontSize: "12px",
+                  fontSize: "0.75rem",
                   fontWeight: 600,
-                  background: billing.tier === "pro" ? "var(--accent)" : "var(--bg-tertiary)",
-                  color: billing.tier === "pro" ? "white" : "var(--text-secondary)",
+                  background: billing.tier === "pro" ? "var(--accent)" : "var(--surface)",
+                  color: billing.tier === "pro" ? "var(--accent-text)" : "var(--text-mute)",
                   textTransform: "uppercase",
+                  border: billing.tier === "pro" ? "none" : "1px solid var(--border)",
                 }}>
                   {billing.tier}
                 </span>
-                <span style={{ fontSize: "13px", color: "var(--text-secondary)" }}>
+                <span style={{ fontSize: "0.8rem", color: "var(--text-mute)" }}>
                   {billing.tokens_used.toLocaleString()} / {billing.token_limit.toLocaleString()} tokens
                 </span>
-                <span style={{ fontSize: "13px", color: "var(--text-secondary)" }}>
+                <span style={{ fontSize: "0.8rem", color: "var(--text-mute)" }}>
                   {billing.active_sessions} / {billing.session_limit} sessions
                 </span>
               </div>
@@ -144,7 +145,7 @@ export function Dashboard() {
               {/* Token usage bar */}
               <div style={{
                 height: "4px",
-                background: "var(--bg-tertiary)",
+                background: "var(--border-light)",
                 borderRadius: "2px",
                 marginBottom: "12px",
               }}>
@@ -161,7 +162,6 @@ export function Dashboard() {
                 {billing.tier === "free" && (
                   <button
                     className="btn btn-primary"
-                    style={{ fontSize: "13px" }}
                     onClick={async () => {
                       try {
                         const { checkout_url } = await createCheckout();
@@ -177,7 +177,6 @@ export function Dashboard() {
                 {billing.has_stripe && (
                   <button
                     className="btn btn-secondary"
-                    style={{ fontSize: "13px" }}
                     onClick={async () => {
                       try {
                         const { portal_url } = await createPortal();

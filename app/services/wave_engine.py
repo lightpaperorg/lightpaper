@@ -28,7 +28,9 @@ IMPORTANT RULES:
 indicating what it is (e.g., "## Chapter 3: Scene Outline").
 - Be a thoughtful creative partner, not a yes-machine. Push back if something doesn't work \
 narratively, but defer to the author's vision.
-- Write at the highest literary quality you can. This is not content marketing — it's a book."""
+- Write at the highest literary quality you can. This is not content marketing — it's a book.
+- Use read_file to review your own earlier work before revising or building on it.
+- When saving revised content, use save_file to overwrite with the new version."""
 
 WAVE_INSTRUCTIONS = {
     0: """## Wave 0: Raw Capture
@@ -128,7 +130,7 @@ Present chapters in batches for the author's review.""",
 }
 
 
-def get_system_prompt(session: WritingSession) -> str:
+def get_system_prompt(session: WritingSession, file_inventory: str = "") -> str:
     """Build the system prompt for the current wave."""
     wave = session.current_wave
     wave_name = WAVE_NAMES.get(wave, f"Edit Wave {wave - 4}" if wave >= 5 else "Unknown")
@@ -174,11 +176,48 @@ Common directions include:
 Apply the requested changes and present the revised content for review. \
 The author can direct as many edit waves as needed."""
 
+    if file_inventory:
+        system += file_inventory
+
     return system
 
 
-async def build_messages(session: WritingSession, db: AsyncSession) -> list[dict]:
-    """Build the Claude messages array from chat history."""
+async def get_file_inventory(session_id: str, db: AsyncSession) -> str:
+    """Build a file inventory string for the system prompt."""
+    result = await db.execute(
+        select(WritingFile)
+        .where(WritingFile.session_id == session_id)
+        .order_by(WritingFile.wave, WritingFile.sort_order)
+    )
+    files = result.scalars().all()
+
+    if not files:
+        return ""
+
+    parts = ["\n\nMANUSCRIPT FILES (use read_file to review any file):"]
+    current_wave = None
+    total_words = 0
+    for f in files:
+        if f.wave != current_wave:
+            current_wave = f.wave
+            wave_name = WAVE_NAMES.get(f.wave, f"Edit Pass {f.wave - 4}" if f.wave >= 5 else "Unknown")
+            parts.append(f"\nWave {f.wave} ({wave_name}):")
+        ch = f" Ch.{f.chapter_number}" if f.chapter_number else ""
+        parts.append(f"  - [{f.file_type}]{ch} {f.title} ({f.word_count:,} words)")
+        total_words += f.word_count
+
+    parts.append(f"\nTotal: {len(files)} files, {total_words:,} words")
+    return "\n".join(parts)
+
+
+async def build_messages(
+    session: WritingSession, db: AsyncSession, max_recent: int = 200,
+) -> list[dict]:
+    """Build the Claude messages array with context management.
+
+    Recent messages are included in full. Older wave messages are condensed
+    to preserve context window for long writing sessions.
+    """
     result = await db.execute(
         select(WritingMessage)
         .where(WritingMessage.session_id == session.id)
@@ -186,9 +225,38 @@ async def build_messages(session: WritingSession, db: AsyncSession) -> list[dict
     )
     msgs = result.scalars().all()
 
-    messages = []
-    for msg in msgs:
-        if msg.role in ("user", "assistant"):
-            messages.append({"role": msg.role, "content": msg.content})
+    if not msgs:
+        return []
+
+    # Filter to user/assistant only
+    valid = [m for m in msgs if m.role in ("user", "assistant")]
+
+    # If few enough messages, include all
+    if len(valid) <= max_recent:
+        return [{"role": m.role, "content": m.content} for m in valid]
+
+    # Split: older messages get condensed, recent stay full
+    older = valid[: len(valid) - max_recent]
+    recent = valid[len(valid) - max_recent :]
+
+    # Build condensed summary of older messages
+    summary_parts = ["[Earlier conversation — older waves condensed to save context]"]
+    current_wave = None
+    for m in older:
+        if m.wave != current_wave:
+            current_wave = m.wave
+            wave_name = WAVE_NAMES.get(m.wave, f"Edit Pass {m.wave - 4}" if m.wave and m.wave >= 5 else "Unknown")
+            summary_parts.append(f"\n**Wave {m.wave}: {wave_name}**")
+        label = "Author" if m.role == "user" else "Assistant"
+        text = m.content[:300].replace("\n", " ")
+        if len(m.content) > 300:
+            text += "..."
+        summary_parts.append(f"  {label}: {text}")
+
+    messages = [
+        {"role": "user", "content": "\n".join(summary_parts)},
+        {"role": "assistant", "content": "I have the context from our earlier waves. Continuing from where we left off."},
+    ]
+    messages.extend({"role": m.role, "content": m.content} for m in recent)
 
     return messages
