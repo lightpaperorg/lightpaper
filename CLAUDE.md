@@ -158,17 +158,21 @@ A React frontend at `/write` that guides authors through the Wave Method — a s
 ### Tech Stack
 - **Frontend**: React + TypeScript + Vite, built to `app/ide/dist/`, served by FastAPI at `/write`
 - **Backend**: `/v1/write/*` API endpoints with cookie-based session auth
-- **AI**: Claude API (Sonnet) with tool_use for file generation, wave-specific system prompts
+- **AI**: Claude Opus 4.6 with extended thinking, 1M context (`context-1m-2025-08-07`), 128K output (`output-128k-2025-02-19`)
+- **Tools**: `save_file`, `read_file`, `research`, `web_search`, `web_fetch` — executed in parallel via `asyncio.gather`
 - **Database**: `writing_sessions`, `writing_files`, `writing_messages` tables (migration 015)
 - **Build**: `cd app/ide && npm run build` — output served as static files by `app/routes/ide.py`
+- **PWA**: manifest.json, service worker, app icons in `app/ide/public/`. Installable as standalone app.
 
 ### Key Details
 - Cookie auth (`lp_session`) is separate from API Bearer auth — set on login via `/v1/write/auth/login`
-- Claude uses a `save_file` tool to create manuscript files during chat
-- System prompts in `app/services/wave_engine.py` change per wave
+- Claude uses `save_file` and `read_file` tools to create/review manuscript files during chat
+- System prompts in `app/services/wave_engine.py` change per wave, include file inventory
+- Context management: older messages condensed to summaries, recent 200 kept in full
 - Publish endpoint assembles chapter files and calls the existing book publishing pipeline
 - `write` is a reserved slug in `app/services/slug.py` and `app/routes/reading.py`
 - CSP middleware in `app/main.py` allows inline scripts for `/write` paths
+- Mobile: tab-based layout (Chat/Manuscript), slide-out file drawer, safe area insets
 - Config: `ANTHROPIC_API_KEY`, `STRIPE_API_KEY`, `STRIPE_WEBHOOK_SECRET`, `IDE_SESSION_SECRET`
 
 ## Security-Sensitive Areas
