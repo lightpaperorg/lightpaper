@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.database import get_db
-from app.models import Account, Book, BookChapter, Credential, Document, DocumentVersion
+from app.models import Account, Book, BookChapter, Credential, Document, DocumentVersion, Narration, NarrationChapter
 from app.rate_limit import limiter
 from app.schemas import AuthorInfo, DocumentResponse
 from app.services.gravity import get_gravity_badges
@@ -96,6 +96,28 @@ async def _render_html(doc: Document, version: DocumentVersion, db: AsyncSession
     prev_chapter = None
     next_chapter = None
 
+    # Check for narration audio
+    audio_url = None
+    if doc.book_id:
+        narration_result = await db.execute(
+            select(Narration).where(
+                Narration.book_id == doc.book_id,
+                Narration.audio_ready.is_(True),
+            )
+        )
+        narration = narration_result.scalar_one_or_none()
+        if narration:
+            ch_audio_result = await db.execute(
+                select(NarrationChapter).where(
+                    NarrationChapter.narration_id == narration.id,
+                    NarrationChapter.document_id == doc.id,
+                    NarrationChapter.audio_url.isnot(None),
+                )
+            )
+            ch_audio = ch_audio_result.scalar_one_or_none()
+            if ch_audio:
+                audio_url = ch_audio.audio_url
+
     if doc.book_id:
         book_result = await db.execute(select(Book).where(Book.id == doc.book_id, Book.deleted_at.is_(None)))
         book = book_result.scalar_one_or_none()
@@ -157,6 +179,7 @@ async def _render_html(doc: Document, version: DocumentVersion, db: AsyncSession
         total_chapters=total_chapters,
         prev_chapter=prev_chapter,
         next_chapter=next_chapter,
+        audio_url=audio_url,
     )
     return HTMLResponse(
         content=html,

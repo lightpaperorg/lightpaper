@@ -58,7 +58,9 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             response.headers["Content-Security-Policy"] = (
                 "default-src 'self'; script-src 'none'; "
                 "style-src 'self' 'unsafe-inline'; "
-                "img-src 'self' https:; frame-ancestors 'none'"
+                "img-src 'self' https:; "
+                "media-src 'self' https://storage.googleapis.com; "
+                "frame-ancestors 'none'"
             )
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
@@ -180,6 +182,7 @@ def mount_routes():
         keys,
         landing,
         linkedin,
+        narration,
         publish,
         reading,
         search,
@@ -199,6 +202,7 @@ def mount_routes():
     app.include_router(linkedin.router)
     app.include_router(credentials.router)
     app.include_router(billing.router)
+    app.include_router(narration.router)
     app.include_router(discovery.router)
     app.include_router(landing.router)
     # Writing IDE API + SPA — before catch-all

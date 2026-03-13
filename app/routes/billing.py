@@ -193,7 +193,16 @@ async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
 
 
 async def _handle_checkout_completed(session_data: dict, db: AsyncSession):
-    """Upgrade account to pro after successful checkout."""
+    """Handle checkout completion — subscription upgrade or narration payment."""
+    metadata = session_data.get("metadata", {})
+
+    # Narration one-time payment
+    narration_id = metadata.get("narration_id")
+    if narration_id:
+        await _handle_narration_payment(narration_id, db)
+        return
+
+    # Subscription upgrade
     customer_id = session_data.get("customer")
     if not customer_id:
         return
@@ -203,8 +212,7 @@ async def _handle_checkout_completed(session_data: dict, db: AsyncSession):
     )
     account = result.scalar_one_or_none()
     if not account:
-        # Try metadata fallback
-        account_id = session_data.get("metadata", {}).get("lightpaper_account_id")
+        account_id = metadata.get("lightpaper_account_id")
         if account_id:
             result = await db.execute(
                 select(Account).where(Account.id == account_id)
@@ -219,6 +227,29 @@ async def _handle_checkout_completed(session_data: dict, db: AsyncSession):
         )
         await db.commit()
         logger.info("Account %s upgraded to pro", account.id)
+
+
+async def _handle_narration_payment(narration_id: str, db: AsyncSession):
+    """Start narration after payment completes."""
+    from app.models import Narration
+
+    result = await db.execute(
+        select(Narration).where(Narration.id == narration_id)
+    )
+    narration = result.scalar_one_or_none()
+    if not narration:
+        logger.error("Narration %s not found for payment", narration_id)
+        return
+
+    await db.execute(
+        update(Narration).where(Narration.id == narration_id).values(status="paid")
+    )
+    await db.commit()
+    logger.info("Narration %s paid, starting conversion", narration_id)
+
+    # Start the ElevenLabs conversion
+    from app.services.narration import start_narration
+    await start_narration(narration_id, db)
 
 
 async def _handle_subscription_cancelled(subscription_data: dict, db: AsyncSession):

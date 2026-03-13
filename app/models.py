@@ -276,3 +276,46 @@ class WritingMessage(Base):
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=text("NOW()"))
 
     session = relationship("WritingSession", back_populates="messages")
+
+
+class Narration(Base):
+    __tablename__ = "narrations"
+
+    id = Column(Text, primary_key=True)
+    book_id = Column(Text, ForeignKey("books.id", ondelete="CASCADE"), nullable=False)
+    account_id = Column(UUID(as_uuid=True), ForeignKey("accounts.id"), nullable=False)
+    elevenlabs_project_id = Column(Text)
+    voice_id = Column(Text, nullable=False)
+    voice_name = Column(Text, nullable=False)
+    status = Column(Text, nullable=False, default="pending")
+    error_message = Column(Text)
+    total_characters = Column(Integer, nullable=False)
+    price_cents = Column(Integer, nullable=False)
+    stripe_checkout_session_id = Column(Text)
+    callback_token = Column(Text, nullable=False)
+    gcs_bucket = Column(Text)
+    audio_ready = Column(Boolean, nullable=False, default=False)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=text("NOW()"))
+    completed_at = Column(DateTime(timezone=True))
+
+    book = relationship("Book")
+    account = relationship("Account")
+    chapters = relationship("NarrationChapter", back_populates="narration", cascade="all, delete-orphan",
+                            order_by="NarrationChapter.chapter_number")
+
+
+class NarrationChapter(Base):
+    __tablename__ = "narration_chapters"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    narration_id = Column(Text, ForeignKey("narrations.id", ondelete="CASCADE"), nullable=False)
+    document_id = Column(Text, ForeignKey("documents.id"), nullable=False)
+    chapter_number = Column(Integer, nullable=False)
+    elevenlabs_chapter_id = Column(Text)
+    elevenlabs_snapshot_id = Column(Text)
+    audio_url = Column(Text)
+    audio_duration_seconds = Column(Integer)
+    character_count = Column(Integer, nullable=False)
+    status = Column(Text, nullable=False, default="pending")
+
+    narration = relationship("Narration", back_populates="chapters")

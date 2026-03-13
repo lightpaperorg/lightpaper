@@ -188,6 +188,27 @@
             margin: 2rem 0;
         }
 
+        .audio-player {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem 1rem;
+            background: var(--bg-alt, rgba(128, 128, 128, 0.06));
+            border-radius: 8px;
+            margin-bottom: 2rem;
+        }
+        .audio-label {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--heading);
+            white-space: nowrap;
+        }
+        .audio-player audio {
+            flex: 1;
+            min-width: 0;
+            height: 36px;
+        }
+
         /* ================================================================
            ARTICLE CONTENT — SHARED BASE
            ================================================================ */
@@ -831,6 +852,15 @@
         </header>
 
         <hr class="divider">
+
+        {% if audio_url %}
+        <div class="audio-player">
+            <span class="audio-label">Listen</span>
+            <audio controls preload="none">
+                <source src="{{ audio_url }}" type="audio/mpeg">
+            </audio>
+        </div>
+        {% endif %}
 
         <article>
             {{ rendered_html | safe }}

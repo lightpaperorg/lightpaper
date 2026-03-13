@@ -431,6 +431,59 @@ class ReorderChaptersRequest(BaseModel):
     chapter_order: list[str] = Field(..., min_length=1, description="Document IDs in desired order")
 
 
+# --- Narration ---
+
+
+class NarrationEstimateRequest(BaseModel):
+    book_id: str
+
+
+class NarrationEstimateChapter(BaseModel):
+    chapter_number: int
+    document_id: str
+    title: str | None
+    character_count: int
+
+
+class NarrationEstimateResponse(BaseModel):
+    book_id: str
+    book_title: str
+    total_characters: int
+    price_cents: int
+    price_display: str
+    chapters: list[NarrationEstimateChapter]
+
+
+class NarrationCreateRequest(BaseModel):
+    book_id: str
+    voice_id: str
+
+
+class NarrationChapterResponse(BaseModel):
+    chapter_number: int
+    document_id: str
+    character_count: int
+    audio_url: str | None = None
+    audio_duration_seconds: int | None = None
+    status: str
+
+
+class NarrationResponse(BaseModel):
+    id: str
+    book_id: str
+    voice_id: str
+    voice_name: str
+    status: str
+    error_message: str | None = None
+    total_characters: int
+    price_cents: int
+    price_display: str
+    audio_ready: bool
+    created_at: datetime
+    completed_at: datetime | None = None
+    chapters: list[NarrationChapterResponse]
+
+
 # --- Errors ---
 
 

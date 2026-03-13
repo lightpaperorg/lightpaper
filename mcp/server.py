@@ -1,4 +1,4 @@
-"""lightpaper.org MCP server — 23 tools + prompts, stdio transport."""
+"""lightpaper.org MCP server — 24 tools + prompts, stdio transport."""
 
 import os
 
@@ -114,6 +114,16 @@ Books are ordered collections of chapters. Each chapter is a document with prev/
 
 Book quality is the weighted average of chapter quality scores, with a bonus for multi-chapter structure.
 Chapter slugs are auto-generated as `{book-slug}-ch{N}-{title-slug}`.
+
+## Audiobook narration
+
+Pro users can turn published books into audiobooks:
+
+1. `narrate_book` action='voices' — list available AI narration voices
+2. `narrate_book` action='estimate' + book_id — see character count and price
+3. `narrate_book` action='create' + book_id + voice_id — create narration, get payment link
+4. After payment, narration converts automatically. Check with action='status' + narration_id
+5. Audio appears on each chapter's reading page once complete
 
 ## Learn more
 
@@ -953,6 +963,50 @@ async def list_tools() -> list[Tool]:
                 "required": ["id"],
             },
         ),
+        Tool(
+            name="narrate_book",
+            description=(
+                "Turn a published book into an audiobook using AI narration. "
+                "Actions: 'voices' lists available voices, 'estimate' shows character count and price, "
+                "'create' starts narration (requires payment), 'status' checks progress."
+            ),
+            annotations=ToolAnnotations(
+                title="Narrate Book",
+                readOnlyHint=False,
+                destructiveHint=False,
+                idempotentHint=False,
+                openWorldHint=True,
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": ["voices", "estimate", "create", "status"],
+                        "description": (
+                            "'voices': list available narration voices. "
+                            "'estimate': get character count and price for a book. "
+                            "'create': create narration and get Stripe checkout URL. "
+                            "'status': check narration progress and get audio URLs."
+                        ),
+                    },
+                    "book_id": {
+                        "type": "string",
+                        "description": "Book ID (required for estimate, create, status)",
+                    },
+                    "voice_id": {
+                        "type": "string",
+                        "description": "Voice ID from the voices list (required for create)",
+                    },
+                    "narration_id": {
+                        "type": "string",
+                        "description": "Narration ID (required for status)",
+                    },
+                    **API_KEY_PARAM,
+                },
+                "required": ["action"],
+            },
+        ),
     ]
 
 
@@ -1133,6 +1187,23 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             book_id = arguments.pop("id")
             payload = {k: v for k, v in arguments.items() if v is not None}
             resp = await client.put(f"/v1/books/{book_id}", json=payload)
+            return [TextContent(type="text", text=resp.text)]
+
+        elif name == "narrate_book":
+            action = arguments["action"]
+            if action == "voices":
+                resp = await client.get("/v1/narration/voices")
+            elif action == "estimate":
+                resp = await client.post("/v1/narration/estimate", json={"book_id": arguments["book_id"]})
+            elif action == "create":
+                resp = await client.post(
+                    "/v1/narration/create",
+                    json={"book_id": arguments["book_id"], "voice_id": arguments["voice_id"]},
+                )
+            elif action == "status":
+                resp = await client.get(f"/v1/narration/{arguments['narration_id']}")
+            else:
+                return [TextContent(type="text", text=f"Unknown narrate_book action: {action}")]
             return [TextContent(type="text", text=resp.text)]
 
         return [TextContent(type="text", text=f"Unknown tool: {name}")]

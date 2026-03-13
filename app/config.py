@@ -26,6 +26,9 @@ class Settings(BaseModel):
     stripe_webhook_secret: str = os.getenv("STRIPE_WEBHOOK_SECRET", "")
     ide_session_secret: str = os.getenv("IDE_SESSION_SECRET", "lightpaper-ide-dev-secret-change-me")
     brave_search_api_key: str = os.getenv("BRAVE_SEARCH_API_KEY", "")
+    elevenlabs_api_key: str = os.getenv("ELEVENLABS_API_KEY", "")
+    gcs_audio_bucket: str = os.getenv("GCS_AUDIO_BUCKET", "lightpaper-audio")
+    narration_cost_per_char: float = float(os.getenv("NARRATION_COST_PER_CHAR", "0.00008"))
 
 
 settings = Settings()
