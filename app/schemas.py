@@ -436,6 +436,7 @@ class ReorderChaptersRequest(BaseModel):
 
 class NarrationEstimateRequest(BaseModel):
     book_id: str
+    max_chapters: int | None = Field(None, ge=1, description="Limit to first N chapters")
 
 
 class NarrationEstimateChapter(BaseModel):
@@ -457,6 +458,7 @@ class NarrationEstimateResponse(BaseModel):
 class NarrationCreateRequest(BaseModel):
     book_id: str
     voice_id: str
+    max_chapters: int | None = Field(None, ge=1, description="Limit to first N chapters")
 
 
 class NarrationChapterResponse(BaseModel):

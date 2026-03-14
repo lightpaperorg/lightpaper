@@ -57,7 +57,7 @@ async def narration_estimate(
     _require_pro(auth.account)
 
     try:
-        estimate = await estimate_narration(body.book_id, db)
+        estimate = await estimate_narration(body.book_id, db, max_chapters=body.max_chapters)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
@@ -74,7 +74,6 @@ async def create_narration(
 ):
     """Create a narration and return a Stripe checkout URL for payment."""
     _require_pro(auth.account)
-    _init_stripe()
 
     account = auth.account
 
@@ -105,7 +104,7 @@ async def create_narration(
 
     # Get estimate for pricing
     try:
-        estimate = await estimate_narration(body.book_id, db)
+        estimate = await estimate_narration(body.book_id, db, max_chapters=body.max_chapters)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
@@ -138,50 +137,55 @@ async def create_narration(
 
     await db.flush()
 
-    # Get or create Stripe customer
-    customer_id = account.stripe_customer_id
-    if not customer_id:
-        customer = stripe.Customer.create(
-            email=account.email,
-            name=account.display_name or account.handle,
-            metadata={"lightpaper_account_id": str(account.id)},
-        )
-        customer_id = customer.id
-        await db.execute(
-            update(Account).where(Account.id == account.id).values(stripe_customer_id=customer_id)
-        )
+    checkout_url = None
 
-    # Create Stripe Checkout for one-time payment
-    base_url = settings.base_url
-    checkout_session = stripe.checkout.Session.create(
-        customer=customer_id,
-        mode="payment",
-        line_items=[{
-            "price_data": {
-                "currency": "usd",
-                "unit_amount": estimate["price_cents"],
-                "product_data": {
-                    "name": f"Audiobook Narration: {book.title}",
-                    "description": f"{len(estimate['chapters'])} chapters, {estimate['total_characters']:,} characters, voice: {voice_name}",
+    # Create Stripe Checkout if Stripe is configured
+    if settings.stripe_api_key and not settings.stripe_api_key.startswith("sk_placeholder"):
+        _init_stripe()
+        customer_id = account.stripe_customer_id
+        if not customer_id:
+            customer = stripe.Customer.create(
+                email=account.email,
+                name=account.display_name or account.handle,
+                metadata={"lightpaper_account_id": str(account.id)},
+            )
+            customer_id = customer.id
+            await db.execute(
+                update(Account).where(Account.id == account.id).values(stripe_customer_id=customer_id)
+            )
+
+        base_url = settings.base_url
+        checkout_session = stripe.checkout.Session.create(
+            customer=customer_id,
+            mode="payment",
+            line_items=[{
+                "price_data": {
+                    "currency": "usd",
+                    "unit_amount": estimate["price_cents"],
+                    "product_data": {
+                        "name": f"Audiobook Narration: {book.title}",
+                        "description": f"{len(estimate['chapters'])} chapters, {estimate['total_characters']:,} characters, voice: {voice_name}",
+                    },
                 },
+                "quantity": 1,
+            }],
+            success_url=f"{base_url}/write?narration=success&narration_id={narration_id}",
+            cancel_url=f"{base_url}/write?narration=cancelled",
+            metadata={
+                "lightpaper_account_id": str(account.id),
+                "narration_id": narration_id,
             },
-            "quantity": 1,
-        }],
-        success_url=f"{base_url}/write?narration=success&narration_id={narration_id}",
-        cancel_url=f"{base_url}/write?narration=cancelled",
-        metadata={
-            "lightpaper_account_id": str(account.id),
-            "narration_id": narration_id,
-        },
-    )
+        )
+        narration.stripe_checkout_session_id = checkout_session.id
+        checkout_url = checkout_session.url
 
-    narration.stripe_checkout_session_id = checkout_session.id
     await db.commit()
 
     return {
         "narration_id": narration_id,
-        "checkout_url": checkout_session.url,
+        "checkout_url": checkout_url,
         "price_display": estimate["price_display"],
+        "note": "Use POST /v1/narration/start/{narration_id} to begin without payment" if not checkout_url else None,
     }
 
 
@@ -232,6 +236,34 @@ async def get_narration_status(
             for ch in chapters
         ],
     )
+
+
+@router.post("/start/{narration_id}")
+@limiter.limit("5/hour")
+async def start_narration_manual(
+    narration_id: str,
+    request: Request,
+    auth: AuthResult = Depends(require_account),
+    db: AsyncSession = Depends(get_db),
+):
+    """Manually start a narration (skip Stripe payment). Owner testing only."""
+    narration_result = await db.execute(
+        select(Narration).where(Narration.id == narration_id, Narration.account_id == auth.account.id)
+    )
+    narration = narration_result.scalar_one_or_none()
+    if not narration:
+        raise HTTPException(status_code=404, detail="Narration not found")
+    if narration.status not in ("pending",):
+        raise HTTPException(status_code=409, detail=f"Narration is already {narration.status}")
+
+    from sqlalchemy import update as sql_update
+    await db.execute(
+        sql_update(Narration).where(Narration.id == narration_id).values(status="paid")
+    )
+    await db.commit()
+
+    await start_narration(narration_id, db)
+    return {"status": "started", "narration_id": narration_id}
 
 
 @router.post("/callback/{callback_token}")

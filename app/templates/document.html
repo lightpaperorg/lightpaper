@@ -188,22 +188,30 @@
             margin: 2rem 0;
         }
 
-        .audio-player {
+        .listen-bar {
             display: flex;
             align-items: center;
             gap: 0.75rem;
-            padding: 0.75rem 1rem;
-            background: var(--bg-alt, rgba(128, 128, 128, 0.06));
-            border-radius: 8px;
             margin-bottom: 2rem;
         }
-        .audio-label {
-            font-size: 0.85rem;
+        .listen-btn {
+            font-family: inherit;
+            font-size: 0.82rem;
             font-weight: 600;
-            color: var(--heading);
+            color: var(--muted);
+            background: none;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 0.35rem 0.9rem;
+            cursor: pointer;
             white-space: nowrap;
+            transition: color 0.15s, border-color 0.15s;
         }
-        .audio-player audio {
+        .listen-btn:hover {
+            color: var(--heading);
+            border-color: var(--heading);
+        }
+        .listen-bar audio {
             flex: 1;
             min-width: 0;
             height: 36px;
@@ -853,14 +861,14 @@
 
         <hr class="divider">
 
-        {% if audio_url %}
-        <div class="audio-player">
-            <span class="audio-label">Listen</span>
+        <div class="listen-bar">
+            <button id="listen-btn" class="listen-btn">Listen</button>
+            {% if audio_url %}
             <audio controls preload="none">
                 <source src="{{ audio_url }}" type="audio/mpeg">
             </audio>
+            {% endif %}
         </div>
-        {% endif %}
 
         <article>
             {{ rendered_html | safe }}
@@ -941,5 +949,6 @@
     })();
     </script>
     {% endif %}
+    <script src="/static/listen.js"></script>
 </body>
 </html>

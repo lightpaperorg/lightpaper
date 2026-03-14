@@ -94,7 +94,7 @@ def generate_callback_token() -> str:
     return secrets.token_hex(32)
 
 
-async def estimate_narration(book_id: str, db: AsyncSession) -> dict:
+async def estimate_narration(book_id: str, db: AsyncSession, max_chapters: int | None = None) -> dict:
     """Estimate narration cost for a book. Returns character counts and price."""
     book_result = await db.execute(
         select(Book).where(Book.id == book_id, Book.deleted_at.is_(None))
@@ -109,6 +109,9 @@ async def estimate_narration(book_id: str, db: AsyncSession) -> dict:
     chapters = chapters_result.scalars().all()
     if not chapters:
         raise ValueError("Book has no chapters")
+
+    if max_chapters:
+        chapters = chapters[:max_chapters]
 
     chapter_estimates = []
     total_chars = 0
@@ -191,19 +194,20 @@ async def start_narration(narration_id: str, db: AsyncSession) -> None:
     callback_url = f"{settings.base_url}/v1/narration/callback/{narration.callback_token}"
 
     try:
+        import json as _json
+
         async with httpx.AsyncClient(timeout=60) as client:
             resp = await client.post(
                 f"{ELEVENLABS_API}/v1/studio/projects",
                 headers={
                     "xi-api-key": settings.elevenlabs_api_key,
-                    "Content-Type": "application/json",
                 },
-                json={
+                data={
                     "name": f"lightpaper-{narration_id}",
-                    "from_content_json": content_parts,
+                    "from_content_json": _json.dumps(content_parts),
                     "default_voice_id": narration.voice_id,
                     "quality_preset": "high",
-                    "auto_convert": True,
+                    "auto_convert": "true",
                     "callback_url": callback_url,
                 },
             )
