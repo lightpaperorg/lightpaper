@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Terms of Service — lightpaper.org</title>
+    <meta name="description" content="Terms of service for lightpaper.org">
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32x32.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/static/apple-touch-icon.png">
+    <meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#111827" media="(prefers-color-scheme: dark)">
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        :root { --bg: #FFFFFF; --heading: #111827; --body: #374151; --secondary: #6B7280; --border: #E5E7EB; }
+        @media (prefers-color-scheme: dark) {
+            :root { --bg: #111827; --heading: #F9FAFB; --body: #D1D5DB; --secondary: #9CA3AF; --border: #374151; }
+        }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--body); line-height: 1.7; }
+        .container { max-width: 680px; margin: 0 auto; padding: 60px 24px; }
+        h1 { color: var(--heading); font-size: 2rem; margin-bottom: 8px; }
+        .updated { color: var(--secondary); font-size: 0.9rem; margin-bottom: 40px; }
+        h2 { color: var(--heading); font-size: 1.25rem; margin-top: 36px; margin-bottom: 12px; }
+        p { margin-bottom: 16px; }
+        ul { margin-bottom: 16px; padding-left: 24px; }
+        li { margin-bottom: 6px; }
+        a { color: var(--heading); }
+        code { font-size: 0.9em; background: var(--border); padding: 2px 6px; border-radius: 4px; }
+        .back { display: inline-block; margin-top: 40px; color: var(--secondary); text-decoration: none; font-size: 0.9rem; }
+        .back:hover { color: var(--heading); }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Terms of Service</h1>
+    <p class="updated">Last updated: March 17, 2026</p>
+
+    <p>These terms govern your use of lightpaper.org ("lightpaper", "the platform", "we"). By using the platform you agree to these terms.</p>
+
+    <h2>What lightpaper Is</h2>
+    <p>lightpaper.org is an API-first publishing platform. You publish markdown content through our API or MCP server, and we host it at a permanent URL with quality scoring, author gravity, and search indexing.</p>
+
+    <h2>Accounts</h2>
+    <ul>
+        <li>An account is required to publish. Sign up via email OTP or LinkedIn OAuth.</li>
+        <li>You are responsible for keeping your API keys secure. Treat them like passwords.</li>
+        <li>One person, one account. Automated bulk account creation is not permitted.</li>
+    </ul>
+
+    <h2>Content Ownership</h2>
+    <ul>
+        <li><strong>You own your content.</strong> Publishing on lightpaper does not transfer copyright.</li>
+        <li>You grant lightpaper a non-exclusive license to host, display, index, and distribute your content as part of the platform's operation — including serving it to search engines, AI agents, RSS readers, and web browsers.</li>
+        <li>You can delete your content at any time via the API. Deletion is permanent and immediate.</li>
+        <li>You represent that you have the right to publish the content you submit.</li>
+    </ul>
+
+    <h2>Acceptable Use</h2>
+    <p>Do not publish content that:</p>
+    <ul>
+        <li>Violates any applicable law or regulation</li>
+        <li>Infringes on the intellectual property rights of others</li>
+        <li>Contains malware, phishing links, or other harmful code</li>
+        <li>Is spam, SEO manipulation, or mass-generated without substantive value</li>
+        <li>Contains personal information about others without their consent</li>
+        <li>Is harassment, threats, or incitement to violence</li>
+    </ul>
+    <p>We reserve the right to remove content that violates these terms and to suspend or terminate accounts that repeatedly violate them.</p>
+
+    <h2>Quality Scoring</h2>
+    <p>Every document receives an automated quality score (0-100). Documents scoring below 40 are marked <code>noindex</code> and excluded from the sitemap. This is an editorial quality filter, not censorship — low-scoring content remains accessible at its permanent URL.</p>
+
+    <h2>Author Gravity</h2>
+    <p>Author gravity (0-5) is computed from identity verifications and credential evidence. It affects search ranking via a multiplier. Gravity levels are earned, not purchased. Fraudulent verifications will result in account termination.</p>
+
+    <h2>API Usage</h2>
+    <ul>
+        <li>Rate limits are enforced per endpoint. Exceeding them returns HTTP 429.</li>
+        <li>The API is provided as-is. We aim for high availability but do not guarantee uptime.</li>
+        <li>Do not use the API in ways that degrade service for other users.</li>
+    </ul>
+
+    <h2>Paid Features</h2>
+    <ul>
+        <li>Some features (e.g. audiobook narration, Writing IDE Pro tier) require payment via Stripe.</li>
+        <li>Payments are non-refundable unless required by law.</li>
+        <li>We may change pricing with 30 days notice.</li>
+    </ul>
+
+    <h2>Termination</h2>
+    <ul>
+        <li>You can delete your account at any time via <code>DELETE /v1/account</code>. This permanently removes all your data.</li>
+        <li>We may suspend or terminate accounts that violate these terms.</li>
+    </ul>
+
+    <h2>Limitation of Liability</h2>
+    <p>lightpaper is provided "as is" without warranties of any kind. We are not liable for any damages arising from your use of the platform, including loss of data, revenue, or reputation. Our total liability is limited to the amount you have paid us in the 12 months preceding the claim.</p>
+
+    <h2>Changes</h2>
+    <p>We may update these terms. Continued use after changes constitutes acceptance. Material changes will be communicated via the platform.</p>
+
+    <h2>Contact</h2>
+    <p>Questions? Email <strong>hello@lightpaper.org</strong>.</p>
+
+    <a href="/" class="back">&larr; lightpaper.org</a>
+</div>
+</body>
+</html>

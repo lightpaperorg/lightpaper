@@ -10,7 +10,7 @@ FastAPI + async SQLAlchemy + PostgreSQL 16. Single-process async app deployed on
 | `app/main.py` | FastAPI app, middleware (CORS, security headers, body size, rate limiting) |
 | `app/config.py` | Pydantic settings from env vars |
 | `app/auth.py` | API key + email OTP + LinkedIn OAuth authentication |
-| `app/models.py` | SQLAlchemy ORM models (16 tables) |
+| `app/models.py` | SQLAlchemy ORM models (18 tables) |
 | `app/schemas.py` | Pydantic request/response schemas with size limits |
 | `app/rate_limit.py` | slowapi limiter singleton |
 | `app/utils.py` | get_client_ip() for Cloud Run proxy |
@@ -28,6 +28,8 @@ FastAPI + async SQLAlchemy + PostgreSQL 16. Single-process async app deployed on
 | `app/routes/linkedin.py` | LinkedIn OAuth verification for existing accounts |
 | `app/routes/verification.py` | Domain DNS, ORCID verification, gravity status |
 | `app/routes/credentials.py` | Agent-driven credential verification |
+| `app/routes/narration.py` | Audiobook narration: estimate, create, status, callback |
+| `app/services/narration.py` | ElevenLabs TTS, markdown→plaintext, GCS upload |
 | `app/services/renderer.py` | markdown-it-py + nh3 HTML sanitization |
 | `app/services/quality.py` | Deterministic quality scoring (0-100) |
 | `app/services/gravity.py` | Non-hierarchical author gravity (0-5) |
@@ -35,7 +37,7 @@ FastAPI + async SQLAlchemy + PostgreSQL 16. Single-process async app deployed on
 | `app/services/og_image.py` | Pillow-based OG image generation |
 | `app/services/api_keys.py` | API key generation utility |
 | `app/services/email.py` | Resend API email delivery for OTP |
-| `mcp/server.py` | MCP server with 23 tools + 3 prompts (stdio transport) |
+| `mcp/server.py` | MCP server with 24 tools + 3 prompts (stdio transport) |
 | `app/routes/mcp_http.py` | Remote MCP endpoint (Streamable HTTP transport at /mcp) |
 | `lightpaper_mcp/` | Standalone PyPI package for MCP server distribution |
 | `AGENTS.md` | OpenAI AGENTS.md standard — project-level agent instructions |
@@ -140,6 +142,32 @@ Chapter slugs: `{book-slug}-ch{N}-{chapter-title-slug}`
 - Books appear in sitemap (priority 0.8), atom feed, and search (type=book|all)
 - OG images show "Book · N chapters" at `/og/book_{id}.png`
 - MCP: `publish_book`, `get_book`, `update_book` tools + `write-book` prompt
+
+## Audiobook Narration
+
+Premium feature: Pro users can convert published books into audiobooks via ElevenLabs.
+
+### Flow
+1. `POST /v1/narration/estimate` — character count + price per chapter
+2. `POST /v1/narration/create` — creates Stripe one-time checkout (or manual start)
+3. Payment completes → ElevenLabs Studio auto-converts
+4. `POST /v1/narration/callback/{token}` — downloads audio, uploads to GCS
+5. `GET /v1/narration/{id}` — check status + get audio URLs
+6. Audio player appears on chapter reading pages
+
+### Database
+- `narrations` table: status tracking, Stripe/ElevenLabs IDs, callback token
+- `narration_chapters` table: per-chapter audio URLs, duration, character count
+
+### Key Details
+- 10 curated voices (ElevenLabs premade voices)
+- `max_chapters` param to narrate a subset of chapters
+- `POST /v1/narration/start/{id}` manual start endpoint (bypasses Stripe for testing)
+- Callback token is 32-byte hex — unguessable, no auth needed on callback
+- Audio stored in GCS: `gs://{bucket}/narrations/{narration_id}/ch{N}.mp3`
+- CSP includes `media-src https://storage.googleapis.com` for reading pages
+- MCP: `narrate_book` tool with actions: voices, estimate, create, status
+- Config: `ELEVENLABS_API_KEY`, `GCS_AUDIO_BUCKET`, `NARRATION_COST_PER_CHAR`
 
 ## Writing IDE (Wave Method)
 
