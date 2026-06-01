@@ -67,11 +67,11 @@ python -m lightpaper_mcp
 lightpaper-mcp
 ```
 
-## Tools (24)
+## Tools (25)
 
 | Tool | Description |
 |------|-------------|
-| `publish_lightpaper` | Publish a markdown document → permanent URL + quality score |
+| `publish_lightpaper` | Publish a markdown document → permanent URL + quality score (supports `license` field) |
 | `search_lightpapers` | Full-text search with ranking and filtering |
 | `get_lightpaper` | Get document by ID |
 | `update_lightpaper` | Update document (creates new version) |
@@ -95,6 +95,7 @@ lightpaper-mcp
 | `get_book` | Get book metadata + chapters |
 | `update_book` | Update book metadata |
 | `narrate_book` | Turn a book into an audiobook (voices, estimate, create, status) |
+| `export_print` | Export a book as print-ready PDF (preview, interior, cover, certificate) |
 
 ## Prompts (3)
 
@@ -194,6 +195,26 @@ lightpaper-mcp
   "total_word_count": 4200
 }
 ```
+
+### Example 5: Export a book for print
+
+**Prompt:** "Generate a print-ready PDF of my book for Amazon KDP"
+
+**What happens:**
+1. Calls `export_print` action='preview' to check layout (first 10 pages)
+2. Calls `export_print` action='interior' for the full 6"×9" trade paperback interior
+3. Calls `export_print` action='cover' with page_count for the full wrap cover at 300 DPI
+4. Calls `export_print` action='certificate' for a Certificate of Publication with SHA-256 hash
+
+### Example 6: Publish with a Creative Commons license
+
+**Prompt:** "Publish this under CC BY 4.0"
+
+**What happens:**
+1. Calls `publish_lightpaper` with `license: "cc-by-4.0"`
+2. Copyright notice and license link appear in the document footer and JSON-LD metadata
+
+**Available licenses:** `all-rights-reserved` (default), `cc-by-4.0`, `cc-by-sa-4.0`, `cc-by-nc-4.0`, `cc-by-nc-sa-4.0`, `cc0`
 
 ## Environment Variables
 

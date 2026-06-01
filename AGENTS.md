@@ -41,7 +41,7 @@ curl -X POST https://lightpaper.org/v1/publish \
 | Path | Purpose |
 |------|---------|
 | `app/` | FastAPI application (routes, services, models) |
-| `mcp/server.py` | MCP server (23 tools, 3 prompts) — stdio transport |
+| `mcp/server.py` | MCP server (25 tools, 3 prompts) — stdio transport |
 | `lightpaper_mcp/` | Standalone MCP package for PyPI distribution |
 | `app/routes/mcp_http.py` | Remote MCP endpoint (Streamable HTTP transport) |
 | `tests/` | Pytest test suite |
@@ -74,6 +74,9 @@ python3 -m pytest tests/ -v
 - Books: multi-chapter collections via `POST /v1/books` (100+ words per chapter)
 - Quality scoring (0-100) determines search visibility
 - Author gravity (0-5) boosts search ranking via verified identity
+- Copyright/license: `license` field on publish (`all-rights-reserved`, `cc-by-4.0`, `cc-by-sa-4.0`, `cc-by-nc-4.0`, `cc-by-nc-sa-4.0`, `cc0`)
+- Print PDF export: `POST /v1/books/{id}/print/interior` (6"×9" trade paperback), `/print/cover` (300 DPI), `/print/certificate` (SHA-256 proof), `/print/preview` (10 pages)
+- Audiobook narration: `POST /v1/narration/create` (ElevenLabs TTS, Pro tier)
 
 ## Full Documentation
 

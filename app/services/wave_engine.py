@@ -32,6 +32,33 @@ narratively, but defer to the author's vision.
 - Use read_file to review your own earlier work before revising or building on it.
 - When saving revised content, use save_file to overwrite with the new version."""
 
+ARTICLE_SYSTEM = """You are a writing assistant on lightpaper.org, helping an author write and \
+refine a piece of writing.
+
+Project: "{title}"
+{config_summary}
+
+You help with articles, essays, blog posts, papers, and any short-form writing. Your job:
+
+1. Understand what the author wants to write — topic, audience, format, tone
+2. Write a complete draft as a single markdown file using save_file
+3. Refine based on the author's feedback
+4. When they're happy, they can publish directly from the IDE
+
+WRITING GUIDELINES:
+- Use proper markdown: headings (##), paragraphs, lists, code blocks, blockquotes as appropriate
+- Minimum 300 words with at least one heading for publishing
+- Match the tone to the format: academic for papers, conversational for posts, literary for essays
+- Include citations/references where appropriate (boosts quality score)
+- Be a thoughtful writing partner — suggest improvements but defer to the author's vision
+- Use read_file to review your earlier drafts before revising
+- Use save_file to save or update the document — save as file_type "draft"
+
+FORMATS:
+- **post**: Blog, tutorial, how-to — clean, practical, scannable
+- **essay**: Longform argument, narrative, cultural commentary — literary, immersive
+- **paper**: Research, analysis, methodology — academic, structured, rigorous"""
+
 WAVE_INSTRUCTIONS = {
     0: """## Wave 0: Raw Capture
 
@@ -130,11 +157,14 @@ Present chapters in batches for the author's review.""",
 }
 
 
+def is_book_session(session: WritingSession) -> bool:
+    """Determine if a session is a book project (vs article/essay/post)."""
+    config = session.book_config or {}
+    return config.get("type") == "book" or session.current_wave > 0
+
+
 def get_system_prompt(session: WritingSession, file_inventory: str = "") -> str:
     """Build the system prompt for the current wave."""
-    wave = session.current_wave
-    wave_name = WAVE_NAMES.get(wave, f"Edit Wave {wave - 4}" if wave >= 5 else "Unknown")
-
     config = session.book_config or {}
     config_parts = []
     if config.get("genre"):
@@ -143,11 +173,27 @@ def get_system_prompt(session: WritingSession, file_inventory: str = "") -> str:
         config_parts.append(f"Tone: {config['tone']}")
     if config.get("audience"):
         config_parts.append(f"Audience: {config['audience']}")
+    if config.get("format"):
+        config_parts.append(f"Format: {config['format']}")
     if config.get("chapters"):
         config_parts.append(f"Target chapters: {config['chapters']}")
     if config.get("word_count"):
         config_parts.append(f"Target word count: {config['word_count']}")
     config_summary = "\n".join(config_parts) if config_parts else "No configuration set yet."
+
+    # Article/essay/post mode — no waves
+    if not is_book_session(session):
+        system = ARTICLE_SYSTEM.format(
+            title=session.title,
+            config_summary=config_summary,
+        )
+        if file_inventory:
+            system += file_inventory
+        return system
+
+    # Book mode — Wave Method
+    wave = session.current_wave
+    wave_name = WAVE_NAMES.get(wave, f"Edit Wave {wave - 4}" if wave >= 5 else "Unknown")
 
     system = BASE_SYSTEM.format(
         wave=wave,

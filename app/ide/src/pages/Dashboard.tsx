@@ -23,6 +23,16 @@ function waveLabel(wave: number): string {
   return WAVE_LABELS[wave] || `Edit Pass ${wave - 4}`;
 }
 
+function isBook(s: Session): boolean {
+  return s.current_wave > 0 || (s.book_config as Record<string, unknown>)?.type === "book";
+}
+
+function sessionStatus(s: Session): string {
+  if (s.published_book_id) return "Published";
+  if (isBook(s)) return `Wave ${s.current_wave}: ${waveLabel(s.current_wave)}`;
+  return "Draft";
+}
+
 export function Dashboard() {
   const { user, logout, loading: authLoading } = useAuth();
   const [sessions, setSessions] = useState<Session[]>([]);
@@ -72,20 +82,20 @@ export function Dashboard() {
       </div>
 
       <div className="dashboard">
-        <h1>Your Books</h1>
+        <h1>Your Writing</h1>
         <p className="dashboard-subtitle">
-          Write a book using the Wave Method — from raw idea to published manuscript.
+          Write anything — books, essays, articles, papers. Just start with an idea.
         </p>
 
         <form className="new-session-form" onSubmit={handleCreate}>
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="Working title for your new book..."
+            placeholder="What do you want to write?"
             autoFocus
           />
           <button className="btn btn-primary" type="submit" disabled={creating || !title.trim()}>
-            {creating ? "Creating..." : "New Book"}
+            {creating ? "Starting..." : "Start Writing"}
           </button>
         </form>
 
@@ -95,18 +105,22 @@ export function Dashboard() {
               <div>
                 <div className="session-card-title">{s.title}</div>
                 <div className="session-card-meta">
-                  Wave {s.current_wave}: {waveLabel(s.current_wave)}
+                  {sessionStatus(s)}
                   {" · "}
-                  {s.total_tokens_used.toLocaleString()} tokens used
-                  {s.published_book_id && " · Published"}
+                  {s.total_tokens_used.toLocaleString()} tokens
                 </div>
               </div>
-              <span className="wave-badge">W{s.current_wave}</span>
+              {isBook(s) && <span className="wave-badge">W{s.current_wave}</span>}
+              {s.published_book_id && !isBook(s) && (
+                <span className="wave-badge" style={{ background: "rgba(92, 207, 138, 0.12)", color: "var(--success)" }}>
+                  Live
+                </span>
+              )}
             </Link>
           ))}
           {sessions.length === 0 && (
             <p style={{ color: "var(--text-mute)", padding: "1rem 0" }}>
-              No books yet. Enter a title above to start your first book.
+              No projects yet. Type a title or idea above to begin.
             </p>
           )}
         </div>

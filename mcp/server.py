@@ -125,6 +125,23 @@ Pro users can turn published books into audiobooks:
 4. After payment, narration converts automatically. Check with action='status' + narration_id
 5. Audio appears on each chapter's reading page once complete
 
+## Print PDF export
+
+Export published books as print-ready PDFs for Amazon KDP / IngramSpark:
+
+1. `export_print` action='preview' + book_id — first 10 pages as PDF (free, good for checking layout)
+2. `export_print` action='interior' + book_id — full 6"×9" trade paperback interior PDF (Pro)
+3. `export_print` action='cover' + book_id + page_count — full wrap cover at 300 DPI with bleed (Pro)
+4. `export_print` action='certificate' + book_id — Certificate of Publication with SHA-256 content hash (free)
+
+Interior includes: half-title, title page, copyright page (with license + content hash), table of contents,
+chapters starting on recto (right) pages, running headers, and centred page numbers.
+
+## Licenses
+
+Authors can set a license when publishing: 'all-rights-reserved' (default), 'cc-by-4.0', 'cc-by-sa-4.0',
+'cc-by-nc-4.0', 'cc-by-nc-sa-4.0', or 'cc0'. Pass the `license` field in publish_lightpaper or publish_book.
+
 ## Learn more
 
 These published guides on lightpaper.org explain each feature in depth:
@@ -387,6 +404,12 @@ async def list_tools() -> list[Tool]:
                         "type": "boolean",
                         "default": True,
                         "description": "If true, document appears in search results and sitemap.",
+                    },
+                    "license": {
+                        "type": "string",
+                        "enum": ["all-rights-reserved", "cc-by-4.0", "cc-by-sa-4.0", "cc-by-nc-4.0", "cc-by-nc-sa-4.0", "cc0"],
+                        "default": "all-rights-reserved",
+                        "description": "Copyright license for the document.",
                     },
                     **API_KEY_PARAM,
                 },
@@ -914,6 +937,12 @@ async def list_tools() -> list[Tool]:
                         "description": "Tags for search filtering",
                     },
                     "listed": {"type": "boolean", "description": "List in search results (default true)"},
+                    "license": {
+                        "type": "string",
+                        "enum": ["all-rights-reserved", "cc-by-4.0", "cc-by-sa-4.0", "cc-by-nc-4.0", "cc-by-nc-sa-4.0", "cc0"],
+                        "default": "all-rights-reserved",
+                        "description": "Copyright license for the book and all chapters.",
+                    },
                     **API_KEY_PARAM,
                 },
                 "required": ["title", "chapters"],
@@ -1007,6 +1036,46 @@ async def list_tools() -> list[Tool]:
                 "required": ["action"],
             },
         ),
+        Tool(
+            name="export_print",
+            description=(
+                "Export a published book as print-ready PDF for Amazon KDP / IngramSpark. "
+                "Actions: 'preview' (first 10 pages, free), 'interior' (full 6x9 PDF, Pro), "
+                "'cover' (full wrap cover at 300 DPI, Pro), 'certificate' (publication certificate, free)."
+            ),
+            annotations=ToolAnnotations(
+                title="Export Print PDF",
+                readOnlyHint=True,
+                destructiveHint=False,
+                idempotentHint=True,
+                openWorldHint=False,
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": ["preview", "interior", "cover", "certificate"],
+                        "description": (
+                            "'preview': first 10 pages as PDF (free). "
+                            "'interior': full print-ready interior PDF, 6\"x9\" trade paperback (Pro). "
+                            "'cover': full wrap cover PDF at 300 DPI with bleed (Pro). "
+                            "'certificate': Certificate of Publication with content hash (free)."
+                        ),
+                    },
+                    "book_id": {
+                        "type": "string",
+                        "description": "Book ID (starts with book_)",
+                    },
+                    "page_count": {
+                        "type": "integer",
+                        "description": "Page count for spine width calculation (cover action only, default 200)",
+                    },
+                    **API_KEY_PARAM,
+                },
+                "required": ["action", "book_id"],
+            },
+        ),
     ]
 
 
@@ -1034,6 +1103,8 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                 payload["options"]["slug"] = arguments["slug"]
             if arguments.get("tags"):
                 payload["tags"] = arguments["tags"]
+            if arguments.get("license"):
+                payload["license"] = arguments["license"]
 
             resp = await client.post("/v1/publish", json=payload)
             return [TextContent(type="text", text=resp.text)]
@@ -1176,6 +1247,8 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                 payload["authors"] = arguments["authors"]
             if arguments.get("tags"):
                 payload["tags"] = arguments["tags"]
+            if arguments.get("license"):
+                payload["license"] = arguments["license"]
             resp = await client.post("/v1/books", json=payload)
             return [TextContent(type="text", text=resp.text)]
 
@@ -1204,6 +1277,36 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                 resp = await client.get(f"/v1/narration/{arguments['narration_id']}")
             else:
                 return [TextContent(type="text", text=f"Unknown narrate_book action: {action}")]
+            return [TextContent(type="text", text=resp.text)]
+
+        elif name == "export_print":
+            action = arguments["action"]
+            book_id = arguments["book_id"]
+            if action == "preview":
+                resp = await client.post(f"/v1/books/{book_id}/print/preview", timeout=120)
+            elif action == "interior":
+                resp = await client.post(f"/v1/books/{book_id}/print/interior", timeout=120)
+            elif action == "cover":
+                page_count = arguments.get("page_count", 200)
+                resp = await client.post(
+                    f"/v1/books/{book_id}/print/cover",
+                    params={"page_count": page_count},
+                    timeout=60,
+                )
+            elif action == "certificate":
+                resp = await client.get(f"/v1/books/{book_id}/print/certificate", timeout=60)
+            else:
+                return [TextContent(type="text", text=f"Unknown export_print action: {action}")]
+            if resp.status_code == 200 and "application/pdf" in resp.headers.get("content-type", ""):
+                import base64
+                pdf_b64 = base64.b64encode(resp.content).decode()
+                return [TextContent(
+                    type="text",
+                    text=f"PDF generated successfully ({len(resp.content):,} bytes). "
+                    f"Base64-encoded PDF data (save to .pdf file): {pdf_b64[:100]}... "
+                    f"[{len(pdf_b64)} chars total — use a file save tool to write the full base64 to a file, "
+                    f"then decode it, or direct the user to the API endpoint]",
+                )]
             return [TextContent(type="text", text=resp.text)]
 
         return [TextContent(type="text", text=f"Unknown tool: {name}")]

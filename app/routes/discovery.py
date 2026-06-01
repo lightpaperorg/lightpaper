@@ -324,6 +324,13 @@ async def a2a_agent_json():
                 "tags": ["verification", "identity", "trust"],
                 "examples": ["Verify my LinkedIn profile", "Submit my degree for verification"],
             },
+            {
+                "id": "print_export",
+                "name": "Print PDF Export",
+                "description": "Export published books as print-ready PDFs for Amazon KDP / IngramSpark. Interior (6x9), cover (300 DPI), and certificate of publication.",
+                "tags": ["print", "pdf", "export", "publishing"],
+                "examples": ["Generate a print-ready PDF of my book", "Export cover for Amazon KDP"],
+            },
         ],
         "defaultInputModes": ["application/json"],
         "defaultOutputModes": ["application/json"],
@@ -597,6 +604,21 @@ All endpoints return JSON. Authorization via `Authorization: Bearer <api_key>` h
 - PUT /v1/books/{{book_id}}/chapters/reorder — Reorder chapters
 - DELETE /v1/books/{{book_id}}/chapters/{{doc_id}} — Detach a chapter (document survives)
 
+### Audiobook Narration (Pro)
+- GET /v1/narration/voices — List available AI narration voices
+- POST /v1/narration/estimate — Estimate narration cost for a book (character count + price)
+- POST /v1/narration/create — Create narration with Stripe checkout for payment
+- GET /v1/narration/{{narration_id}} — Check narration status + get audio URLs
+- POST /v1/narration/start/{{narration_id}} — Manual start (skip payment, testing only)
+
+### Print PDF Export
+- POST /v1/books/{{book_id}}/print/preview — First 10 pages as PDF (free). Good for checking layout.
+- POST /v1/books/{{book_id}}/print/interior — Full print-ready interior PDF, 6"×9" trade paperback (Pro). Includes: half-title, title page, copyright page (license + content hash + ISBN placeholder), table of contents, chapters starting on recto pages, running headers (book title verso, chapter title recto), centred page numbers.
+- POST /v1/books/{{book_id}}/print/cover?page_count=N — Full wrap cover PDF at 300 DPI with 0.125" bleed (Pro). Front: title + author. Spine: auto-calculated from page count (× 0.0025" per page). Back: synopsis + barcode placeholder.
+- GET /v1/books/{{book_id}}/print/certificate — Certificate of Publication PDF (free). Contains: title, author, publication date, SHA-256 content hash, license type, permanent URL.
+
+Use these PDFs to upload directly to Amazon KDP, IngramSpark, or other print-on-demand services. The interior is formatted for standard 6"×9" cream trade paperback.
+
 ### Search
 - GET /v1/search?q=query — Full-text search with ranking. 60/minute.
   - `q` (optional) — Full-text query. Omit to browse all listed articles.
@@ -659,6 +681,7 @@ POST /v1/publish — requires markdown content with at least 300 words and at le
 | tags | list | No | Tags for search filtering (max 50) |
 | options.slug | string | No | Custom URL slug (max 80 chars, auto-generated from title if omitted) |
 | options.listed | bool | No | List in search results and sitemap (default true) |
+| license | string | No | Copyright license: "all-rights-reserved" (default), "cc-by-4.0", "cc-by-sa-4.0", "cc-by-nc-4.0", "cc-by-nc-sa-4.0", "cc0" |
 | metadata | dict | No | Custom metadata (max 50KB serialized) |
 
 ### Response Fields

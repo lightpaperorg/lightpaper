@@ -29,7 +29,11 @@ FastAPI + async SQLAlchemy + PostgreSQL 16. Single-process async app deployed on
 | `app/routes/verification.py` | Domain DNS, ORCID verification, gravity status |
 | `app/routes/credentials.py` | Agent-driven credential verification |
 | `app/routes/narration.py` | Audiobook narration: estimate, create, status, callback |
+| `app/routes/print.py` | Print PDF export: preview, interior, cover, certificate |
 | `app/services/narration.py` | ElevenLabs TTS, markdown→plaintext, GCS upload |
+| `app/services/print_pdf.py` | WeasyPrint interior PDF + certificate generation |
+| `app/services/print_cover.py` | Pillow cover PDF generation (300 DPI) |
+| `app/services/licenses.py` | License info map, copyright notice generator |
 | `app/services/renderer.py` | markdown-it-py + nh3 HTML sanitization |
 | `app/services/quality.py` | Deterministic quality scoring (0-100) |
 | `app/services/gravity.py` | Non-hierarchical author gravity (0-5) |
@@ -37,7 +41,7 @@ FastAPI + async SQLAlchemy + PostgreSQL 16. Single-process async app deployed on
 | `app/services/og_image.py` | Pillow-based OG image generation |
 | `app/services/api_keys.py` | API key generation utility |
 | `app/services/email.py` | Resend API email delivery for OTP |
-| `mcp/server.py` | MCP server with 24 tools + 3 prompts (stdio transport) |
+| `mcp/server.py` | MCP server with 25 tools + 3 prompts (stdio transport) |
 | `app/routes/mcp_http.py` | Remote MCP endpoint (Streamable HTTP transport at /mcp) |
 | `lightpaper_mcp/` | Standalone PyPI package for MCP server distribution |
 | `AGENTS.md` | OpenAI AGENTS.md standard — project-level agent instructions |
@@ -168,6 +172,60 @@ Premium feature: Pro users can convert published books into audiobooks via Eleve
 - CSP includes `media-src https://storage.googleapis.com` for reading pages
 - MCP: `narrate_book` tool with actions: voices, estimate, create, status
 - Config: `ELEVENLABS_API_KEY`, `GCS_AUDIO_BUCKET`, `NARRATION_COST_PER_CHAR`
+
+## Copyright & Licenses
+
+Authors can set a license when publishing documents or books.
+
+### License Options
+`all-rights-reserved` (default), `cc-by-4.0`, `cc-by-sa-4.0`, `cc-by-nc-4.0`, `cc-by-nc-sa-4.0`, `cc0`
+
+### Implementation
+- `license` column on `documents` and `books` tables (migration 018)
+- `app/services/licenses.py`: license info map, `copyright_notice()` generator
+- Templates show copyright footer: `© {year} {author}. {license_short}.` with link to license URL
+- JSON-LD includes `copyrightHolder`, `copyrightYear`, `license` (URL) fields
+- License passed through publish, book publish, and update endpoints
+- MCP: `license` parameter on `publish_lightpaper` and `publish_book` tools
+
+## Print PDF Export
+
+Export published books as print-ready PDFs for Amazon KDP / IngramSpark.
+
+### API Endpoints
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST /v1/books/{id}/print/preview` | First 10 pages as PDF (free) |
+| `POST /v1/books/{id}/print/interior` | Full interior PDF, 6"×9" (Pro) |
+| `POST /v1/books/{id}/print/cover` | Cover PDF, 300 DPI with bleed (Pro) |
+| `GET /v1/books/{id}/print/certificate` | Certificate of Publication (free) |
+
+### Interior PDF Specs
+- **Trim**: 6"×9" (standard trade paperback)
+- **Margins**: 0.75" gutter, 0.5" outer, 0.75" top, 0.625" bottom
+- **Fonts**: Liberation Serif body, Inter headings (`fonts-liberation` in Docker)
+- **Chapter breaks**: Always start on recto (right) page
+- **Page numbers**: Centered bottom, roman numerals for front matter
+- **Running headers**: Book title on verso, chapter title on recto
+- **Front matter**: Half-title → blank → title page → copyright page (license, hash, ISBN placeholder) → TOC
+- **Engine**: WeasyPrint with CSS Paged Media, wrapped in `asyncio.to_thread()`
+- **Preview**: `pikepdf` extracts first 10 pages from full render
+
+### Cover PDF Specs
+- **DPI**: 300, generated with Pillow
+- **Front**: 6.125"×9.25" (trim + 0.125" bleed)
+- **Spine**: Width = page_count × 0.0025" (cream paper)
+- **Back**: Synopsis + barcode placeholder area
+- **Style**: Dark background (#0F141F), white text, Inter Bold — matches lightpaper brand
+
+### Certificate of Publication
+Single-page A4 PDF with: book title, author, publication date, SHA-256 content hash, license type, permanent URL, "Verified by lightpaper.org".
+
+### Key Details
+- WeasyPrint is CPU-bound — all renders wrapped in `asyncio.to_thread()`
+- Pro tier required for interior/cover; preview and certificate are free
+- Docker: `libpango`, `libcairo`, `libgdk-pixbuf`, `fonts-liberation` added to final stage
+- MCP: `export_print` tool with actions: preview, interior, cover, certificate
 
 ## Writing IDE (Wave Method)
 

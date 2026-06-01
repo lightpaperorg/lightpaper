@@ -849,9 +849,11 @@ async def advance_wave(
 
 class PublishRequest(BaseModel):
     format: str = "post"
+    license: str = "all-rights-reserved"
     authors: list[dict] = []
     tags: list[str] = []
     description: str | None = None
+    publish_as: str = "auto"  # "auto", "book", "document"
 
 
 @router.post("/sessions/{session_id}/publish")
@@ -861,28 +863,130 @@ async def publish_session(
     account: Account = Depends(require_ide_session),
     db: AsyncSession = Depends(get_db),
 ):
-    """Publish a writing session as a book on lightpaper.org."""
+    """Publish a writing session as a document or book on lightpaper.org."""
     session = await _load_session(session_id, account, db)
 
     if session.published_book_id:
         raise HTTPException(status_code=400, detail="Session already published")
 
-    # Get the latest draft/edited files as chapters
-    result = await db.execute(
+    # Get all draft/edited files
+    all_files_result = await db.execute(
         select(WritingFile)
         .where(
             WritingFile.session_id == session_id,
             WritingFile.file_type.in_(["draft", "edited"]),
-            WritingFile.chapter_number.is_not(None),
         )
-        .order_by(WritingFile.chapter_number, WritingFile.wave.desc())
+        .order_by(WritingFile.chapter_number.nullsfirst(), WritingFile.wave.desc(), WritingFile.sort_order)
     )
-    all_files = result.scalars().all()
+    all_session_files = all_files_result.scalars().all()
 
+    if not all_session_files:
+        raise HTTPException(status_code=400, detail="No content to publish. Write something first.")
+
+    # Determine publish mode
+    chapter_files = [f for f in all_session_files if f.chapter_number is not None]
+    non_chapter_files = [f for f in all_session_files if f.chapter_number is None]
+
+    if body.publish_as == "document" or (body.publish_as == "auto" and not chapter_files):
+        # --- Publish as single document ---
+        # Concatenate all files (prefer highest wave version)
+        seen_ids: set[str] = set()
+        content_parts: list[str] = []
+        for f in all_session_files:
+            key = f"{f.chapter_number or 'x'}-{f.title}"
+            if key not in seen_ids:
+                seen_ids.add(key)
+                content_parts.append(f.content)
+        full_content = "\n\n".join(content_parts)
+
+        from app.auth import AuthResult
+        from app.id_gen import generate_doc_id
+        from app.models import Document, DocumentVersion
+        from app.services.quality import score_quality
+        from app.services.renderer import (
+            compute_content_hash,
+            compute_reading_time,
+            compute_word_count,
+            extract_toc,
+            render_markdown,
+        )
+        from app.services.slug import ensure_unique_slug, generate_slug
+
+        doc_id = generate_doc_id()
+        slug = generate_slug(session.title)
+        slug = await ensure_unique_slug(slug, db)
+
+        authors_list = body.authors or [{"name": account.display_name or account.handle, "handle": account.handle}]
+        from app.schemas import AuthorInfo
+        author_infos = [AuthorInfo(name=a.get("name", ""), handle=a.get("handle")) for a in authors_list]
+
+        word_count = compute_word_count(full_content)
+        quality = score_quality(session.title, full_content)
+        rendered_html = render_markdown(full_content)
+        content_hash = compute_content_hash(full_content)
+        reading_time = compute_reading_time(word_count)
+        toc = extract_toc(full_content)
+
+        doc = Document(
+            id=doc_id,
+            account_id=account.id,
+            slug=slug,
+            title=session.title,
+            subtitle=body.description,
+            format=body.format,
+            license=body.license,
+            current_version=1,
+            authors=[a.model_dump() for a in author_infos],
+            tags=body.tags,
+            listed=True,
+            quality_score=quality.total,
+            quality_detail={
+                "structure": quality.structure,
+                "substance": quality.substance,
+                "tone": quality.tone,
+                "attribution": quality.attribution,
+            },
+            author_gravity=account.gravity_level,
+        )
+        db.add(doc)
+
+        version = DocumentVersion(
+            document_id=doc_id,
+            version=1,
+            content=full_content,
+            content_hash=content_hash,
+            rendered_html=rendered_html,
+            word_count=word_count,
+            reading_time=reading_time,
+            toc=toc,
+        )
+        db.add(version)
+
+        # Mark session as published (reuse published_book_id field for doc_id)
+        await db.execute(
+            update(WritingSession)
+            .where(WritingSession.id == session.id)
+            .values(published_book_id=doc_id, status="completed")
+        )
+        await db.commit()
+
+        doc_url = f"{settings.base_url}/{slug}"
+        return {
+            "book_id": doc_id,
+            "url": doc_url,
+            "quality_score": quality.total,
+            "chapter_count": 1,
+            "total_word_count": word_count,
+            "chapters": [{"chapter_number": 1, "title": session.title, "url": doc_url, "quality_score": quality.total}],
+        }
+
+    # --- Publish as book (existing logic) ---
+    # Filter to chapter files only
+    all_files = chapter_files
     if not all_files:
         raise HTTPException(
             status_code=400,
-            detail="No chapter drafts found. Complete at least Wave 4 before publishing.",
+            detail="No chapter drafts found. Write chapter content first, or publish as a document.",
         )
 
     # Deduplicate: take the highest-wave version of each chapter
@@ -988,6 +1092,7 @@ async def publish_session(
         subtitle=body.description,
         description=body.description,
         format=body.format,
+        license=body.license,
         authors=[a.model_dump() for a in author_infos],
         tags=body.tags,
         listed=True,
@@ -1012,6 +1117,7 @@ async def publish_session(
             slug=cd["slug"],
             title=cd["title"],
             format=body.format,
+            license=body.license,
             authors=[a.model_dump() for a in author_infos],
             tags=body.tags,
             listed=True,

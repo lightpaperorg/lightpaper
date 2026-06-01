@@ -23,6 +23,8 @@
               │  ├─ OG image generation (Pillow)                 │
               │  ├─ Search API (full-text + tags)                │
               │  ├─ Author profiles + verification               │
+              │  ├─ Print PDF export (WeasyPrint + Pillow)       │
+              │  ├─ Audiobook narration (ElevenLabs)             │
               │  ├─ MCP server endpoint                          │
               │  └─ Discovery (MCP, OpenAPI, A2A, llms.txt)      │
               └──────────┬────────────────────┬─────────────────┘

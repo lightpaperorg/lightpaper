@@ -591,6 +591,148 @@ input::placeholder, textarea::placeholder {
   align-items: center;
   gap: 12px;
   flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.banner-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.banner-btn {
+  font-size: 0.7rem !important;
+  padding: 3px 8px !important;
+}
+
+/* PDF export bar */
+.pdf-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.pdf-btn {
+  font-size: 0.75rem !important;
+  padding: 2px 8px !important;
+  color: var(--accent) !important;
+}
+.pdf-btn:hover { text-decoration: underline; }
+.pdf-btn:disabled { color: var(--text-mute) !important; text-decoration: none; }
+
+/* Modal overlay */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  padding: 1rem;
+}
+
+.modal {
+  background: var(--bg);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  padding: 1.75rem;
+  width: 100%;
+  max-width: 440px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal h2 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-bright);
+  margin-bottom: 0.25rem;
+}
+
+.modal-label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-mute);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 0.5rem;
+}
+
+.modal-options {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 1rem;
+}
+
+.modal-option {
+  flex: 1;
+  padding: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.15s;
+  color: var(--text);
+}
+
+.modal-option strong {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--text-bright);
+  margin-bottom: 2px;
+}
+
+.modal-option span {
+  font-size: 0.7rem;
+  color: var(--text-mute);
+}
+
+.modal-option:hover { border-color: var(--accent); }
+
+.modal-option.active {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.modal-option.active strong {
+  color: var(--accent);
+}
+
+/* Modal select */
+.modal select {
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+}
+
+/* Modal responsive */
+@media (max-width: 767px) {
+  .modal {
+    max-width: 100%;
+    margin: 0;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    align-self: flex-end;
+  }
+
+  .modal-options {
+    flex-direction: column;
+  }
+
+  .banner-actions {
+    flex-wrap: wrap;
+  }
+
+  .pdf-bar {
+    flex-wrap: wrap;
+    gap: 2px;
+    padding: 6px 12px;
+  }
 }
 
 /* Mobile hamburger / more buttons */

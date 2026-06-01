@@ -188,6 +188,7 @@ async def publish_book(
         author_gravity=gravity_level,
         chapter_count=len(body.chapters),
         total_word_count=total_word_count,
+        license=body.license,
     )
     db.add(book)
 
@@ -215,6 +216,7 @@ async def publish_book(
             },
             author_gravity=gravity_level,
             book_id=book_id,
+            license=body.license,
         )
         db.add(doc)
 
@@ -276,6 +278,7 @@ async def publish_book(
         total_word_count=total_word_count,
         chapter_count=len(body.chapters),
         author_gravity=gravity_level,
+        license=body.license,
     )
 
 
@@ -324,6 +327,7 @@ async def get_book(book_id: str, db: AsyncSession = Depends(get_db)):
         updated_at=book.updated_at,
         url=f"{settings.base_url}/{book.slug}" if book.slug else None,
         chapters=chapter_responses,
+        license=book.license or "all-rights-reserved",
     )
 
 
@@ -357,6 +361,8 @@ async def update_book(
         book.listed = body.listed
     if body.cover_image_url is not None:
         book.cover_image_url = body.cover_image_url
+    if body.license is not None:
+        book.license = body.license
     if body.slug is not None:
         new_slug = body.slug.strip().lower()
         if new_slug != book.slug:

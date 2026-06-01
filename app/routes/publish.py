@@ -123,6 +123,7 @@ async def publish_document(
             "attribution": quality.attribution,
         },
         author_gravity=gravity_level,
+        license=body.license,
     )
     db.add(doc)
 
@@ -191,4 +192,5 @@ async def publish_document(
         author_gravity=gravity_level,
         author_gravity_badges=gravity_badges,
         gravity_note=gravity_note,
+        license=body.license,
     )

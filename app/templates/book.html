@@ -47,6 +47,9 @@
         "datePublished": {{ created_at|tojson }},
         "dateModified": {{ updated_at|tojson }},
         {% if authors %}"author": [{% for a in authors %}{"@type": "Person", "name": {{ a.name|tojson }}}{% if not loop.last %}, {% endif %}{% endfor %}],{% endif %}
+        {% if authors %}"copyrightHolder": {"@type": "Person", "name": {{ authors[0].name|tojson }}},{% endif %}
+        {% if created_at %}"copyrightYear": {{ created_at[:4]|tojson }},{% endif %}
+        {% if license_url %}"license": {{ license_url|tojson }},{% endif %}
         "publisher": {
             "@type": "Organization",
             "name": "lightpaper.org",
@@ -293,6 +296,7 @@
         </div>
 
         <footer class="book-footer">
+            {% if copyright_line %}<p>{{ copyright_line }}{% if license_url %} <a href="{{ license_url }}" target="_blank" rel="noopener">{{ license_name }}</a>{% endif %}</p>{% endif %}
             <p>Published on <a href="https://lightpaper.org">lightpaper.org</a></p>
             <p>Permanent link: <a href="{{ permanent_url }}">{{ permanent_url }}</a></p>
         </footer>

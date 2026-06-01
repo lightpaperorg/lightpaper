@@ -5,6 +5,10 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
+LICENSE_OPTIONS = Literal[
+    "all-rights-reserved", "cc-by-4.0", "cc-by-sa-4.0", "cc-by-nc-4.0", "cc-by-nc-sa-4.0", "cc0"
+]
+
 # --- Publish ---
 
 
@@ -28,6 +32,7 @@ class PublishRequest(BaseModel):
     metadata: dict = Field(default_factory=dict)
     options: PublishOptions = PublishOptions()
     tags: list[str] = Field(default_factory=list, max_length=50)
+    license: LICENSE_OPTIONS = "all-rights-reserved"
 
     @field_validator("metadata")
     @classmethod
@@ -63,6 +68,7 @@ class PublishResponse(BaseModel):
     author_gravity: int
     author_gravity_badges: list[str]
     gravity_note: str | None = None
+    license: str = "all-rights-reserved"
 
 
 # --- Documents ---
@@ -88,6 +94,7 @@ class DocumentResponse(BaseModel):
     updated_at: datetime
     permanent_url: str
     url: str | None
+    license: str = "all-rights-reserved"
 
 
 class DocumentUpdateRequest(BaseModel):
@@ -99,6 +106,7 @@ class DocumentUpdateRequest(BaseModel):
     metadata: dict | None = None
     tags: list[str] | None = Field(None, max_length=50)
     listed: bool | None = None
+    license: LICENSE_OPTIONS | None = None
 
 
 class VersionResponse(BaseModel):
@@ -351,6 +359,7 @@ class PublishBookRequest(BaseModel):
     metadata: dict = Field(default_factory=dict)
     options: PublishOptions = PublishOptions()
     cover_image_url: str | None = None
+    license: LICENSE_OPTIONS = "all-rights-reserved"
 
     @field_validator("metadata")
     @classmethod
@@ -383,6 +392,7 @@ class PublishBookResponse(BaseModel):
     total_word_count: int
     chapter_count: int
     author_gravity: int
+    license: str = "all-rights-reserved"
 
 
 class BookResponse(BaseModel):
@@ -404,6 +414,7 @@ class BookResponse(BaseModel):
     updated_at: datetime
     url: str | None
     chapters: list[ChapterResponse]
+    license: str = "all-rights-reserved"
 
 
 class BookUpdateRequest(BaseModel):
@@ -417,6 +428,7 @@ class BookUpdateRequest(BaseModel):
     metadata: dict | None = None
     listed: bool | None = None
     cover_image_url: str | None = None
+    license: LICENSE_OPTIONS | None = None
 
 
 class AddChapterRequest(BaseModel):

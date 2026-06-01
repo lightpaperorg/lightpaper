@@ -243,9 +243,37 @@ export interface PublishResult {
 
 export const publishSession = (
   sessionId: string,
-  options: { format?: string; authors?: { name: string; handle?: string }[]; tags?: string[]; description?: string } = {}
+  options: { format?: string; license?: string; authors?: { name: string; handle?: string }[]; tags?: string[]; description?: string; publish_as?: string } = {}
 ) =>
   request<PublishResult>(`/sessions/${sessionId}/publish`, {
     method: "POST",
     body: JSON.stringify(options),
   });
+
+// Print PDF downloads — returns blob URL for download
+export async function downloadPdf(
+  bookId: string,
+  action: "preview" | "interior" | "cover" | "certificate",
+  pageCount?: number
+): Promise<Blob> {
+  const method = action === "certificate" ? "GET" : "POST";
+  const params = action === "cover" && pageCount ? `?page_count=${pageCount}` : "";
+  const res = await fetch(`/v1/books/${bookId}/print/${action}${params}`, {
+    method,
+    credentials: "include",
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(body.detail || `PDF generation failed: ${res.status}`);
+  }
+  return res.blob();
+}
+
+export function savePdf(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}

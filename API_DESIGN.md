@@ -32,9 +32,9 @@ Idempotency-Key: agent-session-2026-02-26-report-v1
   "metadata": {
     "tags": ["algorithms", "construction", "geometry"],
     "canonical_url": "https://example.com/research/straight-skeleton",
-    "license": "CC-BY-4.0",
     "language": "en"
   },
+  "license": "cc-by-4.0",
   "options": {
     "slug": "straight-skeleton-hip-roofs",
     "listed": true,
@@ -170,6 +170,10 @@ POST   /v1/account                    # Create account (Firebase Auth token requ
 GET    /v1/account                    # Account info, usage stats, verified identities
 GET    /v1/account/documents          # List all documents for this account
 GET    /v1/account/export             # Export all content as ZIP [Planned]
+POST   /v1/books/{id}/print/preview    # First 10 pages as PDF (free)
+POST   /v1/books/{id}/print/interior   # Full 6"×9" interior PDF (Pro)
+POST   /v1/books/{id}/print/cover      # Cover PDF at 300 DPI with bleed (Pro)
+GET    /v1/books/{id}/print/certificate # Certificate of Publication (free)
 DELETE /v1/account                    # Hard-delete account + all content (GDPR)
 ```
 

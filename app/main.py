@@ -183,6 +183,7 @@ def mount_routes():
         landing,
         linkedin,
         narration,
+        print as print_routes,
         publish,
         reading,
         search,
@@ -203,6 +204,7 @@ def mount_routes():
     app.include_router(credentials.router)
     app.include_router(billing.router)
     app.include_router(narration.router)
+    app.include_router(print_routes.router)
     app.include_router(discovery.router)
     app.include_router(landing.router)
     # Writing IDE API + SPA — before catch-all

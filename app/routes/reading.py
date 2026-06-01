@@ -154,6 +154,14 @@ async def _render_html(doc: Document, version: DocumentVersion, db: AsyncSession
                             }
                     break
 
+    # Copyright / license
+    from app.services.licenses import copyright_notice, get_license_info
+    license_key = getattr(doc, "license", None) or "all-rights-reserved"
+    license_info = get_license_info(license_key)
+    author_name = doc.authors[0]["name"] if doc.authors else None
+    pub_year = doc.created_at.year if doc.created_at else None
+    copyright_line = copyright_notice(author_name, pub_year, license_key)
+
     html = template.render(
         title=doc.title,
         subtitle=doc.subtitle,
@@ -180,6 +188,9 @@ async def _render_html(doc: Document, version: DocumentVersion, db: AsyncSession
         prev_chapter=prev_chapter,
         next_chapter=next_chapter,
         audio_url=audio_url,
+        copyright_line=copyright_line,
+        license_url=license_info["url"],
+        license_name=license_info["name"],
     )
     return HTMLResponse(
         content=html,
@@ -336,6 +347,7 @@ async def _render_book(book: "Book", request: Request, db: AsyncSession):
             updated_at=book.updated_at,
             url=f"{settings.base_url}/{book.slug}",
             chapters=ch_responses,
+            license=book.license or "all-rights-reserved",
         )
         return JSONResponse(content=resp.model_dump(mode="json"))
 
@@ -372,6 +384,14 @@ async def _render_book(book: "Book", request: Request, db: AsyncSession):
 
     created_at_formatted = book.created_at.strftime("%b %d, %Y") if book.created_at else ""
 
+    # Copyright / license
+    from app.services.licenses import copyright_notice, get_license_info
+    license_key = getattr(book, "license", None) or "all-rights-reserved"
+    license_info = get_license_info(license_key)
+    author_name = book.authors[0]["name"] if book.authors else None
+    pub_year = book.created_at.year if book.created_at else None
+    copyright_line = copyright_notice(author_name, pub_year, license_key)
+
     html = template.render(
         title=book.title,
         subtitle=book.subtitle,
@@ -393,6 +413,9 @@ async def _render_book(book: "Book", request: Request, db: AsyncSession):
         orcid_id=orcid_id,
         format=book.format or "post",
         rendered_description=rendered_description,
+        copyright_line=copyright_line,
+        license_url=license_info["url"],
+        license_name=license_info["name"],
     )
     return HTMLResponse(
         content=html,

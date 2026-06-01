@@ -89,6 +89,7 @@ def _doc_to_response(doc: Document, version: DocumentVersion | None) -> Document
         updated_at=doc.updated_at,
         permanent_url=f"{settings.base_url}/d/{doc.id}",
         url=f"{settings.base_url}/{doc.slug}" if doc.slug else None,
+        license=doc.license or "all-rights-reserved",
     )
 
 
@@ -127,6 +128,8 @@ async def update_document(
         doc.tags = body.tags
     if body.listed is not None:
         doc.listed = body.listed
+    if body.license is not None:
+        doc.license = body.license
 
     # If content changed, create new version
     if body.content is not None:
