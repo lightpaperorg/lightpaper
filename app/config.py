@@ -29,6 +29,10 @@ class Settings(BaseModel):
     elevenlabs_api_key: str = os.getenv("ELEVENLABS_API_KEY", "")
     gcs_audio_bucket: str = os.getenv("GCS_AUDIO_BUCKET", "lightpaper-audio")
     narration_cost_per_char: float = float(os.getenv("NARRATION_COST_PER_CHAR", "0.00008"))
+    # Image/asset storage. Falls back to the audio bucket so no new infra is required;
+    # objects are served on-domain via /i/{key}, so the bucket can stay private.
+    gcs_assets_bucket: str = os.getenv("GCS_ASSETS_BUCKET", "") or os.getenv("GCS_AUDIO_BUCKET", "lightpaper-audio")
+    assets_max_bytes: int = int(os.getenv("ASSETS_MAX_BYTES", str(10 * 1024 * 1024)))
 
 
 settings = Settings()

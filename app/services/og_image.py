@@ -1,8 +1,8 @@
 """OG image generation: 1200x630 glowing paper card PNG using Pillow.
 
 Dark background with a glowing white card (matching the app icon).
-Subtitle centred inside the card. Format bottom left, author bottom right.
-Platforms render og:title alongside, giving subtitle-then-title reading order.
+Title centred inside the card as the hero, with the subtitle smaller and muted
+beneath it. Format bottom left, author bottom right.
 """
 
 from __future__ import annotations
@@ -72,38 +72,49 @@ def generate_og_image(
         fill=CARD_COLOR,
     )
 
-    # --- Step 3: content ---
-    font_body = _load_font("Inter-Regular.ttf", 30)
+    # --- Step 3: content (title-forward) ---
+    font_title = _load_font("Inter-Regular.ttf", 52)
+    font_sub = _load_font("Inter-Regular.ttf", 24)
     font_meta = _load_font("Inter-Regular.ttf", 17)
 
     card_cx = CARD_X + CARD_W // 2
     inner_left = CARD_X + 56
     inner_right = CARD_X + CARD_W - 56
 
-    # Accent mark — centred
+    # Title is the hero; subtitle is smaller, muted context beneath it.
+    title_lines = textwrap.wrap(title, width=26)[:3]
+    sub_lines = textwrap.wrap(subtitle, width=58)[:2] if subtitle else []
+    TITLE_LH, SUB_LH = 60, 34
+    block_h = len(title_lines) * TITLE_LH + (18 + len(sub_lines) * SUB_LH if sub_lines else 0)
+
+    # Vertically centre the title+subtitle block (nudged up to clear the bottom bar).
+    top = CARD_Y + (CARD_H - block_h) // 2 - 12
+
+    # Accent mark — centred, just above the block
     mark_w = 50
-    mark_y = CARD_Y + 48
+    mark_y = top - 34
     draw.rectangle(
         [card_cx - mark_w // 2, mark_y, card_cx + mark_w // 2, mark_y + 4],
         fill=ACCENT_COLOR,
     )
 
-    # Subtitle — centred
-    if subtitle:
-        body_y = mark_y + 32
-        wrapped = textwrap.wrap(subtitle, width=44)
-        for line in wrapped[:4]:
-            lb = draw.textbbox((0, 0), line, font=font_body)
-            lw = lb[2] - lb[0]
-            draw.text((card_cx - lw // 2, body_y), line, fill=TEXT_COLOR, font=font_body)
-            body_y += 44
+    y = top
+    for line in title_lines:
+        lb = draw.textbbox((0, 0), line, font=font_title)
+        draw.text((card_cx - (lb[2] - lb[0]) // 2, y), line, fill=TEXT_COLOR, font=font_title)
+        y += TITLE_LH
+
+    if sub_lines:
+        y += 18
+        for line in sub_lines:
+            lb = draw.textbbox((0, 0), line, font=font_sub)
+            draw.text((card_cx - (lb[2] - lb[0]) // 2, y), line, fill=MUTED_COLOR, font=font_sub)
+            y += SUB_LH
 
     # Bottom: format left, author right
     bottom_y = CARD_Y + CARD_H - 50
-
     if format:
         draw.text((inner_left, bottom_y), format.lower(), fill=MUTED_COLOR, font=font_meta)
-
     if author_name:
         ab = draw.textbbox((0, 0), author_name, font=font_meta)
         aw = ab[2] - ab[0]

@@ -25,6 +25,7 @@ from app.schemas import (
     ReorderChaptersRequest,
 )
 from app.services.gravity import compute_credential_points, get_gravity_badges, get_next_level_instructions
+from app.services.assets import AssetError, rewrite_asset_refs, store_inline_assets
 from app.services.quality import score_book_quality, score_quality
 from app.services.renderer import (
     compute_content_hash,
@@ -101,6 +102,14 @@ async def publish_book(
     account_id = auth.account.id
     gravity_level = auth.gravity_level
 
+    # Host any inline images once; chapters reference them as asset:<name>.
+    asset_urls: dict[str, str] = {}
+    if body.assets:
+        try:
+            asset_urls = await store_inline_assets(db, account_id, body.assets)
+        except AssetError as e:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e))
+
     # Generate book ID and slug
     book_id = generate_book_id()
     custom_slug = body.options.slug
@@ -119,6 +128,8 @@ async def publish_book(
     all_urls = []
 
     for i, ch in enumerate(body.chapters, 1):
+        if asset_urls:
+            ch.content = rewrite_asset_refs(ch.content, asset_urls)
         word_count = compute_word_count(ch.content)
         if word_count < MIN_CHAPTER_WORD_COUNT:
             raise HTTPException(

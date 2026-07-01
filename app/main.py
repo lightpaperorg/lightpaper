@@ -8,6 +8,10 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from app.config import settings
 
 MAX_BODY_SIZE = 2 * 1024 * 1024  # 2 MB
+# Routes that carry image bytes (uploads, or publish/book payloads with inline assets)
+# get a larger ceiling so charts and photos "just work".
+MAX_BODY_SIZE_LARGE = 24 * 1024 * 1024  # 24 MB
+LARGE_BODY_PREFIXES = ("/v1/assets", "/v1/publish", "/v1/books")
 
 app = FastAPI(
     title="lightpaper.org",
@@ -79,10 +83,12 @@ app.add_middleware(SecurityHeadersMiddleware)
 class BodySizeLimitMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         content_length = request.headers.get("content-length")
-        if content_length and int(content_length) > MAX_BODY_SIZE:
+        path = request.url.path
+        limit = MAX_BODY_SIZE_LARGE if path.startswith(LARGE_BODY_PREFIXES) else MAX_BODY_SIZE
+        if content_length and int(content_length) > limit:
             return JSONResponse(
                 status_code=413,
-                content={"detail": f"Request body too large. Maximum size is {MAX_BODY_SIZE // (1024 * 1024)}MB."},
+                content={"detail": f"Request body too large. Maximum size is {limit // (1024 * 1024)}MB."},
             )
         return await call_next(request)
 
@@ -171,6 +177,7 @@ def mount_routes():
     """Mount all routers. Called after all route modules are defined."""
     from app.routes import (
         accounts,
+        assets,
         auth,
         author,
         billing,
@@ -193,6 +200,7 @@ def mount_routes():
     from app.routes.mcp_http import create_mcp_routes
 
     app.include_router(publish.router)
+    app.include_router(assets.router)  # /v1/assets + /i/{key} — before catch-all
     app.include_router(documents.router)
     app.include_router(search.router)
     app.include_router(books.router)

@@ -13,6 +13,7 @@ from app.rate_limit import limiter
 from app.schemas import PublishRequest, PublishResponse, QualityBreakdown
 from app.services.gravity import compute_credential_points, get_gravity_badges, get_next_level_instructions
 from app.services.quality import score_quality
+from app.services.assets import AssetError, process_inline_assets
 from app.services.renderer import (
     compute_content_hash,
     compute_reading_time,
@@ -70,6 +71,13 @@ async def publish_document(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Content must contain at least one heading (e.g. # Introduction)",
         )
+
+    # Host any inline images and rewrite `asset:<name>` references before rendering.
+    if body.assets:
+        try:
+            body.content = await process_inline_assets(db, auth.account.id, body.content, body.assets)
+        except AssetError as e:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e))
 
     # Generate IDs
     doc_id = generate_doc_id()

@@ -23,6 +23,32 @@ class PublishOptions(BaseModel):
     og_image: str = "auto"
 
 
+class AssetInline(BaseModel):
+    """An image embedded in a publish request. Reference it in markdown as
+    ![alt](asset:<name>) and it will be hosted and rewritten to a real URL."""
+
+    name: str = Field(..., min_length=1, max_length=100, description="Referenced in content as asset:<name>")
+    data: str = Field(..., description="Base64-encoded image bytes (a data: URI prefix is accepted)")
+    content_type: str | None = Field(None, description="Optional hint; the true type is detected from the bytes")
+
+
+class AssetBase64Request(BaseModel):
+    """Standalone base64 image upload — no name needed (that's only for inline
+    content references in a publish payload)."""
+
+    data: str = Field(..., description="Base64-encoded image bytes (a data: URI prefix is accepted)")
+    content_type: str | None = Field(None, description="Optional hint; the true type is detected from the bytes")
+
+
+class AssetUploadResponse(BaseModel):
+    id: str
+    url: str
+    content_type: str
+    bytes: int
+    width: int
+    height: int
+
+
 class PublishRequest(BaseModel):
     title: str = Field(..., min_length=1, max_length=500)
     subtitle: str | None = Field(None, max_length=1000)
@@ -33,6 +59,7 @@ class PublishRequest(BaseModel):
     options: PublishOptions = PublishOptions()
     tags: list[str] = Field(default_factory=list, max_length=50)
     license: LICENSE_OPTIONS = "all-rights-reserved"
+    assets: list[AssetInline] = Field(default_factory=list, max_length=50)
 
     @field_validator("metadata")
     @classmethod
@@ -360,6 +387,7 @@ class PublishBookRequest(BaseModel):
     options: PublishOptions = PublishOptions()
     cover_image_url: str | None = None
     license: LICENSE_OPTIONS = "all-rights-reserved"
+    assets: list[AssetInline] = Field(default_factory=list, max_length=200)
 
     @field_validator("metadata")
     @classmethod

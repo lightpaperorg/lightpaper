@@ -411,9 +411,52 @@ async def list_tools() -> list[Tool]:
                         "default": "all-rights-reserved",
                         "description": "Copyright license for the document.",
                     },
+                    "assets": {
+                        "type": "array",
+                        "description": (
+                            "Inline images (charts, photos, diagrams) to host with the document. "
+                            "Reference each one in the markdown content as ![alt text](asset:<name>) and it "
+                            "will be hosted and rewritten to a permanent URL automatically. "
+                            "Prefer this over external image URLs so images never break."
+                        ),
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "name": {"type": "string", "description": "Referenced in content as asset:<name>"},
+                                "data": {"type": "string", "description": "Base64-encoded image bytes (a data: URI prefix is accepted)"},
+                                "content_type": {"type": "string", "description": "Optional hint; the true type is detected from the bytes"},
+                            },
+                            "required": ["name", "data"],
+                        },
+                    },
                     **API_KEY_PARAM,
                 },
                 "required": ["title", "content"],
+            },
+        ),
+        Tool(
+            name="upload_image",
+            description=(
+                "Host an image (chart, photo, diagram) on lightpaper and get back a permanent https URL. "
+                "Use the URL in any markdown as ![alt](url) — or, when publishing, embed images directly via "
+                "the 'assets' parameter of publish_lightpaper/publish_book instead. Accepts a local file path "
+                "or base64 data. Supports PNG, JPEG, GIF, and WEBP (max 10MB)."
+            ),
+            annotations=ToolAnnotations(
+                title="Upload Image",
+                readOnlyHint=False,
+                destructiveHint=False,
+                idempotentHint=True,
+                openWorldHint=True,
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "Path to a local image file. Provide this or 'data'."},
+                    "data": {"type": "string", "description": "Base64-encoded image bytes (data: URI prefix accepted). Provide this or 'path'."},
+                    "content_type": {"type": "string", "description": "Optional MIME hint; the true type is detected from the bytes."},
+                    **API_KEY_PARAM,
+                },
             },
         ),
         Tool(
@@ -943,6 +986,23 @@ async def list_tools() -> list[Tool]:
                         "default": "all-rights-reserved",
                         "description": "Copyright license for the book and all chapters.",
                     },
+                    "assets": {
+                        "type": "array",
+                        "description": (
+                            "Inline images shared across chapters. Reference in any chapter's content as "
+                            "![alt](asset:<name>); each is hosted and rewritten to a permanent URL. "
+                            "Items: {name, data (base64 image), content_type?}."
+                        ),
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "name": {"type": "string"},
+                                "data": {"type": "string"},
+                                "content_type": {"type": "string"},
+                            },
+                            "required": ["name", "data"],
+                        },
+                    },
                     **API_KEY_PARAM,
                 },
                 "required": ["title", "chapters"],
@@ -1105,8 +1165,25 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                 payload["tags"] = arguments["tags"]
             if arguments.get("license"):
                 payload["license"] = arguments["license"]
+            if arguments.get("assets"):
+                payload["assets"] = arguments["assets"]
 
             resp = await client.post("/v1/publish", json=payload)
+            return [TextContent(type="text", text=resp.text)]
+
+        elif name == "upload_image":
+            import base64 as _b64
+
+            data_b64 = arguments.get("data")
+            if not data_b64 and arguments.get("path"):
+                with open(arguments["path"], "rb") as f:
+                    data_b64 = _b64.b64encode(f.read()).decode()
+            if not data_b64:
+                return [TextContent(type="text", text='{"error": "Provide either a file path or base64 data."}')]
+            payload = {"name": "image", "data": data_b64}
+            if arguments.get("content_type"):
+                payload["content_type"] = arguments["content_type"]
+            resp = await client.post("/v1/assets/base64", json=payload)
             return [TextContent(type="text", text=resp.text)]
 
         elif name == "search_lightpapers":
@@ -1249,6 +1326,8 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                 payload["tags"] = arguments["tags"]
             if arguments.get("license"):
                 payload["license"] = arguments["license"]
+            if arguments.get("assets"):
+                payload["assets"] = arguments["assets"]
             resp = await client.post("/v1/books", json=payload)
             return [TextContent(type="text", text=resp.text)]
 

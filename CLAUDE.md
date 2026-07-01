@@ -227,6 +227,24 @@ Single-page A4 PDF with: book title, author, publication date, SHA-256 content h
 - Docker: `libpango`, `libcairo`, `libgdk-pixbuf`, `fonts-liberation` added to final stage
 - MCP: `export_print` tool with actions: preview, interior, cover, certificate
 
+## Images & Assets
+
+First-class image hosting so documents and books can include charts, photos, and diagrams. The reading-page CSP already allows any `https:` image; this provides the hosting that was missing.
+
+### How it works
+- **Inline with publish**: `POST /v1/publish` (and `/v1/books`) accept an `assets` array of `{name, data (base64), content_type?}`. Reference each in markdown as `![alt](asset:<name>)`; the server hosts each image and rewrites the reference to a real URL before rendering.
+- **Standalone upload**: `POST /v1/assets` (multipart) or `POST /v1/assets/base64` (JSON) → returns `{id, url, width, height, ...}`. Use the URL anywhere.
+- **Serving**: on-domain at `GET /i/{sha256}.{ext}`, streamed from GCS with `Cache-Control: immutable`. Registered before the catch-all in `main.py`.
+
+### Key details
+- `app/services/assets.py`: validation via Pillow (PNG/JPEG/GIF/WEBP only — SVG excluded for XSS safety), SHA-256 content-addressing + global dedupe, GCS upload, `asset:<name>` rewriting.
+- `assets` table (migration 019). Content-addressed key = the SHA-256; the DB row is metadata/ownership only (serving doesn't need it).
+- Storage: `GCS_ASSETS_BUCKET` (falls back to `GCS_AUDIO_BUCKET` — no new bucket needed). Bucket can stay private since serving is on-domain.
+- Body-size middleware in `main.py` allows up to 24MB for `/v1/assets`, `/v1/publish`, `/v1/books` (base64 inflation).
+- Renderer lazy-loads all images (`loading="lazy"`, post-sanitize).
+- MCP: `upload_image` tool + `assets` parameter on `publish_lightpaper` / `publish_book`.
+- Config: `ASSETS_MAX_BYTES` (default 10MB).
+
 ## Writing IDE (Wave Method)
 
 A React frontend at `/write` that guides authors through the Wave Method — a structured book-writing process.

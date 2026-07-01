@@ -497,6 +497,25 @@ Write real, substantive markdown content. To score well (60+ quality), include:
 - **"paper"** — Serif font (Palatino), numbered headings (1., 1.1), first blockquote becomes labeled "Abstract" box. Use for research papers, literature reviews, technical analyses. Start content with `> Your abstract text here...`
 - **"essay"** — Elegant serif (Georgia), drop cap on first paragraph, pull-quote blockquotes, ornamental dividers. Use for sustained arguments, cultural commentary, personal narratives, opinion pieces.
 
+### Adding images (charts, photos, diagrams)
+
+Images just work — host them on lightpaper and reference them in markdown. Two ways:
+
+1. Inline with publish (easiest): add an `assets` array to your POST /v1/publish body and reference each image in the content as `![alt text](asset:<name>)`. lightpaper hosts each image and rewrites the reference to a permanent URL automatically.
+
+{{"title": "...", "content": "# Results\\n\\n![Cost breakdown](asset:chart1)\\n\\n...", "assets": [{{"name": "chart1", "data": "<base64 image bytes>", "content_type": "image/png"}}]}}
+
+2. Upload first, then reference the returned URL anywhere (documents, books, or external):
+
+POST {settings.base_url}/v1/assets/base64
+Authorization: Bearer <api_key>
+{{"data": "<base64 image bytes>"}}
+→ returns {{"url": "{settings.base_url}/i/<hash>.png", "width": ..., "height": ...}}
+
+Then use that URL in markdown: ![alt text]({settings.base_url}/i/<hash>.png)
+
+Supported: PNG, JPEG, GIF, WEBP (max 10MB). Images are content-addressed (deduped), served on-domain with permanent cache-forever URLs, and lazy-loaded on the page. You can also upload via multipart form-data to POST /v1/assets. MCP: use the `upload_image` tool, or the `assets` parameter on publish_lightpaper / publish_book. Always prefer hosted images over external URLs so they never break.
+
 How to choose: citations + methodology + findings → `paper`. Sustained argument or narrative → `essay`. Practical, instructional, or code-heavy → `post`.
 
 ### Format-specific writing tips

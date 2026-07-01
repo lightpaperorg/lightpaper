@@ -85,6 +85,23 @@ class Document(Base):
     book = relationship("Book", back_populates="chapter_docs", foreign_keys=[book_id])
 
 
+class Asset(Base):
+    """A hosted image (chart, photo, diagram). Content-addressed by SHA-256 and
+    served on-domain at /i/{sha256}.{ext}. Deduped globally by content hash."""
+
+    __tablename__ = "assets"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    account_id = Column(UUID(as_uuid=True), ForeignKey("accounts.id", ondelete="SET NULL"))
+    sha256 = Column(Text, unique=True, nullable=False)
+    ext = Column(Text, nullable=False)
+    content_type = Column(Text, nullable=False)
+    bytes = Column(Integer, nullable=False)
+    width = Column(Integer)
+    height = Column(Integer)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=text("NOW()"))
+
+
 class DocumentVersion(Base):
     __tablename__ = "document_versions"
 

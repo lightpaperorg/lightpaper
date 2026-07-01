@@ -113,6 +113,8 @@ def render_markdown(content: str) -> str:
     # Wrap tables in scroll container for mobile
     cleaned = cleaned.replace("<table>", '<div class="table-wrapper"><table>')
     cleaned = cleaned.replace("</table>", "</table></div>")
+    # Lazy-load images so image-heavy pages stay fast (safe static attrs, post-sanitize)
+    cleaned = cleaned.replace("<img ", '<img loading="lazy" decoding="async" ')
     return cleaned
 
 
